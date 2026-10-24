@@ -19,8 +19,10 @@ The founders use it from their own Claude through an MCP connector.
   - PRH open data (YTJ companies, registered notices)
   - the team's own input
 - **People merge by profile URL only.** A name alone never merges two people.
-  Rows without a URL stay separate. Reactions pasted by name are stored only
-  when the name is unique.
+  Rows without a URL stay separate. Pasted reactions are matched by name;
+  with several people of that name, only the company in the headline or the
+  degree marker against the post's author may decide, otherwise a teammate
+  picks. Names that match no one are never stored.
 - **PRH matching never guesses.**
   - An exact normalised name is "verified".
   - One close candidate is "inferred" and shown as "check".
@@ -29,10 +31,11 @@ The founders use it from their own Claude through an MCP connector.
 - **Headcount is not in PRH.** It is always shown as Missing and never
   invented.
 - **Fit, approach, score and radar order are deterministic code**
-  (`lib/network.ts`, `lib/queries.ts`). The LLM never sets or changes them.
-  Claude only writes the one "Possible angle" sentence (labelled Inferred,
-  `lib/claude.ts`), and only when a key is set. Through MCP, Claude picks
-  filters and writes text.
+  (`lib/network.ts`, `lib/queries.ts`), and so is "This week". The LLM never
+  sets or changes them. Claude only writes the one "Possible angle" sentence
+  and the "Draft here" message (both labelled Inferred, `lib/claude.ts`),
+  and only when a key is set. Through MCP, Claude picks filters and writes
+  text.
 - **Nothing is sent from the app.** Status buttons record what the team did.
 - **Privacy.**
   - Only company names and business IDs go to PRH.
@@ -62,27 +65,39 @@ The founders use it from their own Claude through an MCP connector.
   - score weights (`WEIGHTS`)
 - `lib/analysis.ts`: per-person reasons, missing facts and the template
   angle.
-- `lib/queries.ts`: rank_industries, find_people, people_for_theme, company,
-  radar, message context, reactions. Shared by the UI and MCP.
+- `lib/queries.ts`: this_week, rank_industries, find_people,
+  people_for_theme, company, radar, message context, reactions. Shared by the
+  UI and MCP.
+- `lib/reactions.ts`: parser for LinkedIn's copied reactions list and the
+  name matcher. `lib/demo.ts` seeds the demo's two posts.
 - `lib/mcp.ts` + `app/api/mcp/route.ts`: MCP server (stateless Streamable
-  HTTP).
+  HTTP). `lib/access.ts` + `middleware.ts`: optional `MCP_TOKEN`; with it,
+  pages answer only on localhost.
 - `claude/velho-network/SKILL.md`: the Claude skill for the connector.
 - `app/`:
   - `/` network view: canvas drawing in `components/NetworkDrawing.tsx`
+    (seeded layout, offscreen static layer, pulse, particles, zoom), This
+    week, Reacted recently
   - `/people`, `/people/[id]`, `/companies/[id]`, `/radar`, `/themes`,
     `/settings`
-- `data/demo/`: invented mock exports plus PRH snapshots for offline demos.
+- `data/demo/`: invented mock exports, PRH snapshots and two pasted
+  reactions lists for offline demos. `data/stress/` (gitignored): 5k and
+  10k stress files.
+- `tests/fixtures/`: importer and reactions fixtures with exact bytes.
 
 ## Commands
 
 - `APP_TODAY=2026-10-24 npm run dev` on port 3100 (freezes "today" so the
-  demo reads the same).
+  demo reads the same). If 3100 is taken: `npx next dev -p 3310` with
+  `APP_BASE_URL=http://localhost:3310`.
 - `npm test` (node test runner, offline) and `npx tsc --noEmit`.
 - Scripts:
   - `node scripts/fetch-signals.mjs`: refresh the radar
   - `node scripts/match-companies.mjs`: match all names now
   - `node scripts/generate-mock-connections.mjs`: regenerate the mock exports
   - `node scripts/snapshot-demo-data.mjs`: rebuild the demo snapshots
+  - `node scripts/make-demo-reactions.mjs`: rebuild the demo's reactions
+  - `npm run skill:zip`, `npm run tunnel` (claude.ai, needs `MCP_TOKEN`)
 
 ## Design
 

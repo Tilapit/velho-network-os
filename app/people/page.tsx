@@ -6,14 +6,15 @@ import { STATUS_LABEL } from "@/lib/state.ts";
 import { shortName } from "@/lib/analysis.ts";
 import { PeopleTable, type Row } from "@/components/PeopleTable";
 import { FirstRun } from "@/components/FirstRun";
+import { postsWithin, RECENT_DAYS, REACTION_DAYS } from "@/lib/reactions.ts";
 
 export const dynamic = "force-dynamic";
 
-export default async function People({ searchParams }: { searchParams: Promise<{ all?: string }> }) {
-  const { all } = await searchParams;
+export default async function People({ searchParams }: { searchParams: Promise<{ all?: string; reacted?: string }> }) {
+  const { all, reacted } = await searchParams;
   const net = await loadNetwork();
   if (!net.owners.length) return <FirstRun />;
-  const list = all ? net.contacts.filter((c) => c.rule) : net.contacts.filter((c) => c.fit);
+  const list = reacted ? net.contacts.filter((c) => postsWithin(c, net.today, RECENT_DAYS)) : all ? net.contacts.filter((c) => c.rule) : net.contacts.filter((c) => c.fit);
   const rows: Row[] = list.map((c) => ({
     id: c.id,
     name: c.name,
@@ -28,16 +29,19 @@ export default async function People({ searchParams }: { searchParams: Promise<{
     signal: [...new Set(c.signals.map((s) => SIGNAL_TYPES[s.type].short))].join(", "),
     status: c.status ? STATUS_LABEL[c.status.status] : "",
     match: c.match?.status ?? "",
+    reacted: postsWithin(c, net.today, REACTION_DAYS),
   }));
   return (
     <main className="page wide">
-      <h1>{all ? "Everyone at a company in your industries" : "Decision-makers who fit"}</h1>
+      <h1>{reacted ? "Reacted to the team's posts" : all ? "Everyone at a company in your industries" : "Decision-makers who fit"}</h1>
       <p className="lede">
-        {all
-          ? `${rows.length} people work at a matched company in your target industries. Decision-makers are on the list; the rest can introduce you.`
-          : `${rows.length} decision-makers at matched companies in your target industries, ordered by the score (code, not AI).`}{" "}
-        <Link href={all ? "/people" : "/people?all=1"} className="link">
-          {all ? "Only decision-makers" : "Show everyone at target companies"}
+        {reacted
+          ? `${rows.length} people reacted to one of the team's posts in the last ${RECENT_DAYS} days, matched by name from pasted reactions lists, ordered by the score.`
+          : all
+            ? `${rows.length} people work at a matched company in your target industries. Decision-makers are on the list; the rest can introduce you.`
+            : `${rows.length} decision-makers at matched companies in your target industries, ordered by the score (code, not AI).`}{" "}
+        <Link href={all || reacted ? "/people" : "/people?all=1"} className="link">
+          {all || reacted ? "Only decision-makers who fit" : "Show everyone at target companies"}
         </Link>
         {" · "}
         <a href="/api/export.csv" className="link">

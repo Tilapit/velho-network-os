@@ -214,9 +214,15 @@ export function NetworkView(props: { nodes: ViewNode[]; groups: DGroup[]; owners
             ))}
             {selected && !person ? <p className="muted small">Loading…</p> : null}
             <p className="small" style={{ marginTop: 8 }}>
-              <Link href="/people" className="link">
-                Show all {fits.length} →
-              </Link>
+              {reacted && hoverGroup === null ? (
+                <Link href="/people?reacted=1" className="link">
+                  Show all {reactedList.length} who reacted →
+                </Link>
+              ) : (
+                <Link href="/people" className="link">
+                  Show all {fits.length} →
+                </Link>
+              )}
             </p>
           </>
         )}

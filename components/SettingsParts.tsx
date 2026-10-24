@@ -90,7 +90,7 @@ export function ProfileForm({ profile }: { profile: Profile }) {
                   <input value={r.code} aria-label="TOL range or prefix" onChange={(e) => setRows(rows.map((x, j) => (j === i ? { ...x, code: e.target.value } : x)))} style={{ width: 110 }} />
                 </td>
                 <td>
-                  <input value={r.label} aria-label="Label" onChange={(e) => setRows(rows.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)))} style={{ width: "100%" }} />
+                  <input value={r.label} aria-label="Label" onChange={(e) => setRows(rows.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)))} style={{ width: "100%", minWidth: 160 }} />
                 </td>
                 <td>
                   <input type="checkbox" aria-label="Lower priority" checked={!!r.lowerPriority} onChange={(e) => setRows(rows.map((x, j) => (j === i ? { ...x, lowerPriority: e.target.checked } : x)))} />

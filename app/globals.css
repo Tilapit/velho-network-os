@@ -74,7 +74,8 @@ p { margin: 0; }
   .net-side { border-left: 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); margin-top: 24px; }
 }
 .row { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; }
-.stack { display: grid; gap: 10px; }
+.stack { display: grid; gap: 10px; min-width: 0; }
+.stack > * { min-width: 0; }
 .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
 
 /* surfaces */
@@ -106,6 +107,8 @@ p { margin: 0; }
 .seg [aria-pressed="true"], .seg [aria-current="true"] { background: var(--text); color: var(--bg); font-weight: 600; }
 input[type="text"], input[type="search"], input:not([type]), textarea, select { background: #0f1216; border: 1px solid var(--border-2); border-radius: 6px; padding: 8px 10px; color: var(--text); min-height: 40px; }
 textarea { width: 100%; min-height: 80px; resize: vertical; }
+input, select, textarea { max-width: 100%; }
+.field input:not([type="checkbox"]):not([type="radio"]):not([type="file"]) { width: 100%; }
 label { font-size: 14px; }
 .field { display: grid; gap: 4px; }
 .field > span { font-size: 13px; color: var(--muted); }

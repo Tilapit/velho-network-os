@@ -150,3 +150,29 @@ All 430 of these are cold, so ask around before contacting anyone. These look mo
 Next, I can write Finnish drafts to Matti Ylitalo and Riikka Lehtimäki, or pull a [company brief](http://localhost:3310/companies/1057810-5) on Kuljetusrinki before you get in touch.
 
 ---
+
+## This week, through the token header (part 2)
+
+Recorded 25 Oct 2026, about 01:15, to test the optional `MCP_TOKEN`. The
+app ran with `MCP_TOKEN` set; the server was added in a scratch project
+with Claude Code's header option:
+
+```sh
+claude mcp add --transport http --scope project velho-auth http://localhost:3310/api/mcp \
+  --header "Authorization: Bearer <token>"
+claude -p "Call the this_week tool of the velho-auth server once and reply with only the five names and their suggested sender, one per line." \
+  --mcp-config .mcp.json --strict-mcp-config --allowedTools "mcp__velho-auth__this_week"
+```
+
+Tool calls: `this_week` {}
+
+Answer (3 turns, $0.20):
+
+- [Aleksi Sirviö](http://localhost:3310/people/4ed9b1b726): Co-founder
+- [Camilla Lehtinen](http://localhost:3310/people/06547ba332): You
+- [Kimmo Pitkäsalo](http://localhost:3310/people/23d5755b04): You
+- [Laura Mäkelä](http://localhost:3310/people/acf69ec9c5): Co-founder
+- [Tiina Koski](http://localhost:3310/people/8c19377ec5): Board member
+
+The same five as the app's "This week". With curl, the same endpoint
+answered 401 without the header and 401 with a wrong token.

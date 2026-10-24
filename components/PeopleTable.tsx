@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
-export type Row = { id: string; name: string; title: string; company: string; group: string; fit: string; approach: string; score: number; knownBy: string; sender: string; signal: string; status: string; match: string };
+export type Row = { id: string; name: string; title: string; company: string; group: string; fit: string; approach: string; score: number; knownBy: string; sender: string; signal: string; status: string; match: string; reacted: number };
 
 const COLS: [keyof Row, string][] = [
   ["name", "Name"],
@@ -13,6 +13,7 @@ const COLS: [keyof Row, string][] = [
   ["score", "Score"],
   ["knownBy", "Known by"],
   ["signal", "Registered change"],
+  ["reacted", "Reacted"],
   ["status", "Status"],
 ];
 
@@ -64,6 +65,7 @@ export function PeopleTable({ rows }: { rows: Row[] }) {
                 <td className="num">{r.score}</td>
                 <td className="small">{r.knownBy}</td>
                 <td className="small">{r.signal}</td>
+                <td className="small">{r.reacted ? `${r.reacted} post${r.reacted > 1 ? "s" : ""}` : ""}</td>
                 <td className="small">{r.status}</td>
               </tr>
             ))}

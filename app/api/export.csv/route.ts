@@ -3,6 +3,7 @@ import { GROUP } from "@/lib/industry.ts";
 import { SIGNAL_TYPES } from "@/lib/signals.ts";
 import { STATUS_LABEL } from "@/lib/state.ts";
 import { appUrl } from "@/lib/queries.ts";
+import { postsWithin, REACTION_DAYS } from "@/lib/reactions.ts";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +15,7 @@ const q = (v: unknown) => {
 /** The list for a CRM: people at target companies, with fit and approach. No emails. */
 export async function GET() {
   const net = await loadNetwork();
-  const head = ["name", "linkedin_url", "title", "company", "business_id", "tol", "industry_group", "fit", "approach", "score", "known_by", "suggested_sender", "registered_changes_90d", "status", "app_url"];
+  const head = ["name", "linkedin_url", "title", "company", "business_id", "tol", "industry_group", "fit", "approach", "score", "known_by", "suggested_sender", "registered_changes_90d", "reacted_posts_90d", "status", "app_url"];
   const lines = net.contacts
     .filter((c) => c.rule)
     .map((c) =>
@@ -32,6 +33,7 @@ export async function GET() {
         c.knownBy.map((k) => k.ownerName).join("; "),
         c.sender.ownerName,
         [...new Set(c.signals.map((s) => SIGNAL_TYPES[s.type].label))].join("; "),
+        postsWithin(c, net.today, REACTION_DAYS) || "",
         STATUS_LABEL[c.status?.status ?? "none"],
         appUrl(`/people/${c.id}`),
       ]
