@@ -11,9 +11,9 @@ b935098, the part-1 demo, so a working demo always exists.
 
 | Step | Budget | Status |
 | --- | --- | --- |
-| 1. Network drawing as a neural network | 2 h | done 01:20 |
-| 2. Real-data proof | 1 h | done 01:05 |
-| 3. Reactions | 1 h | |
+| 1. Network drawing as a neural network | 2 h | done 00:51 |
+| 2. Real-data proof | 1 h | done 00:58 |
+| 3. Reactions | 1 h | done 01:09 |
 | 4. This week + Write in Claude | 45 min | |
 | 5. claude.ai and Claude Desktop | 45 min | |
 | 6. Polish and hand-over | 45 min+ | |
@@ -82,6 +82,35 @@ Decisions (part 2):
   left at the job's own pace. Note: the mock 10k file reuses a pool of
   about 1,000 companies; a real 10,000-row export likely has 3,000–5,000
   distinct names, which is 25–45 minutes cold.
+- **Reactions** (`lib/reactions.ts`, Settings → Post reactions, MCP
+  `add_reactions`):
+  - The parser anchors on what LinkedIn's copied list always has after a
+    name: its repeat, a "View … profile" line or a degree marker ("· 1st",
+    "• 2nd", "3rd+", "1st degree connection"). The first line after the
+    marker is the headline. Reaction counts, buttons (Connect, Follow,
+    Message, Load more), status lines and pronouns are dropped; credentials
+    after a comma and emoji are cleaned off names. Without any of those
+    anchors, each name-like line is a person (a plain list).
+  - Matching never guesses. Same name key (folded, letters only) first.
+    With the post's author known, "1st" keeps only people the author knows
+    and "2nd"/"3rd" only people they do not. With several left, the company
+    in the headline decides. Otherwise it goes to review: the team picks one
+    or none. Unmatched names are returned once, never stored or logged.
+  - Paste → "Match names" (nothing stored) → review → "Save". The same
+    person on the same post is stored once.
+  - Score: 5 for reacting to one post in the last 90 days, +2 per further
+    post, at most 9 (`WEIGHTS.reacted*`). "Reacted recently" in the drawing
+    and the list is the last 30 days.
+  - The analysis shows each reaction as "Reacted to your post "X" on date"
+    with a "Reaction" pill: inferred when matched by the matcher, imported
+    when a teammate picked the person.
+  - Demo: `node scripts/make-demo-reactions.mjs` wrote two posts' copied
+    lists (`data/demo/reactions/`, 28 and 20 people, invented, some in no
+    network, some sharing a name). "Load demo data" seeds them: 42
+    reactions on 40 people.
+  - MCP `add_reactions` takes `text` (as copied), `reactions` (read from a
+    screenshot), `names`, `picks` and `dry_run`. `find_people` has
+    `reacted`.
 
 ## Morning report
 

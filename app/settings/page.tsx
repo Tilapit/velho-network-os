@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { ensureMatching, loadNetwork } from "@/lib/network.ts";
 import { matchJob } from "@/lib/matching.ts";
-import { readState } from "@/lib/state.ts";
+import { listPosts, readState } from "@/lib/state.ts";
 import { appUrl } from "@/lib/queries.ts";
 import { fmtDate } from "@/lib/analysis.ts";
 import { DemoButton, UploadForm } from "@/components/FirstRun";
 import { DeleteAll, DeleteOwner, MatchReview, ProfileForm, type Review } from "@/components/SettingsParts";
 import { MatchProgress } from "@/components/MatchProgress";
+import { ReactionsPanel } from "@/components/ReactionsPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -110,6 +111,14 @@ export default async function Settings() {
               <DemoButton label={net.demo ? "Reload demo data" : "Load demo data instead"} />
             </div>
           </div>
+        </section>
+
+        <section className="section" id="reactions">
+          <h2>Post reactions</h2>
+          <p className="small muted" style={{ marginBottom: 10, maxWidth: 820 }}>
+            Who reacted to the team&apos;s LinkedIn posts. Each match is a signal on the person: it shows in their analysis and adds 5 points to the ranking, +2 for each further post (posts from the last 90 days). Nothing is scraped: on LinkedIn, open the post&apos;s reactions, select the list, copy and paste it here. Or drop a screenshot into Claude, which calls add_reactions.
+          </p>
+          <ReactionsPanel owners={net.owners.map((o) => ({ id: o.id, name: o.name }))} posts={listPosts(state)} today={net.today} />
         </section>
 
         <section className="section" id="profile">

@@ -1,6 +1,7 @@
 // Compact data for the network drawing: one small object per contact.
 import { GROUPS, ruleLabel } from "./industry.ts";
 import { contactsFor, type Network } from "./network.ts";
+import { postsWithin, RECENT_DAYS } from "./reactions.ts";
 
 export function drawingData(net: Network) {
   const gIndex = new Map(GROUPS.map((g, i) => [g.id, i]));
@@ -18,7 +19,7 @@ export function drawingData(net: Network) {
     sig: c.signals.length > 0,
     ip: !!c.rule,
     nf: c.status?.status === "not_fit",
-    rx: c.reactions.length,
+    rx: postsWithin(c, net.today, RECENT_DAYS),
     co: c.companyId ?? "",
     via: c.knownBy.map((k) => k.ownerName),
     st: c.status?.status ?? "none",

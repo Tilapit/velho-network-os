@@ -12,6 +12,7 @@ import { analyseTitle, isStrongRole, type RoleInfo } from "./roles.ts";
 import { DEFAULT_PROFILE, groupForTol, industryRule, type GroupId, type IndustryRule, type Profile } from "./industry.ts";
 import { loadSignals, signalsFile, SIGNAL_TYPES, type CompanySignal, type SignalSet } from "./signals.ts";
 import { looseKey, type MatchStatus, type PrhCompany } from "./prh.ts";
+import { postsWithin, REACTION_DAYS } from "./reactions.ts";
 
 export type Fit = "strong" | "possible";
 /** direct: a decision-maker who fits. ask_intro: works at a target company, does not decide. */
@@ -104,7 +105,10 @@ export const WEIGHTS = {
   colleague: 3,
   colleagueMax: 9,
   recent: 3,
+  /** Reacted to a teammate's post in the last 90 days: 5 for one post, +2 per further post, at most 9. */
   reacted: 5,
+  reactedExtra: 2,
+  reactedMax: 9,
 };
 
 /** Signal points for a company: 4 x the weight of its strongest signal, +2 per extra type. */
@@ -127,7 +131,8 @@ export function scoreContact(c: Pick<Contact, "fit" | "match" | "role" | "knownB
   if (c.colleagues) parts.push({ label: "Network", points: Math.min(WEIGHTS.colleagueMax, c.colleagues * WEIGHTS.colleague), why: `${c.colleagues} other connection${c.colleagues > 1 ? "s" : ""} at the company` });
   const latest = c.knownBy.map((k) => k.connectedOn).filter(Boolean).sort().at(-1);
   if (latest && daysBetween(latest, now) <= 365) parts.push({ label: "Recent", points: WEIGHTS.recent, why: "Connected in the last year" });
-  if (c.reactions.length) parts.push({ label: "Reacted", points: WEIGHTS.reacted, why: `Reacted to ${c.reactions.length} post${c.reactions.length > 1 ? "s" : ""}` });
+  const posts = postsWithin(c, now, REACTION_DAYS);
+  if (posts) parts.push({ label: "Reacted", points: Math.min(WEIGHTS.reactedMax, WEIGHTS.reacted + (posts - 1) * WEIGHTS.reactedExtra), why: `Reacted to ${posts} of the team's posts in the last ${REACTION_DAYS} days` });
   return parts;
 }
 

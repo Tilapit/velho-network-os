@@ -15,6 +15,7 @@ export function NetworkView(props: { nodes: ViewNode[]; groups: DGroup[]; owners
   const [selected, setSelected] = useState<string | null>(props.initial ?? null);
   const [person, setPerson] = useState<PersonPayload | null>(null);
   const [hoverGroup, setHoverGroup] = useState<number | null>(null);
+  const [reacted, setReacted] = useState(false);
   const [sort, setSort] = useState<{ key: string; dir: 1 | -1 }>({ key: "score", dir: -1 });
   const side = useRef<HTMLElement>(null);
 
@@ -25,7 +26,8 @@ export function NetworkView(props: { nodes: ViewNode[]; groups: DGroup[]; owners
   const ranked = useMemo(() => fits.filter((n) => !n.nf), [fits]);
   const top = useMemo(() => ranked.slice(0, 8), [ranked]);
   const topIds = useMemo(() => top.map((n) => n.id), [top]);
-  const listed = hoverGroup !== null ? ranked.filter((n) => n.g === hoverGroup) : top;
+  const reactedList = useMemo(() => vis.filter((n) => n.rx > 0 && !n.nf), [vis]);
+  const listed = hoverGroup !== null ? ranked.filter((n) => n.g === hoverGroup) : reacted ? reactedList : top;
   const main = chips.filter((c) => !c.endsWith("(lower)"));
   const lower = chips.filter((c) => c.endsWith("(lower)"));
 
@@ -123,17 +125,28 @@ export function NetworkView(props: { nodes: ViewNode[]; groups: DGroup[]; owners
               Edit
             </Link>
           </div>
+          {reactedList.length ? (
+            <button type="button" className="btn small toggle" aria-pressed={reacted} onClick={() => setReacted(!reacted)} title="People who reacted to the team's posts in the last 30 days">
+              <i className="lg-reacted" />
+              Reacted recently · {reactedList.length}
+            </button>
+          ) : (
+            <Link href="/settings#reactions" className="link small">
+              Add post reactions
+            </Link>
+          )}
         </div>
       </header>
 
       <section className="net-draw" aria-label="Your team's network">
-        <NetworkDrawing nodes={nodes} groups={groups} owners={owners} owner={owner} topIds={topIds} selected={selected} onSelect={choose} hoverGroup={hoverGroup} onHoverGroup={setHoverGroup} counts={counts} />
+        <NetworkDrawing nodes={nodes} groups={groups} owners={owners} owner={owner} topIds={topIds} selected={selected} onSelect={choose} hoverGroup={hoverGroup} onHoverGroup={setHoverGroup} counts={counts} showReacted={reacted} />
         <div className="legend">
           <span><i className="lg-strong" />Strong fit</span>
           <span><i className="lg-possible" />Possible fit</span>
           <span><i className="lg-other" />Others in your industries</span>
           <span><i className="lg-grey" />Outside your industries, not matched or abroad</span>
           <span><i className="lg-ring" />Known by two or more of you</span>
+          {reacted ? <span><i className="lg-reacted" />Reacted to a post in the last 30 days</span> : null}
         </div>
         <p className="small muted" style={{ marginTop: 6 }}>
           <span className="hover-only">Hover a dot for who it is. Hover or click an industry to light its people. Click anyone for the analysis. </span>
@@ -147,9 +160,11 @@ export function NetworkView(props: { nodes: ViewNode[]; groups: DGroup[]; owners
           <PersonAnalysis data={person} onBack={back} />
         ) : (
           <>
-            <h2>{hoverGroup !== null ? `${groups[hoverGroup].label}: ${listed.length} who fit` : `Strongest ${top.length} of ${fits.length}`}</h2>
+            <h2>{hoverGroup !== null ? `${groups[hoverGroup].label}: ${listed.length} who fit` : reacted ? `Reacted recently: ${reactedList.length}` : `Strongest ${top.length} of ${fits.length}`}</h2>
             <p className="small muted" style={{ marginBottom: 14 }}>
-              Strong fit: decides on operations, production or the whole company, at a company in your industries. Ordered by code, not by AI.
+              {reacted && hoverGroup === null
+                ? "Reacted to one of the team's posts in the last 30 days, matched by name from the pasted reactions list. Fits first. Ordered by code, not by AI."
+                : "Strong fit: decides on operations, production or the whole company, at a company in your industries. Ordered by code, not by AI."}
             </p>
             {listed.slice(0, 12).map((n) => (
               <button key={n.id} type="button" className={`prow${n.nf ? " dim" : ""}`} onClick={() => choose(n.id)}>
@@ -163,6 +178,7 @@ export function NetworkView(props: { nodes: ViewNode[]; groups: DGroup[]; owners
                 <span className="small" style={{ color: "var(--text-2)" }}>
                   Known by {n.via.join(" and ")}
                   {n.sig ? " · registered change" : ""}
+                  {n.rx ? " · reacted to a post" : ""}
                 </span>
               </button>
             ))}

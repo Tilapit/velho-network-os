@@ -4,8 +4,9 @@ import { analyse, fmtDate, shortName, type Analysis } from "./analysis.ts";
 import { GROUP, GROUPS, groupForTol, industryRule, type GroupId } from "./industry.ts";
 import { matchTerm } from "./roles.ts";
 import { SIGNAL_TYPES, addDays, type CompanySignal, type SignalType } from "./signals.ts";
-import { addReactionRows, STATUS_LABEL, type Status } from "./state.ts";
-import { fold } from "./normalize.ts";
+import { addReactionRows, STATUS_LABEL, type Reaction, type Status } from "./state.ts";
+import { fold, isoDate } from "./normalize.ts";
+import { candidateOf, cleanName, matchReactions, nameKey, parseReactions, postsWithin, RECENT_DAYS, type ParsedReaction } from "./reactions.ts";
 import { contactsFor, type Contact, type Fit, type Network } from "./network.ts";
 import { ytjUrl } from "./prh.ts";
 
@@ -120,6 +121,8 @@ export type PeopleFilter = {
   fit?: "strong" | "possible" | "any";
   known_by?: string;
   has_signal?: boolean;
+  /** Reacted to a teammate's post in the last 30 days. */
+  reacted?: boolean;
   town?: string;
   approach?: string;
   status?: Status;
@@ -138,6 +141,7 @@ export function findPeople(net: Network, f: PeopleFilter = {}): { total: number;
     if (f.tol_prefixes?.length && !f.tol_prefixes.some((p) => c.match?.company?.tol?.startsWith(p.replace(/\D/g, "")))) return false;
     if (f.roles?.length && !f.roles.some((r) => matchTerm(c.position, r))) return false;
     if (f.has_signal && !c.signals.length) return false;
+    if (f.reacted && !postsWithin(c, net.today, RECENT_DAYS)) return false;
     if (town && !fold(c.match?.company?.town ?? "").toLowerCase().includes(town)) return false;
     if (f.approach && c.approach !== f.approach) return false;
     if (f.status && (c.status?.status ?? "none") !== f.status) return false;
@@ -347,29 +351,64 @@ export function messageContext(net: Network, args: { person_id: string; type: "d
 
 // ---------- reactions ----------
 
+export type ReactionInput = {
+  post: string;
+  /** YYYY-MM-DD, the day the post went out. Default today. */
+  postDate?: string;
+  /** Owner id or name of whose post it was. */
+  author?: string;
+  /** The reactions list as copied from LinkedIn. */
+  text?: string;
+  /** People read from a screenshot. */
+  entries?: ParsedReaction[];
+  names?: string[];
+  /** Names a teammate resolved in the review: the person they confirmed. */
+  picks?: { name: string; person_id: string }[];
+  /** false: match only, store nothing. */
+  save?: boolean;
+};
+
 /**
- * Matches pasted names of people who reacted to a post against the merged
- * network. Name-only matching: a name that fits exactly one contact is
- * stored (as inferred); anything else is returned and never stored.
+ * Parses and matches reactions to one of the team's posts, and stores the
+ * matches (as inferred) and the picks. Names in review are stored only once
+ * someone picks; names with no match are returned once and never stored.
  */
-export function addReactions(net: Network, post: string, names: string[]) {
-  const key = (s: string) => fold(s).toLowerCase().replace(/[^a-z ]+/g, " ").replace(/\s+/g, " ").trim();
-  const index = new Map<string, Contact[]>();
-  for (const c of net.contacts) {
-    const k = key(c.name);
-    index.set(k, [...(index.get(k) ?? []), c]);
-  }
+export function addReactions(net: Network, input: ReactionInput) {
+  const author = input.author ? ownerId(net, input.author) : undefined;
+  const authorId = author && author !== "__none__" ? author : undefined;
+  const seen = new Set<string>();
+  const all: ParsedReaction[] = [...(input.entries ?? []), ...(input.text ? parseReactions(input.text) : []), ...(input.names ?? []).map((n) => ({ name: cleanName(n) }))];
+  const entries = all.filter((e) => {
+    const k = `${nameKey(e.name)}|${e.headline ?? ""}`;
+    if (!nameKey(e.name) || seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+  const res = matchReactions(net, entries, { author: authorId });
+  const picks = (input.picks ?? []).filter((p) => net.byId.has(p.person_id));
+  const picked = new Set(picks.map((p) => nameKey(p.name)));
   const at = new Date().toISOString();
-  const matched: { name: string; id: string; url: string }[] = [];
-  const unmatched: { name: string; why: string }[] = [];
-  const rows = [];
-  for (const n of names.map((x) => x.trim()).filter(Boolean)) {
-    const hits = index.get(key(n)) ?? [];
-    if (hits.length === 1) {
-      matched.push({ name: n, id: hits[0].id, url: appUrl(`/people/${hits[0].id}`) });
-      rows.push({ post, contactId: hits[0].id, name: hits[0].name, at });
-    } else unmatched.push({ name: n, why: hits.length ? `${hits.length} people in the network have this name; not stored` : "Not in the team's network; not stored" });
-  }
-  if (rows.length) addReactionRows(rows);
-  return { post, matched, unmatched };
+  const postDate = isoDate(input.postDate) || net.today;
+  const base = { post: input.post.trim() || "Untitled post", postDate, author: authorId, at };
+  const rows: Reaction[] = [
+    ...res.matched.filter((m) => !picked.has(nameKey(m.entry.name))).map((m) => ({ ...base, contactId: m.contactId, name: m.entry.name, how: m.how })),
+    ...picks.map((p) => ({ ...base, contactId: p.person_id, name: cleanName(p.name), how: "picked" as const })),
+  ];
+  const saved = input.save === false ? 0 : rows.length ? addReactionRows(rows) : 0;
+  const person = (id: string) => {
+    const c = net.byId.get(id)!;
+    return { id, name: c.name, title: c.position, company: candidateOf(c).company, fit: c.fit, url: appUrl(`/people/${id}`) };
+  };
+  return {
+    post: base.post,
+    postDate,
+    author: authorId ? net.owners.find((o) => o.id === authorId)?.name : undefined,
+    read: entries.length,
+    stored: input.save !== false,
+    saved,
+    matched: rows.map((r) => ({ name: r.name, how: r.how, person: person(r.contactId) })),
+    review: res.review.filter((r) => !picked.has(nameKey(r.entry.name))).map((r) => ({ name: r.entry.name, headline: r.entry.headline, degree: r.entry.degree, candidates: r.candidates.map((c) => ({ ...c, url: appUrl(`/people/${c.id}`) })) })),
+    unmatched: res.unmatched.map((u) => ({ name: u.entry.name, why: u.why })),
+    note: "Names in 'unmatched' are not stored. Names in 'review' are stored only after someone picks the right person.",
+  };
 }

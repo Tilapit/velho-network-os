@@ -232,10 +232,12 @@ test("industries and themes: ranking is code, approach per person", () => {
   assert.equal(theme.people.find((p) => p.name === "Mika Laine")?.themeApproach, "ask_intro");
 });
 
-test("reactions: a unique name is stored, a duplicate name is returned and not stored", () => {
-  const r = addReactions(net, "Post about AI in sawmills", ["Laura Mäkelä", "Mikko Korhonen", "Nobody Here"]);
+test("reactions: a unique name is stored, a duplicate name goes to review, an unknown name is not stored", () => {
+  const r = addReactions(net, { post: "Post about AI in sawmills", names: ["Laura Mäkelä", "Mikko Korhonen", "Nobody Here"] });
   assert.deepEqual(r.matched.map((m) => m.name), ["Laura Mäkelä"]);
-  assert.equal(r.unmatched.length, 2);
+  assert.deepEqual(r.review.map((x) => x.name), ["Mikko Korhonen"]);
+  assert.equal(r.review[0].candidates.length, 2);
+  assert.deepEqual(r.unmatched.map((x) => x.name), ["Nobody Here"]);
   const state = JSON.parse(fs.readFileSync(path.join(dir, "state.json"), "utf8"));
   assert.equal(state.reactions.length, 1);
 });

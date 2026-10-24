@@ -9,7 +9,7 @@ import { ytjUrl } from "./prh.ts";
 import { STATUS_LABEL, type Status } from "./state.ts";
 import type { Approach, Contact, Fit, Network } from "./network.ts";
 
-export type Pill = "LinkedIn title" | "PRH" | "PRH notices" | "Your network" | "LinkedIn" | "Your team" | "Pasted reactions";
+export type Pill = "LinkedIn title" | "PRH" | "PRH notices" | "Your network" | "LinkedIn" | "Your team" | "Reaction";
 
 export type Reason = { kind: "role" | "company" | "signal" | "network" | "team" | "reaction"; label: string; text: string; source: Pill; provenance: Provenance; link?: string };
 export type MissingFact = { label: string; text: string };
@@ -145,7 +145,13 @@ export function analyse(net: Network, c: Contact): Analysis {
     const list = c.knownBy.map((k) => `${k.ownerName} (${fmtDate(k.connectedOn)})`).join(", ");
     reasons.push({ kind: "team", label: "Team", text: `Known by ${list}.`, source: "Your team", provenance: "verified" });
   }
-  for (const r of c.reactions) reasons.push({ kind: "reaction", label: "Reacted", text: `Reacted to "${r.post}" (pasted ${fmtDate(r.at.slice(0, 10))}, matched by name).`, source: "Pasted reactions", provenance: "inferred" });
+  // Reactions pasted from LinkedIn, newest post first.
+  const HOW: Record<string, string> = { name: "matched by name", name_company: "matched by name and the company in their headline", name_degree: "matched by name and connection degree", picked: "picked by the team" };
+  for (const r of [...c.reactions].sort((a, b) => (b.postDate ?? b.at).localeCompare(a.postDate ?? a.at))) {
+    const author = r.author ? net.owners.find((o) => o.id === r.author)?.name : undefined;
+    const whose = !author || author === "You" ? "your post" : `${author}'s post`;
+    reasons.push({ kind: "reaction", label: "Reacted", text: `Reacted to ${whose} "${r.post}"${r.postDate ? ` on ${fmtDate(r.postDate)}` : ""} (${HOW[r.how ?? "name"]}).`, source: "Reaction", provenance: r.how === "picked" ? "imported" : "inferred" });
+  }
 
   // What we don't know.
   missing.push({

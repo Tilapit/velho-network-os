@@ -20,7 +20,12 @@ export const STATUS_LABEL: Record<Status, string> = { none: "No status", ...Obje
 export type StatusEntry = { status: Status; at: string; by: string; history: { status: Status; at: string; by: string }[] };
 /** Keyed by the matcher's loose company key, so every spelling of a name follows the pick. */
 export type Override = { name: string; businessId?: string; notFinnish?: boolean; at: string };
-export type Reaction = { post: string; contactId: string; name: string; at: string };
+/**
+ * Someone reacted to a teammate's post. `how` says how the pasted name was
+ * matched: by name alone, name plus the company in their headline, name plus
+ * the degree marker, or picked by a teammate in the review.
+ */
+export type Reaction = { post: string; postDate?: string; author?: string; contactId: string; name: string; at: string; how?: "name" | "name_company" | "name_degree" | "picked" };
 export type Angle = { text: string; at: string; model: string };
 
 export type State = {
@@ -89,10 +94,40 @@ export function setOverride(key: string, o: Omit<Override, "at"> | null) {
   });
 }
 
-export function addReactionRows(rows: Reaction[]) {
+const postKey = (r: Pick<Reaction, "post" | "postDate">) => `${r.post}|${r.postDate ?? ""}`;
+
+/** Stores reactions; the same person on the same post is stored once. Returns how many were new. */
+export function addReactionRows(rows: Reaction[]): number {
+  let added = 0;
   update((s) => {
-    const seen = new Set(s.reactions.map((r) => `${r.post}|${r.contactId}`));
-    for (const r of rows) if (!seen.has(`${r.post}|${r.contactId}`)) s.reactions.push(r);
+    const seen = new Set(s.reactions.map((r) => `${postKey(r)}|${r.contactId}`));
+    for (const r of rows) {
+      const k = `${postKey(r)}|${r.contactId}`;
+      if (seen.has(k)) continue;
+      seen.add(k);
+      s.reactions.push(r);
+      added++;
+    }
+  });
+  return added;
+}
+
+export type Post = { post: string; postDate?: string; author?: string; people: number; at: string };
+
+/** The posts reactions were pasted for, newest first. */
+export function listPosts(state: State = readState()): Post[] {
+  const m = new Map<string, Post>();
+  for (const r of state.reactions) {
+    const p = m.get(postKey(r)) ?? { post: r.post, postDate: r.postDate, author: r.author, people: 0, at: r.at };
+    p.people++;
+    m.set(postKey(r), p);
+  }
+  return [...m.values()].sort((a, b) => (b.postDate ?? b.at).localeCompare(a.postDate ?? a.at));
+}
+
+export function deletePost(post: string, postDate?: string) {
+  update((s) => {
+    s.reactions = s.reactions.filter((r) => postKey(r) !== postKey({ post, postDate }));
   });
 }
 

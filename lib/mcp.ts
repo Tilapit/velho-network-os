@@ -51,6 +51,7 @@ export function buildMcpServer(): McpServer {
         fit: z.enum(["strong", "possible", "any"]).optional(),
         known_by: z.string().optional().describe("Owner id or name"),
         has_signal: z.boolean().optional().describe("Only companies with a registered change in the last 90 days"),
+        reacted: z.boolean().optional().describe("Only people who reacted to one of the team's posts in the last 30 days"),
         town: z.string().optional().describe("Company town in PRH, e.g. 'Tampere'"),
         approach: z.enum(["direct", "ask_intro", "skip"]).optional(),
         status: z.enum(["none", "to_contact", "sent", "replied", "meeting", "not_fit"]).optional(),
@@ -165,13 +166,28 @@ export function buildMcpServer(): McpServer {
     "add_reactions",
     {
       title: "Add reactions to a post",
-      description: "Matches pasted names of people who reacted to one of the team's LinkedIn posts against the merged network and stores them as a 'reacted' signal with today's date. Names only (from a pasted list or a screenshot the user shares). A name that fits exactly one person is stored as an inferred match; names with several or no matches are returned and never stored. Never scrape LinkedIn to get these.",
-      inputSchema: { post_label: z.string().describe("A short label for the post"), names: z.array(z.string()).min(1).max(500) },
+      description:
+        "Stores who reacted to one of the team's LinkedIn posts, as a 'reacted' signal on each person. Give the reactions list as the user copied it from LinkedIn (`text`), or people you read from a screenshot the user shared (`reactions`, with headline and degree when visible), or plain `names`. The same parser and matcher as the app: a name with one match in the merged network is stored (inferred); ties are broken by the company in the headline and, with `author`, by the 1st/2nd degree marker; the rest come back in `review` with candidates and are stored only when you pass `picks` after the user confirms. Names in `unmatched` are not in the networks and are never stored. Never scrape LinkedIn to get these.",
+      inputSchema: {
+        post_label: z.string().describe("A short label for the post"),
+        post_date: z.string().optional().describe("The day the post went out, YYYY-MM-DD. Default today."),
+        author: z.string().optional().describe("Whose post: owner id or name, e.g. 'You' or 'Co-founder'"),
+        text: z.string().max(200_000).optional().describe("The reactions list exactly as copied from LinkedIn"),
+        reactions: z
+          .array(z.object({ name: z.string(), headline: z.string().optional(), degree: z.enum(["1st", "2nd", "3rd"]).optional() }))
+          .max(1000)
+          .optional()
+          .describe("People read from a screenshot"),
+        names: z.array(z.string()).max(1000).optional().describe("Plain names, when nothing else is visible"),
+        picks: z.array(z.object({ name: z.string(), person_id: z.string() })).max(200).optional().describe("For names in `review`: the person the user confirmed"),
+        dry_run: z.boolean().optional().describe("Match only, store nothing"),
+      },
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
     },
-    async ({ post_label, names }) => {
-      const r = addReactions(await loadNetwork(), post_label, names);
-      log("add_reactions", r.matched.map((m) => m.id));
+    async (a) => {
+      if (!a.text && !a.reactions?.length && !a.names?.length && !a.picks?.length) return { content: [{ type: "text" as const, text: "Give `text`, `reactions`, `names` or `picks`." }], isError: true };
+      const r = addReactions(await loadNetwork(), { post: a.post_label, postDate: a.post_date, author: a.author, text: a.text, entries: a.reactions, names: a.names, picks: a.picks, save: !a.dry_run });
+      log("add_reactions", r.matched.map((m) => m.person.id));
       return json(r);
     },
   );

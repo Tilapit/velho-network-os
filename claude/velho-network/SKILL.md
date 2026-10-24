@@ -25,7 +25,7 @@ it whenever you mention a person or a company, so the user can check why.
 | A company brief before a meeting | `get_company` |
 | Companies with a new managing director, new money, a merger or a new board | `get_radar` |
 | Facts and tone for a message | `message_context` (always, before writing any message) |
-| Names of people who reacted to a post (pasted list or screenshot) | `add_reactions` |
+| Who reacted to a post (the pasted reactions list or a screenshot) | `add_reactions` |
 
 Industry groups: metal, electrical, plastics, food, wood, construction,
 logistics, maritime, wholesale, other_industrial (labels such as "Metal and
@@ -55,10 +55,19 @@ yourself, say which you chose and why, call `people_for_theme`. Split the
 answer into "invite" and "ask for an intro". Offer drafts with
 `message_context` type `event_invite` and the theme.
 
-**Reactions.** When the user pastes names or shares a screenshot of who
-reacted to a post, read the names from it and call `add_reactions` with a
-short label for the post. Report what was stored and list unmatched names
-(they are not stored). Never look anything up on LinkedIn yourself.
+**Reactions.** When the user pastes a post's reactions list or shares a
+screenshot of it, call `add_reactions` with a short `post_label`, the
+`post_date` if they say it, and `author` (whose post it was: it lets the
+"1st"/"2nd" markers break ties).
+- Pasted text: pass it unchanged as `text`; the server parses names, degree
+  markers, headlines and button text.
+- Screenshot: read each person into `reactions` with their name, and the
+  headline and degree when visible.
+- Report how many were stored. For each item in `review`, show the
+  candidates (title, company, who knows them) and ask which one it is, or
+  none; then call again with `picks`. Mention `unmatched` names once: they
+  are not in the networks and are not stored.
+- Never look anything up on LinkedIn yourself.
 
 ## Writing messages (Velho's tone)
 
