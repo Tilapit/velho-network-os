@@ -4,6 +4,54 @@ Branch `overnight`. Brief: `OVERNIGHT_PROMPT.md` (wins on conflict), then
 `NETWORK_DEMO_PROMPT.md`, `MOCK_DATA_PROMPT.md`, `PRODUCTION_MCP_PROMPT.md`
 and `design/`.
 
+## Part 2 (night of 25 Oct): working log
+
+Brief: `OVERNIGHT_2_PROMPT.md`. Started 00:32. `git tag demo-v1` is on
+b935098, the part-1 demo, so a working demo always exists.
+
+| Step | Budget | Status |
+| --- | --- | --- |
+| 1. Network drawing as a neural network | 2 h | done 01:20 |
+| 2. Real-data proof | 1 h | |
+| 3. Reactions | 1 h | |
+| 4. This week + Write in Claude | 45 min | |
+| 5. claude.ai and Claude Desktop | 45 min | |
+| 6. Polish and hand-over | 45 min+ | |
+
+Decisions (part 2):
+
+- **Port.** 3000 and 3100 are taken by other apps; everything tonight runs on
+  3310 (`APP_TODAY=2026-10-24 APP_BASE_URL=http://localhost:3310 PRH_OFFLINE=1
+  npx next dev -p 3310`).
+- **Screenshots and video** use `playwright-core` with the system Chrome
+  (`channel: "chrome"`), installed in a scratch folder, not in the project.
+- **Drawing layout** (`components/NetworkDrawing.tsx`):
+  - Target bands are the industry groups where someone is in the profile.
+    The rest (Other industries, Not matched, Abroad) share 26% of the height
+    at the bottom, drawn smaller and dimmer, under "Outside your industries".
+  - Each band is a cloud: best-candidate (blue-noise) sampling inside a
+    rounded blob, seeded per group, so it is organic but never random-looking.
+    Fits lean to the right of their cloud, towards their industry.
+  - Every link is a bezier stroked on its own with `lighter` blending, so
+    dense flows add up and glow. Grey links are batched and nearly invisible.
+    Link and glow alpha scale with 1/sqrt(people) above 2,600 people, so a
+    15,000-person network glows without burning out.
+  - Decision-makers who fit zigzag through 2–4 sub-columns over the full
+    height, in band order, so their links barely cross. The top 8 are
+    labelled; every other node has a tooltip.
+  - Industry node size is relative to the group with the most fits.
+- **Motion.** A 1.5 s pulse sweeps left to right once, on first load. A
+  selected person gets particles along their path. Both are off with
+  prefers-reduced-motion.
+- **Zoom.** Ctrl or Cmd + scroll (and trackpad pinch) zooms around the
+  pointer; plain scroll keeps scrolling the page. Buttons for +, − and Reset.
+  Drag pans when zoomed. Layers re-render crisp 140 ms after a gesture.
+- **Touch.** The first tap shows who it is and lights the path, the second
+  opens the person. Below 760 px the drawing uses short labels and no
+  name labels; below 1024 px the page is one column: title and filters,
+  drawing, panel, table.
+- **Before and after.** The part-1 images are kept in `screens/part1/`.
+
 ## Morning report
 
 **Status: demo-ready.**

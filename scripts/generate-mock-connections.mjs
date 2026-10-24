@@ -9,6 +9,8 @@
 // CEO, managing director, owner or founder titles at a real company.
 //
 // Usage: node scripts/generate-mock-connections.mjs [--seed 20261025] [--today 2026-10-24] [--check-prh]
+// Stress files (not for data/demo): --rows 10000 --seed 10010 --out data/stress/10k
+// scales all three networks so that "You" has that many rows.
 import fs from "node:fs";
 import path from "node:path";
 
@@ -16,7 +18,8 @@ const args = process.argv.slice(2);
 const arg = (k, d) => (args.includes(k) ? args[args.indexOf(k) + 1] : d);
 const SEED = Number(arg("--seed", 20261025));
 const TODAY = arg("--today", "2026-10-24");
-const OUT = path.join(process.cwd(), "data", "demo");
+const OUT = path.resolve(arg("--out", path.join(process.cwd(), "data", "demo")));
+const ROWS = Number(arg("--rows", 0));
 
 // ---------- seeded randomness ----------
 
@@ -622,6 +625,14 @@ const OWNERS = {
   cofounder: { file: "Connections-cofounder.csv", n: 860, overlap: 270, shares: { startup: 0.22, software: 0.15, academia: 0.1, corporate: 0.12, target: 0.2, ecosystem: 0.05, public: 0.03, abroad: 0.09, self: 0.04 } },
   board: { file: "Connections-board.csv", n: 300, overlap: 60, shares: { startup: 0.07, software: 0.07, academia: 0.03, corporate: 0.25, target: 0.32, ecosystem: 0.14, public: 0.07, abroad: 0.03, self: 0.02 } },
 };
+
+if (ROWS) {
+  const f = ROWS / OWNERS.you.n;
+  for (const o of Object.values(OWNERS)) {
+    o.n = Math.round(o.n * f);
+    if (o.overlap) o.overlap = Math.round(o.overlap * f);
+  }
+}
 
 // "You": the full spec mix, plus Velho's own world (colleagues, partners, customers).
 const you = [];

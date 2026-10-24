@@ -1,11 +1,11 @@
 "use client";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { NetworkDrawing, type DGroup, type DNode, type DOwner } from "./NetworkDrawing";
 import { PersonAnalysis, type PersonPayload } from "./PersonAnalysis";
 import { FitTag } from "./ui";
 
-export type ViewNode = DNode & { co: string; via: string[]; st: string; ip: boolean };
+export type ViewNode = DNode & { co: string; via: string[]; st: string };
 
 const fmt = (n: number) => n.toLocaleString("en-US");
 
@@ -16,6 +16,7 @@ export function NetworkView(props: { nodes: ViewNode[]; groups: DGroup[]; owners
   const [person, setPerson] = useState<PersonPayload | null>(null);
   const [hoverGroup, setHoverGroup] = useState<number | null>(null);
   const [sort, setSort] = useState<{ key: string; dir: 1 | -1 }>({ key: "score", dir: -1 });
+  const side = useRef<HTMLElement>(null);
 
   const bit = owner >= 0 ? 1 << owner : 0;
   const vis = useMemo(() => nodes.filter((n) => !bit || n.k & bit), [nodes, bit]);
@@ -25,6 +26,14 @@ export function NetworkView(props: { nodes: ViewNode[]; groups: DGroup[]; owners
   const top = useMemo(() => ranked.slice(0, 8), [ranked]);
   const topIds = useMemo(() => top.map((n) => n.id), [top]);
   const listed = hoverGroup !== null ? ranked.filter((n) => n.g === hoverGroup) : top;
+  const main = chips.filter((c) => !c.endsWith("(lower)"));
+  const lower = chips.filter((c) => c.endsWith("(lower)"));
+
+  function choose(id: string) {
+    setSelected(id);
+    // When the panel sits below the drawing, bring it into view.
+    if (side.current && window.matchMedia("(max-width: 1023px)").matches) side.current.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 
   useEffect(() => {
     if (!selected) {
@@ -53,8 +62,8 @@ export function NetworkView(props: { nodes: ViewNode[]; groups: DGroup[]; owners
 
   const counts = useMemo(() => {
     const present = new Set(vis.map((n) => n.g));
-    return { contacts: vis.length, groups: present.size, fits: fits.length, owners: `${fmt(nodes.length)} people after merging` };
-  }, [vis, fits, nodes]);
+    return { contacts: vis.length, groups: present.size, fits: fits.length };
+  }, [vis, fits]);
 
   const industries = useMemo(() => {
     const rows = groups
@@ -81,8 +90,8 @@ export function NetworkView(props: { nodes: ViewNode[]; groups: DGroup[]; owners
   );
 
   return (
-    <div className="split">
-      <section className="main" aria-label="Your team's network">
+    <div className="netpage">
+      <header className="net-head">
         <h1>Who in your team&apos;s network could need Velho</h1>
         <p className="lede">
           {owners.map((o) => o.name).join(", ")}: LinkedIn connections matched to Finnish companies in the trade register (PRH) and filtered by your profile. Every line is a real link.
@@ -100,90 +109,50 @@ export function NetworkView(props: { nodes: ViewNode[]; groups: DGroup[]; owners
           </div>
           <div className="row small" style={{ gap: 6 }}>
             <span className="muted">Profile:</span>
-            {chips.map((c) => (
+            {main.map((c) => (
               <span key={c} className="chip">
                 {c}
               </span>
             ))}
+            {lower.length ? (
+              <span className="chip" title={lower.join(", ")}>
+                +{lower.length} lower priority
+              </span>
+            ) : null}
             <Link href="/settings#profile" className="link small">
               Edit
             </Link>
           </div>
         </div>
+      </header>
 
-        <NetworkDrawing nodes={nodes} groups={groups} owners={owners} owner={owner} topIds={topIds} selected={selected} onSelect={setSelected} hoverGroup={hoverGroup} onHoverGroup={setHoverGroup} counts={counts} />
+      <section className="net-draw" aria-label="Your team's network">
+        <NetworkDrawing nodes={nodes} groups={groups} owners={owners} owner={owner} topIds={topIds} selected={selected} onSelect={choose} hoverGroup={hoverGroup} onHoverGroup={setHoverGroup} counts={counts} />
         <div className="legend">
-          <span><i style={{ background: "#3d7bff" }} />Strong fit</span>
-          <span><i style={{ background: "#24406f" }} />Possible fit</span>
-          <span><i style={{ background: "#2a3039" }} />Other contacts</span>
-          <span><i style={{ background: "#1f242b", border: "1px solid #3a414b" }} />Not matched or abroad</span>
-          <span><i style={{ background: "transparent", border: "1.5px solid #e8eaed" }} />Known by two or more of you</span>
-          <span>Hover or click an industry to light its people. Click a person for the analysis.</span>
+          <span><i className="lg-strong" />Strong fit</span>
+          <span><i className="lg-possible" />Possible fit</span>
+          <span><i className="lg-other" />Others in your industries</span>
+          <span><i className="lg-grey" />Outside your industries, not matched or abroad</span>
+          <span><i className="lg-ring" />Known by two or more of you</span>
         </div>
         <p className="small muted" style={{ marginTop: 6 }}>
+          <span className="hover-only">Hover a dot for who it is. Hover or click an industry to light its people. Click anyone for the analysis. </span>
+          <span className="touch-only">Tap a dot for who it is, tap again to open. Tap an industry to light its people. </span>
           {fmt(props.matched)} of {fmt(nodes.length)} people matched to a Finnish company by name in PRH. {props.noCompany ? `${props.noCompany} have no company in LinkedIn. ` : ""}Nothing is guessed: names with no single match stay unmatched until you pick one in <Link href="/settings#matches">Settings</Link>.
         </p>
-
-        <div className="section">
-          <h2>By industry</h2>
-          <p className="small muted" style={{ marginBottom: 10 }}>
-            Score is code: 3 per strong fit, 1 per possible fit, 2 per fit known by two or more of you, 2 per company in your industries with a registered change in the last 90 days.
-          </p>
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  {th("label", "Industry", false)}
-                  {th("people", "People")}
-                  {th("dms", "Decision-makers")}
-                  {th("strong", "Strong")}
-                  {th("two", "Known by 2+")}
-                  {th("sig", "Signals")}
-                  {th("score", "Score")}
-                </tr>
-              </thead>
-              <tbody>
-                {industries.map((r) => (
-                  <tr key={r.i} onMouseEnter={() => !r.grey && setHoverGroup(r.i)} onMouseLeave={() => setHoverGroup(null)} style={{ cursor: "default", opacity: r.grey ? 0.6 : 1 }}>
-                    <td>{r.label}</td>
-                    <td className="num">{fmt(r.people)}</td>
-                    <td className="num">{r.dms}</td>
-                    <td className="num">{r.strong}</td>
-                    <td className="num">{r.two}</td>
-                    <td className="num">{r.sig}</td>
-                    <td style={{ minWidth: 120 }}>
-                      {r.grey ? (
-                        <span className="faint xs">not scored</span>
-                      ) : (
-                        <div className="row" style={{ gap: 8, flexWrap: "nowrap" }}>
-                          <div className="bar" style={{ flex: 1 }}>
-                            <div style={{ width: `${(100 * r.score) / maxScore}%` }} />
-                          </div>
-                          <span className="num xs muted">{r.score}</span>
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
       </section>
 
-      <aside className="side" aria-label="Analysis">
+      <aside className="side net-side" aria-label="Analysis" ref={side}>
         {person && selected ? (
           <PersonAnalysis data={person} onBack={back} />
         ) : (
           <>
-            <h2>
-              {hoverGroup !== null ? `${groups[hoverGroup].label}: ${listed.length} who fit` : `Strongest ${top.length} of ${fits.length}`}
-            </h2>
+            <h2>{hoverGroup !== null ? `${groups[hoverGroup].label}: ${listed.length} who fit` : `Strongest ${top.length} of ${fits.length}`}</h2>
             <p className="small muted" style={{ marginBottom: 14 }}>
               Strong fit: decides on operations, production or the whole company, at a company in your industries. Ordered by code, not by AI.
             </p>
             {listed.slice(0, 12).map((n) => (
-              <button key={n.id} type="button" className={`prow${n.nf ? " dim" : ""}`} onClick={() => setSelected(n.id)}>
+              <button key={n.id} type="button" className={`prow${n.nf ? " dim" : ""}`} onClick={() => choose(n.id)}>
                 <span className="top-line">
                   <span className="name">{n.n}</span>
                   <FitTag fit={n.f === 2 ? "strong" : n.f === 1 ? "possible" : null} status={n.st} />
@@ -206,6 +175,52 @@ export function NetworkView(props: { nodes: ViewNode[]; groups: DGroup[]; owners
           </>
         )}
       </aside>
+
+      <section className="net-table section" aria-label="By industry">
+        <h2>By industry</h2>
+        <p className="small muted" style={{ marginBottom: 10 }}>
+          Score is code: 3 per strong fit, 1 per possible fit, 2 per fit known by two or more of you, 2 per company in your industries with a registered change in the last 90 days.
+        </p>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                {th("label", "Industry", false)}
+                {th("people", "People")}
+                {th("dms", "Decision-makers")}
+                {th("strong", "Strong")}
+                {th("two", "Known by 2+")}
+                {th("sig", "Signals")}
+                {th("score", "Score")}
+              </tr>
+            </thead>
+            <tbody>
+              {industries.map((r) => (
+                <tr key={r.i} onMouseEnter={() => !r.grey && setHoverGroup(r.i)} onMouseLeave={() => setHoverGroup(null)} style={{ cursor: "default", opacity: r.grey ? 0.6 : 1 }}>
+                  <td>{r.label}</td>
+                  <td className="num">{fmt(r.people)}</td>
+                  <td className="num">{r.dms}</td>
+                  <td className="num">{r.strong}</td>
+                  <td className="num">{r.two}</td>
+                  <td className="num">{r.sig}</td>
+                  <td style={{ minWidth: 120 }}>
+                    {r.grey ? (
+                      <span className="faint xs">not scored</span>
+                    ) : (
+                      <div className="row" style={{ gap: 8, flexWrap: "nowrap" }}>
+                        <div className="bar" style={{ flex: 1 }}>
+                          <div style={{ width: `${(100 * r.score) / maxScore}%` }} />
+                        </div>
+                        <span className="num xs muted">{r.score}</span>
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
     </div>
   );
 }

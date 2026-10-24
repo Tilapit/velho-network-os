@@ -16,23 +16,23 @@ export type GroupId =
   | "not_matched"
   | "abroad";
 
-export type Group = { id: GroupId; label: string; grey?: boolean; rule: string };
+export type Group = { id: GroupId; label: string; short: string; grey?: boolean; rule: string };
 
 /** Order is the order of the bands in the network drawing. */
 export const GROUPS: Group[] = [
-  { id: "metal", label: "Metal and machinery", rule: "TOL 24, 25, 28, 29, 30 (not boats), 33 (not ship repair)" },
-  { id: "electrical", label: "Electrical and electronics", rule: "TOL 26, 27" },
-  { id: "plastics", label: "Plastics and chemicals", rule: "TOL 19–22" },
-  { id: "food", label: "Food", rule: "TOL 01–03, 10–12" },
-  { id: "wood", label: "Wood and building products", rule: "TOL 16, 17, 23, 31" },
-  { id: "construction", label: "Construction", rule: "TOL 41–43" },
-  { id: "logistics", label: "Logistics and transport", rule: "TOL 49, 51–53" },
-  { id: "maritime", label: "Maritime", rule: "TOL 301, 3315, 50" },
-  { id: "wholesale", label: "Wholesale", rule: "TOL 46" },
-  { id: "other_industrial", label: "Other industrial", rule: "TOL 05–09, 13–15, 18, 32, 35–39" },
-  { id: "other", label: "Other industries", rule: "Any other line of business in PRH" },
-  { id: "not_matched", label: "Not matched", grey: true, rule: "No single company in PRH for this name" },
-  { id: "abroad", label: "Abroad", grey: true, rule: "Foreign company form or a known international company, not in PRH" },
+  { id: "metal", label: "Metal and machinery", short: "Metal", rule: "TOL 24, 25, 28, 29, 30 (not boats), 33 (not ship repair)" },
+  { id: "electrical", label: "Electrical and electronics", short: "Electrical", rule: "TOL 26, 27" },
+  { id: "plastics", label: "Plastics and chemicals", short: "Plastics", rule: "TOL 19–22" },
+  { id: "food", label: "Food", short: "Food", rule: "TOL 01–03, 10–12" },
+  { id: "wood", label: "Wood and building products", short: "Wood", rule: "TOL 16, 17, 23, 31" },
+  { id: "construction", label: "Construction", short: "Construction", rule: "TOL 41–43" },
+  { id: "logistics", label: "Logistics and transport", short: "Logistics", rule: "TOL 49, 51–53" },
+  { id: "maritime", label: "Maritime", short: "Maritime", rule: "TOL 301, 3315, 50" },
+  { id: "wholesale", label: "Wholesale", short: "Wholesale", rule: "TOL 46" },
+  { id: "other_industrial", label: "Other industrial", short: "Other industrial", rule: "TOL 05–09, 13–15, 18, 32, 35–39" },
+  { id: "other", label: "Other industries", short: "Other", rule: "Any other line of business in PRH" },
+  { id: "not_matched", label: "Not matched", short: "Not matched", grey: true, rule: "No single company in PRH for this name" },
+  { id: "abroad", label: "Abroad", short: "Abroad", grey: true, rule: "Foreign company form or a known international company, not in PRH" },
 ];
 
 export const GROUP: Record<GroupId, Group> = Object.fromEntries(GROUPS.map((g) => [g.id, g])) as Record<GroupId, Group>;

@@ -18,13 +18,14 @@ export function drawingData(net: Network) {
     sig: c.signals.length > 0,
     ip: !!c.rule,
     nf: c.status?.status === "not_fit",
+    rx: c.reactions.length,
     co: c.companyId ?? "",
     via: c.knownBy.map((k) => k.ownerName),
     st: c.status?.status ?? "none",
   }));
   return {
     nodes,
-    groups: GROUPS.map((g) => ({ id: g.id, label: g.label, grey: !!g.grey })),
+    groups: GROUPS.map((g) => ({ id: g.id, label: g.label, short: g.short, grey: !!g.grey })),
     owners: net.owners.map((o) => ({ id: o.id, name: o.name })),
     chips: net.profile.industries.map((r) => `${ruleLabel(r)}${r.lowerPriority ? " (lower)" : ""}`),
     matched: net.contacts.filter((c) => c.companyId && !c.companyId.startsWith("x-")).length,
