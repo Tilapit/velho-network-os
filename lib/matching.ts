@@ -4,7 +4,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { getCompany, looseKey, matchCompany, stats, type MatchStatus, type PrhCompany } from "./prh.ts";
-import { hasForeignForm, looksForeign } from "./industry.ts";
+import { hasForeignForm, knownInternational, looksForeign } from "./industry.ts";
 import type { Override } from "./state.ts";
 
 export type Resolved = {
@@ -54,6 +54,10 @@ export async function resolveName(raw: string, override?: Override, opts: { demo
   // Demo networks fall back to the shipped snapshot, so the demo never waits for PRH.
   const snap = m.status === "pending" && opts.demo ? demoSnapshot()[raw] : undefined;
   if (snap) m = snap;
+  // "Amazon" may be Amazon Oy in Espoo or Amazon in Seattle: an exact match on
+  // a well-known international name is only a close match, and a close match is abroad.
+  const intl = knownInternational(key);
+  if (intl && m.status === "verified") m = { ...m, status: "inferred", note: "Same name as a well-known international company. Check that this is the Finnish company they work for." };
   const r: Resolved = {
     raw,
     key,
@@ -63,7 +67,7 @@ export async function resolveName(raw: string, override?: Override, opts: { demo
     note: m.note,
     by: "rule",
     // "Spotify AB" is the Swedish company even if a Finnish subsidiary is close.
-    foreign: ((m.status === "none" || m.status === "ambiguous") && looksForeign(raw, key)) || (m.status === "inferred" && hasForeignForm(raw)),
+    foreign: ((m.status === "none" || m.status === "ambiguous") && looksForeign(raw, key)) || (m.status === "inferred" && (hasForeignForm(raw) || (intl && !/check that this is the finnish/i.test(m.note)))),
     snapshot: !!snap,
   };
   if (!snap) memo.set(raw, r);

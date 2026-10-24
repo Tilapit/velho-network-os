@@ -277,3 +277,15 @@ test("a company marked as not a target takes its people off the list", () => {
   assert.equal(laura.approach, "skip");
   assert.match(analyse(n2, laura).fitWhy, /not a target/);
 });
+
+test("well-known international names are never verified by name alone", async () => {
+  const { resolveName } = await import("../lib/matching.ts");
+  const { writeCache, hash } = await import("../lib/prh.ts");
+  writeCache("ytj", hash("Amazon"), { query: "Amazon", fetchedAt: "", totalResults: 1, companies: [co("1111111-1", "Amazon Oy", "46499")] });
+  writeCache("ytj", hash("Stripe"), { query: "Stripe", fetchedAt: "", totalResults: 1, companies: [co("2222222-2", "Stripe Custom Oy", "74991")] });
+  const a = await resolveName("Amazon");
+  assert.equal(a.status, "inferred");
+  assert.equal(a.foreign, false, "an exact match is kept, as 'check'");
+  const s = await resolveName("Stripe");
+  assert.equal(s.foreign, true, "a close match on an international name is abroad");
+});

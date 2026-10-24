@@ -129,8 +129,12 @@ export function hasForeignForm(name: string): boolean {
   return FOREIGN_FORM.test(n) || (/(^|\s)ab$/i.test(n) && !/(^|\s)oyj?(\s|$)/i.test(n));
 }
 
+/** "Google", "Klarna AB": a well-known international employer. `key` is the matcher's looseKey. */
+export function knownInternational(key: string): boolean {
+  return INTERNATIONAL.has(key) || INTERNATIONAL.has(key.replace(/ (group|inc|corporation|company)$/, ""));
+}
+
 /** `key` is the matcher's looseKey of the name (folded, "&" as "and"). */
 export function looksForeign(name: string, key: string): boolean {
-  if (hasForeignForm(name)) return true;
-  return INTERNATIONAL.has(key) || INTERNATIONAL.has(key.replace(/ (group|inc|corporation|company)$/, ""));
+  return hasForeignForm(name) || knownInternational(key);
 }
