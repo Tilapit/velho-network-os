@@ -4,6 +4,139 @@ Branch `overnight`. Brief: `OVERNIGHT_PROMPT.md` (wins on conflict), then
 `NETWORK_DEMO_PROMPT.md`, `MOCK_DATA_PROMPT.md`, `PRODUCTION_MCP_PROMPT.md`
 and `design/`.
 
+## Morning report, part 2 (night of 24–25 Oct)
+
+**Status: all six steps done and committed on `overnight`.** `npm test`
+passes (37 tests, 19 of them new), `npx tsc --noEmit` is clean and `npm run build`
+passes. No console errors on any page at 1440 or 390 px. Nothing was
+reverted; `demo-v1` still tags the part-1 demo.
+
+Start the demo: `docs/DEMO.md` (3 minutes). Video of the app part:
+`media/demo-walkthrough.webm` (86 s, 1440×900).
+
+### What changed tonight
+
+1. **The network drawing** (`components/NetworkDrawing.tsx`), rebuilt:
+   - Owners → contacts → industries → decision-makers who fit, left to
+     right. Every contact is a node, in an organic seeded cloud per
+     industry; your industries get 74% of the height, the rest is
+     compressed below in grey.
+   - Every link is drawn, additively, so dense flows glow and sparse ones
+     fade.
+   - The 192 decision-makers zigzag through three sub-columns over the
+     full height; the strongest 8 are labelled; everything has a tooltip.
+   - A 1.5 s pulse on first load, particles along a selected person's
+     path, nothing moving with reduced motion.
+   - Zoom (Ctrl/⌘ + scroll, or the + − buttons) and drag to pan.
+   - At 390 px it scales to the width, uses short labels, and a tap shows
+     who it is (a second tap opens them). Title and filters now come
+     before the list.
+2. **Real-data proof.** Stress files of 5,000 and 10,000 rows (and the
+   whole team at that scale, 15,547 people): first frame of the drawing in
+   0.2–0.3 s, hover redraws ≤1 ms, 60 fps with particles. The importer
+   handles BOM, CRLF, the preamble or none, reordered or extra columns,
+   quoted commas and newlines, Excel's semicolon re-save with Finnish
+   dates, and old exports without URLs (9 new importer tests). The import form
+   tells you how long PRH will take before you upload.
+3. **Reactions.** Settings → Post reactions: paste a post's reactions list
+   as copied from LinkedIn → Match names → check the few that two people
+   share → Save. Unmatched names are shown once and never stored. A
+   reaction is a reason with a "Reaction" pill, 5 points (+2 per further
+   post), and the drawing's **Reacted recently** toggle. The demo ships two
+   posts (42 reactions). MCP `add_reactions` uses the same parser and
+   matcher, from pasted text or from names Claude reads off a screenshot.
+4. **This week** at the top of the Network panel: five people chosen by
+   code (fresh registered changes and reactions first, nobody already
+   contacted, one per company, senders spread). **Write in Claude** on
+   every person copies a prompt for your own Claude; **Draft here** appears
+   with an API key. MCP has `this_week` too.
+5. **claude.ai and Claude Desktop.** Optional `MCP_TOKEN`: the connector
+   then needs the bearer token, and pages answer only on this machine.
+   `npm run tunnel` opens a Cloudflare quick tunnel and prints the URL and
+   header. `npm run skill:zip` and Settings → Connect to Claude give the
+   skill zip.
+6. **Hand-over.** Screenshots of every page at 1440 and 390 in `screens/`,
+   the demo video, the demo script, README and CLAUDE.md.
+
+### Before and after
+
+Side by side: `screens/before-after-network.png`.
+
+| Before (part 1) | After |
+| --- | --- |
+| `screens/part1/network-1440.png` | `screens/network-1440.png` |
+| `screens/part1/network-390.png` | `screens/network-390.png` |
+| `screens/part1/network-person-1440.png` | `screens/network-person-1440.png` |
+| | `screens/network-industry-hover-*.png`, `screens/network-reacted-*.png` |
+
+Compared honestly:
+- **Better.**
+  - It reads as a network now: glowing flows from the three of you into
+    industry clouds, through the industries, out to the decision-makers.
+  - Your industries fill the picture; the 1,746 people outside them are
+    three dim clouds at the bottom instead of most of the space.
+  - The decision-makers span the full height in three staggered columns
+    instead of one bar of dots.
+  - At 390 px the whole drawing is visible instead of cropped.
+- **Still true.**
+  - The decision-maker column is dense: 192 dots in about 550 px. Names
+    are in the tooltips and in the list, not on the canvas.
+  - At 15,000 people the clouds become a texture; the drawing still reads,
+    but individual dots are tiny. Zoom helps.
+  - When zoomed in, labels grow with the drawing, like a map.
+  - The pulse is subtle on a fast machine: it is over in 1.5 s.
+  - The counts for Other industries (899 → 859) and Abroad (106 → 146)
+    differ between the two images, but not because of tonight: the part-1
+    image predates part 1's last matching fix. The `demo-v1` code gives
+    859 and 146 on today's data too.
+
+### Performance (production build, Chrome, DPR 2, this Mac)
+
+| Network | People | Model, cold | First frame | Hover redraw (p95) | Frame with particles |
+| --- | --- | --- | --- | --- | --- |
+| Demo | 2,333 | 131 ms | 93 ms | 1 ms | 16.7 ms |
+| 5,000 rows | 5,000 | 273 ms | 157 ms | 1 ms | 16.7 ms |
+| 10,000 rows | 10,000 | 268 ms | 205 ms | 1 ms | 16.7 ms |
+| Whole team at 10k scale | 15,547 | 363 ms | 306 ms | 1 ms | 16.7 ms |
+
+PRH lookups for a real import: 0.53 s per company name not yet looked up,
+from part 1's cold run. The mock 10k file has 1,045 distinct names (about 9
+minutes cold); a real 10,000-row export probably has 3,000–5,000, so 25–45
+minutes in the background. The import form shows the real number before
+upload.
+
+### What is untested
+
+- **claude.ai custom connector.** No public URL tonight: `cloudflared` is
+  not installed and the brief said not to open a tunnel. Whether claude.ai's
+  connector dialog takes a custom Authorization header is not verified; if
+  it does not, the token would need another route (for example OAuth).
+- **Claude Desktop** via `npx mcp-remote … --header`: written down, not run.
+- **Draft here**: no `ANTHROPIC_API_KEY` on this machine; the prompt
+  building is unit-tested (no name in what is sent), the API call is not.
+- **Real LinkedIn copy text.** The reactions fixtures follow LinkedIn's
+  reactions list as I know it (name twice or "View … profile", "· 1st",
+  headline, buttons). Paste one real list in the morning to confirm.
+- **Real exports of 5,000+ rows**: only the mock generator's files.
+- **Browsers**: Chrome only (desktop and mobile emulation). Not Safari,
+  Firefox or a real phone.
+
+### Code review
+
+An independent review of tonight's diff (`demo-v1..HEAD`) ran in the
+background at the end; its findings and what was fixed are in the working
+log under "Code review".
+
+### Next steps
+
+- Paste a real reactions list and import a real export; check the review
+  list and the PRH matches.
+- Install `cloudflared`, run `npm run tunnel`, and try claude.ai's custom
+  connector; if headers are not supported there, add OAuth or a per-user
+  key.
+- Hosting, OAuth, CRM integration, LinkedIn DMA connector, REST API and
+  webhooks remain out of scope, as in part 1.
+
 ## Part 2 (night of 25 Oct): working log
 
 Brief: `OVERNIGHT_2_PROMPT.md`. Started 00:32. `git tag demo-v1` is on
@@ -16,7 +149,7 @@ b935098, the part-1 demo, so a working demo always exists.
 | 3. Reactions | 1 h | done 01:09 |
 | 4. This week + Write in Claude | 45 min | done 01:17 |
 | 5. claude.ai and Claude Desktop | 45 min | done 01:24 |
-| 6. Polish and hand-over | 45 min+ | |
+| 6. Polish and hand-over | 45 min+ | done 01:40, then the code review |
 
 Decisions (part 2):
 
@@ -180,7 +313,7 @@ Decisions (part 2):
   - Mid widths (640–900 px of drawing, a 1024–1280 px window) use the full
     layout with short industry names; below 640 px the phone layout.
 
-## Morning report
+## Morning report, part 1
 
 **Status: demo-ready.**
 - All six steps are done and committed on `overnight` (one commit per step,
