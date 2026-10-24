@@ -5,6 +5,7 @@ import { getCompany } from "@/lib/queries.ts";
 import { fmtDate } from "@/lib/analysis.ts";
 import { ytjUrl } from "@/lib/prh.ts";
 import { FitTag, MatchPill } from "@/components/ui";
+import { ExcludeButton } from "@/components/ExcludeButton";
 
 export const dynamic = "force-dynamic";
 
@@ -41,12 +42,17 @@ export default async function Company({ params }: { params: Promise<{ id: string
       </main>
     );
   }
+  const excluded = !!net.profile.excluded?.some((x) => x.businessId === co.businessId);
   return (
     <main className="page" style={{ maxWidth: 900 }}>
       <div className="row" style={{ justifyContent: "space-between" }}>
         <h1>{co.name}</h1>
-        <MatchPill status={co.matchStatus} />
+        <div className="row" style={{ gap: 8 }}>
+          {co.businessId ? <ExcludeButton businessId={co.businessId} name={co.name} excluded={excluded} /> : null}
+          <MatchPill status={co.matchStatus} />
+        </div>
       </div>
+      {excluded ? <p className="small muted" style={{ marginTop: 6 }}>Marked as not a target company: its people are not on the list.</p> : null}
       {co.prh ? (
         <dl className="kv" style={{ marginTop: 12 }}>
           <dt>Line of business</dt>
@@ -62,7 +68,10 @@ export default async function Company({ params }: { params: Promise<{ id: string
             </a>
           </dd>
           <dt>Form</dt>
-          <dd>{co.prh.form}</dd>
+          <dd>
+            {co.prh.form}
+            {co.prh.formCode === "17" ? <span className="small muted"> · listed companies are often large groups</span> : null}
+          </dd>
           <dt>Town</dt>
           <dd>{co.prh.town ? co.prh.town.charAt(0) + co.prh.town.slice(1).toLowerCase() : "—"}</dd>
           <dt>Registered</dt>

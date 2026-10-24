@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { ensureMatching, loadNetwork } from "@/lib/network.ts";
 import { matchJob } from "@/lib/matching.ts";
 import { readState } from "@/lib/state.ts";
@@ -114,6 +115,18 @@ export default async function Settings() {
         <section className="section" id="profile">
           <h2>Target profile</h2>
           <ProfileForm profile={net.profile} />
+          <h3>Companies marked as not a target ({net.profile.excluded?.length ?? 0})</h3>
+          {net.profile.excluded?.length ? (
+            <ul className="small" style={{ margin: 0, paddingLeft: 18 }}>
+              {net.profile.excluded.map((x) => (
+                <li key={x.businessId}>
+                  <Link href={`/companies/${x.businessId}`}>{x.name}</Link> <span className="muted">· {x.businessId}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="small muted">None. On a company page, &quot;Not a target company&quot; takes its people off the list, for example a large group.</p>
+          )}
         </section>
 
         <section className="section" id="matches">

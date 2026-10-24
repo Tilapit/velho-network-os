@@ -63,6 +63,8 @@ export type Profile = {
   industries: IndustryRule[];
   roles: string[];
   note: string;
+  /** Companies the team has marked as not a target (business IDs), e.g. large groups. */
+  excluded?: { businessId: string; name: string }[];
 };
 
 export const DEFAULT_PROFILE: Profile = {

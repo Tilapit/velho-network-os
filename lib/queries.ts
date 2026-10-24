@@ -191,7 +191,7 @@ export function getCompany(net: Network, q: { business_id?: string; name?: strin
     businessId: co.businessId,
     namesInNetwork: co.rawNames,
     matchStatus: co.status,
-    prh: co.prh ? { form: co.prh.form, tol: co.prh.tol, industry: co.prh.industry, town: co.prh.town, registered: co.prh.registrationDate, website: co.prh.website, source: ytjUrl(co.prh.businessId) } : null,
+    prh: co.prh ? { form: co.prh.form, formCode: co.prh.formCode, tol: co.prh.tol, industry: co.prh.industry, town: co.prh.town, registered: co.prh.registrationDate, website: co.prh.website, source: ytjUrl(co.prh.businessId) } : null,
     group: GROUP[co.group].label,
     inProfile: !!co.rule,
     headcount: "Missing: not in PRH open data",

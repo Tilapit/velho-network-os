@@ -201,7 +201,7 @@ export function buildNetwork(input: BuildInput, signalsByCompany = indexSignals(
     if (match && MATCHED(match.status) && match.company && !match.foreign) {
       companyId = match.company.businessId;
       group = groupForTol(match.company.tol);
-      rule = industryRule(match.company.tol, profile);
+      rule = profile.excluded?.some((x) => x.businessId === match.company!.businessId) ? null : industryRule(match.company.tol, profile);
     } else if (match && match.status !== "skipped") {
       companyId = `x-${hash(match.key || d.company.toLowerCase(), 8)}`;
       if (match.foreign) group = "abroad";

@@ -148,15 +148,21 @@ export function analyse(net: Network, c: Contact): Analysis {
   for (const r of c.reactions) reasons.push({ kind: "reaction", label: "Reacted", text: `Reacted to "${r.post}" (pasted ${fmtDate(r.at.slice(0, 10))}, matched by name).`, source: "Pasted reactions", provenance: "inferred" });
 
   // What we don't know.
-  missing.push({ label: "Headcount", text: "Not in PRH open data. Check the size before you reach out." });
+  missing.push({
+    label: "Headcount",
+    text: prh?.formCode === "17" ? "Not in PRH open data. It is a public limited company (Oyj, PRH), which is often a large group: check the size." : "Not in PRH open data. Check the size before you reach out.",
+  });
   if (!c.position) missing.push({ label: "Title", text: "Empty in the LinkedIn export." });
   if (c.match?.status === "inferred" && !c.match.foreign) missing.push({ label: "Company match", text: `Close name only ("${c.company}"). Confirm it under Settings → PRH matches.` });
   if (!prh && c.company) missing.push({ label: "Company", text: c.match?.foreign ? "Not a Finnish company, so PRH has nothing on it." : c.match?.status === "pending" ? "Not looked up in PRH yet." : `"${c.company}" has no single match in PRH. ${c.match?.note ?? ""}`.trim() });
   if (!c.company) missing.push({ label: "Company", text: "Empty in the LinkedIn export." });
   missing.push({ label: "Current role", text: `The export shows the title on the day it was downloaded (${c.knownBy.map((k) => k.ownerName).join(", ")}).` });
 
+  const excluded = prh && net.profile.excluded?.some((x) => x.businessId === prh.businessId);
   const fitWhy = !c.fit
-    ? !c.rule
+    ? excluded
+      ? "The team marked this company as not a target."
+      : !c.rule
       ? "Not at a company in your target industries."
       : "Works at a target company, but the title is not a decision-maker role."
     : c.fit === "strong"

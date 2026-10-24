@@ -268,3 +268,12 @@ test("PRH matching: generic words are dropped for a second search, which can onl
   const p = await matchCompany("Uncached Name Oy", { offline: true });
   assert.equal(p.status, "pending", "never guesses before PRH has answered");
 });
+
+test("a company marked as not a target takes its people off the list", () => {
+  const profile = { ...DEFAULT_PROFILE, excluded: [{ businessId: "0606363-5", name: "Oy Lunawood Ltd" }] };
+  const n2 = buildNetwork({ networks: [{ owner: owner("you", "You"), text: YOU }], resolved, state: emptyState, profile, signals, today: "2026-10-24" });
+  const laura = n2.contacts.find((c) => c.name === "Laura Mäkelä")!;
+  assert.equal(laura.fit, null);
+  assert.equal(laura.approach, "skip");
+  assert.match(analyse(n2, laura).fitWhy, /not a target/);
+});
