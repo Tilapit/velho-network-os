@@ -142,7 +142,7 @@ td.num, th.num { text-align: right; }
 @media (max-width: 720px) {
   .top, .foot, .demo-banner { padding-left: 16px; padding-right: 16px; }
   .page, .split > .main { padding: 16px; }
-  .split > .side { padding: 16px; border-left: 0; border-top: 1px solid var(--border); max-width: none; }
+  .split > .side { padding: 16px; border-left: 0; border-bottom: 1px solid var(--border); max-width: none; order: -1; }
   h1 { font-size: 23px; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }

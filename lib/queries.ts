@@ -214,7 +214,7 @@ export type RadarRow = {
   signals: { type: SignalType; label: string; date: string; recordNumber: string }[];
   latest: string;
   score: number;
-  known: { id: string; name: string; title: string; fit: Fit | null; knownBy: string[] }[];
+  known: { id: string; name: string; title: string; fit: Fit | null; knownBy: string[]; url: string }[];
   source: string;
   url: string;
 };
@@ -256,7 +256,7 @@ export function getRadar(net: Network, f: RadarFilter = {}): { window: { start: 
       .map((id) => net.byId.get(id)!)
       .filter((c) => !owner || c.knownBy.some((k) => k.owner === owner))
       .sort((a, b) => b.score - a.score)
-      .map((c) => ({ id: c.id, name: c.name, title: c.position, fit: c.fit, knownBy: c.knownBy.map((k) => k.ownerName) }));
+      .map((c) => ({ id: c.id, name: c.name, title: c.position, fit: c.fit, knownBy: c.knownBy.map((k) => k.ownerName), url: appUrl(`/people/${c.id}`) }));
     const uniq = new Map<string, CompanySignal>();
     for (const s of sigs) if (!uniq.has(`${s.type}|${s.recordNumber}`)) uniq.set(`${s.type}|${s.recordNumber}`, s);
     const list = [...uniq.values()].sort((a, b) => b.date.localeCompare(a.date));
