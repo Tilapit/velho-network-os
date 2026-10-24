@@ -342,7 +342,8 @@ export async function loadNetwork(): Promise<Network> {
  */
 export function ensureMatching(net: Network) {
   if (process.env.PRH_OFFLINE === "1") return matchJob();
-  const pending = [...net.names.values()].filter((r) => r.status === "pending").map((r) => r.raw);
+  // Snapshot answers (demo only) are refreshed from PRH too when it is reachable.
+  const pending = [...net.names.values()].filter((r) => r.status === "pending" || r.snapshot).map((r) => r.raw);
   if (!pending.length) return matchJob();
   const weight = new Map<string, number>();
   for (const c of net.contacts) if (c.company) weight.set(c.company, (weight.get(c.company) ?? 0) + (c.role.decisionMaker ? 10 : 1));

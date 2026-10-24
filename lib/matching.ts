@@ -18,6 +18,8 @@ export type Resolved = {
   by: "rule" | "you";
   /** Not in PRH and the name looks international (company form or a known brand). */
   foreign: boolean;
+  /** Answered by the demo snapshot because the cache has no answer yet. */
+  snapshot?: boolean;
 };
 
 const memo = new Map<string, Resolved>();
@@ -50,7 +52,8 @@ export async function resolveName(raw: string, override?: Override, opts: { demo
   if (hit && hit.status !== "pending") return hit;
   let m: { status: MatchStatus; note: string; company?: PrhCompany; candidates: PrhCompany[] } = await matchCompany(raw, { offline: true });
   // Demo networks fall back to the shipped snapshot, so the demo never waits for PRH.
-  if (m.status === "pending" && opts.demo && demoSnapshot()[raw]) m = demoSnapshot()[raw];
+  const snap = m.status === "pending" && opts.demo ? demoSnapshot()[raw] : undefined;
+  if (snap) m = snap;
   const r: Resolved = {
     raw,
     key,
@@ -61,8 +64,9 @@ export async function resolveName(raw: string, override?: Override, opts: { demo
     by: "rule",
     // "Spotify AB" is the Swedish company even if a Finnish subsidiary is close.
     foreign: ((m.status === "none" || m.status === "ambiguous") && looksForeign(raw, key)) || (m.status === "inferred" && hasForeignForm(raw)),
+    snapshot: !!snap,
   };
-  memo.set(raw, r);
+  if (!snap) memo.set(raw, r);
   return r;
 }
 

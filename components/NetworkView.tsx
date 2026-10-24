@@ -182,7 +182,7 @@ export function NetworkView(props: { nodes: ViewNode[]; groups: DGroup[]; owners
             <p className="small muted" style={{ marginBottom: 14 }}>
               Strong fit: decides on operations, production or the whole company, at a company in your industries. Ordered by code, not by AI.
             </p>
-            {listed.slice(0, 40).map((n) => (
+            {listed.slice(0, 12).map((n) => (
               <button key={n.id} type="button" className={`prow${n.nf ? " dim" : ""}`} onClick={() => setSelected(n.id)}>
                 <span className="top-line">
                   <span className="name">{n.n}</span>

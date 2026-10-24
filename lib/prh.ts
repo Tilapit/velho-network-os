@@ -257,6 +257,15 @@ export async function getCompany(businessId: string, opts: { offline?: boolean }
   return result.companies[0] ?? null;
 }
 
+const GENERIC = /\s+(solutions|technologies|technology|finland|suomi|group|services|systems|company|industries|international|holding|nordic|europe|global|ltd|oy)$/i;
+
+/** "RELEX Solutions" -> "RELEX", "Varjo Technologies Finland" -> "Varjo". */
+export function coreName(base: string): string {
+  let s = base.trim();
+  while (GENERIC.test(s) && s.replace(GENERIC, "").trim().length >= 3) s = s.replace(GENERIC, "").trim();
+  return s;
+}
+
 /** Looks a LinkedIn company name up in YTJ. Never guesses: see decide(). */
 export async function matchCompany(name: string, opts: { offline?: boolean } = {}): Promise<PrhMatch> {
   const key = looseKey(name);
@@ -272,7 +281,7 @@ export async function matchCompany(name: string, opts: { offline?: boolean } = {
   // A short or common name returns hundreds of hits in register order, so the
   // right company may not be on the first page. Narrow with the legal form.
   if (first.totalResults > 100) {
-    for (const q of [`${base} Oy`, `Oy ${base}`]) {
+    for (const q of [`${base} Oy`, `Oy ${base}`, `${base} Oyj`, `${base} Ab`]) {
       const r = await searchYtj(q, opts);
       if (!r) {
         if (decide(name, results).status !== "verified") return { name, key, status: "pending", candidates: [], note: "Not looked up in PRH yet", queries };
@@ -282,6 +291,20 @@ export async function matchCompany(name: string, opts: { offline?: boolean } = {
       results.push(r);
       if (decide(name, results).status === "verified") break;
     }
+  }
+  // "RELEX Solutions", "Varjo Technologies Finland": people add generic words
+  // the register name may not have. Search again without them; anything found
+  // this way can only be a close match (inferred), never verified.
+  const core = coreName(base);
+  if (core !== base && core.length >= 3 && decide(name, results).status === "none") {
+    const r = await searchYtj(core, opts);
+    if (!r) return { name, key, status: "pending", candidates: [], note: "Not looked up in PRH yet", queries };
+    queries.push(core);
+    const d = decide(core, [r]);
+    if (d.status === "verified" || d.status === "inferred") {
+      return { name, key, status: "inferred", company: d.company, candidates: d.candidates, note: `One candidate without "${base.slice(core.length).trim()}": check it.`, queries };
+    }
+    if (d.status === "ambiguous") return { ...d, name, key, queries };
   }
   return { ...decide(name, results), queries };
 }

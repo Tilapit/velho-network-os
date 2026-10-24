@@ -255,3 +255,16 @@ test("demo loads with one call and works offline from the shipped snapshots", as
   assert.ok(net.signals && net.signals.signals.length > 1000, "radar snapshot loaded");
   assert.ok(net.contacts.every((c) => c.group), "every contact is in one group");
 });
+
+test("PRH matching: generic words are dropped for a second search, which can only give a close match", async () => {
+  const { matchCompany, writeCache, hash, coreName } = await import("../lib/prh.ts");
+  assert.equal(coreName("RELEX Solutions"), "RELEX");
+  assert.equal(coreName("Sisu Axles"), "Sisu Axles");
+  writeCache("ytj", hash("RELEX Solutions"), { query: "RELEX Solutions", fetchedAt: "", totalResults: 0, companies: [] });
+  writeCache("ytj", hash("RELEX"), { query: "RELEX", fetchedAt: "", totalResults: 1, companies: [co("1963444-1", "RELEX Oy", "62100")] });
+  const m = await matchCompany("RELEX Solutions", { offline: true });
+  assert.equal(m.status, "inferred");
+  assert.equal(m.company?.businessId, "1963444-1");
+  const p = await matchCompany("Uncached Name Oy", { offline: true });
+  assert.equal(p.status, "pending", "never guesses before PRH has answered");
+});
