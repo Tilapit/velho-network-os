@@ -129,6 +129,10 @@ td.num, th.num { text-align: right; }
 .prow .top-line { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
 .prow .name { font-weight: 600; font-size: 15px; }
 
+.grid2 > .card.stack { align-content: start; }
+pre.code { background: #0f1216; border: 1px solid var(--border-2); border-radius: 6px; padding: 8px 10px; margin: 0; font-size: 13px; white-space: pre-wrap; overflow-wrap: anywhere; }
+code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.92em; background: #12161b; border-radius: 4px; padding: 1px 4px; }
+
 /* this week */
 .week { margin-bottom: 26px; }
 .week-card { cursor: default; gap: 0; }

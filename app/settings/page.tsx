@@ -3,6 +3,7 @@ import { ensureMatching, loadNetwork } from "@/lib/network.ts";
 import { matchJob } from "@/lib/matching.ts";
 import { listPosts, readState } from "@/lib/state.ts";
 import { appUrl } from "@/lib/queries.ts";
+import { mcpToken } from "@/lib/access.ts";
 import { fmtDate } from "@/lib/analysis.ts";
 import { DemoButton, UploadForm } from "@/components/FirstRun";
 import { DeleteAll, DeleteOwner, MatchReview, ProfileForm, type Review } from "@/components/SettingsParts";
@@ -49,6 +50,7 @@ export default async function Settings() {
   const needLook = reviews.filter((r) => r.status !== "picked");
   const s = net.stats;
   const job = matchJob();
+  const token = !!mcpToken();
   return (
     <>
       <MatchProgress initial={{ ...job }} />
@@ -158,12 +160,54 @@ export default async function Settings() {
         </section>
 
         <section className="section" id="mcp">
-          <h2>Use it from Claude</h2>
-          <p className="small" style={{ marginBottom: 8 }}>
-            The same data, as an MCP server, so you can ask in your own Claude: &quot;who should we invite to a logistics roundtable?&quot; Ranking and filtering stay in this app; Claude picks the filters and writes the text. Nothing is sent to anyone.
+          <h2>Connect to Claude</h2>
+          <p className="small" style={{ marginBottom: 10, maxWidth: 820 }}>
+            The same data as an MCP connector, so you can ask in your own Claude: &quot;who should we reach this week?&quot; or &quot;who should we invite to a logistics roundtable?&quot;. Ranking and filtering stay in this app; Claude picks the filters and writes the text, on your own subscription. Nothing is sent to anyone.
           </p>
-          <pre className="card small" style={{ overflowX: "auto", margin: 0 }}>claude mcp add --transport http velho {appUrl("/api/mcp")}</pre>
-          <p className="small muted" style={{ marginTop: 6 }}>Local only for now: no login, so do not expose this port to the internet.</p>
+          <p className="small" style={{ marginBottom: 14 }}>
+            Token: {token ? <span className="pill green">on</span> : <span className="pill">off</span>}{" "}
+            <span className="muted">{token ? "Claude needs the header below. Pages answer only on this machine." : "The connector is for this machine only. Set MCP_TOKEN before you open a tunnel."}</span>
+          </p>
+          <div className="grid2">
+            <div className="card stack">
+              <div className="row" style={{ gap: 8 }}>
+                <b>Claude Code</b>
+                <span className="pill green">Tested</span>
+              </div>
+              <pre className="code">claude mcp add --transport http velho {appUrl("/api/mcp")}{token ? ' \\\n  --header "Authorization: Bearer $MCP_TOKEN"' : ""}</pre>
+              <span className="small muted">Then ask, for example: &quot;Using Velho Network, who should we reach this week?&quot;. Write in Claude on a person copies a ready prompt.</span>
+            </div>
+            <div className="card stack">
+              <div className="row" style={{ gap: 8 }}>
+                <b>claude.ai and Claude Desktop</b>
+                <span className="pill amber">Untested</span>
+              </div>
+              <ol className="small" style={{ margin: 0, paddingLeft: 18, display: "grid", gap: 6 }}>
+                <li>
+                  A token, the same in both terminals: <code>export MCP_TOKEN=$(openssl rand -hex 24)</code>
+                </li>
+                <li>
+                  Terminal 1: <code>npm run dev</code>. Terminal 2: <code>npm run tunnel</code> (needs <code>cloudflared</code>; it prints the public URL and the header).
+                </li>
+                <li>claude.ai: Settings → Connectors → Add custom connector. Name: Velho Network. URL: the printed one, ending in /api/mcp. Give it the Authorization header if it asks for one.</li>
+                <li>Claude Desktop shares the connectors of your claude.ai account. Without a tunnel, it can also reach this machine through <code>npx -y mcp-remote {appUrl("/api/mcp")} --header &quot;Authorization: Bearer …&quot;</code> in its config.</li>
+                <li>Ctrl-C stops the tunnel. Through it, only /api/mcp answers, and only with the token.</li>
+              </ol>
+            </div>
+          </div>
+          <div className="card stack" style={{ marginTop: 16, maxWidth: 820 }}>
+            <b>The skill</b>
+            <span className="small">It tells Claude which tool to use when, Velho&apos;s tone for messages, and the privacy rules.</span>
+            <div className="row">
+              <a className="btn small" href="/api/skill.zip">
+                Download velho-network-skill.zip
+              </a>
+              <span className="small muted">
+                Or <code>npm run skill:zip</code> (writes dist/velho-network-skill.zip).
+              </span>
+            </div>
+            <span className="small muted">claude.ai: Settings → Capabilities → Skills → Upload skill. Claude Code: copy claude/velho-network to ~/.claude/skills/.</span>
+          </div>
         </section>
 
         <section className="section" id="delete">

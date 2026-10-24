@@ -15,7 +15,7 @@ b935098, the part-1 demo, so a working demo always exists.
 | 2. Real-data proof | 1 h | done 00:58 |
 | 3. Reactions | 1 h | done 01:09 |
 | 4. This week + Write in Claude | 45 min | done 01:17 |
-| 5. claude.ai and Claude Desktop | 45 min | |
+| 5. claude.ai and Claude Desktop | 45 min | done 01:24 |
 | 6. Polish and hand-over | 45 min+ | |
 
 Decisions (part 2):
@@ -131,6 +131,30 @@ Decisions (part 2):
   Claude with the name replaced by `[FIRST_NAME]`, which is put back
   locally, so the privacy rule (no names to Claude) holds. Untested against
   the live API tonight: no key on this machine.
+- **MCP token** (`lib/access.ts`, `middleware.ts`): with `MCP_TOKEN` set,
+  `/api/mcp` needs `Authorization: Bearer <token>` from everyone (401 and
+  `WWW-Authenticate` otherwise; constant-time compare). Every other page
+  and API then answers only to localhost without Cloudflare headers, so a
+  tunnel exposes the connector and nothing else. Without `MCP_TOKEN`
+  nothing changes. Checked with curl (no header 401, wrong 401, right 200,
+  page through a tunnel host 403, connector through a tunnel host with the
+  token 200) and with Claude Code: `claude mcp add --transport http
+  --header "Authorization: Bearer …"` in a scratch project, then
+  `claude -p` called `this_week` and got the same five as the app
+  ($0.20).
+- **Tunnel.** `npm run tunnel` (`scripts/tunnel.sh`): refuses to start
+  without `MCP_TOKEN`, or if the app answers `/api/mcp` without it; then a
+  Cloudflare quick tunnel, and it prints the URL and the header.
+  `cloudflared` is not installed here, so only the "how to install" branch
+  ran. No tunnel was opened tonight.
+- **Skill zip.** `npm run skill:zip` writes `dist/velho-network-skill.zip`
+  (gitignored); Settings also serves it at `/api/skill.zip`, built in
+  memory by a 60-line stored-zip writer (`lib/zip.ts`), checked with
+  `unzip -t`.
+- **Claude Desktop** without a tunnel: `npx -y mcp-remote <url> --header
+  …` in its config. Written down, untested.
+- `.env.example` is outside what this session may read, so `MCP_TOKEN` is
+  documented in the README and Settings instead.
 
 ## Morning report
 

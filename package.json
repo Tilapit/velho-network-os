@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start -p 3100",
     "test": "node --test --experimental-strip-types tests/*.test.ts",
-    "reset": "node scripts/reset.mjs"
+    "reset": "node scripts/reset.mjs",
+    "skill:zip": "mkdir -p dist && rm -f dist/velho-network-skill.zip && cd claude && zip -qrX ../dist/velho-network-skill.zip velho-network -x '*/.*' && cd .. && unzip -l dist/velho-network-skill.zip",
+    "tunnel": "scripts/tunnel.sh"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.3.0",
