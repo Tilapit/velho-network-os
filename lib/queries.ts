@@ -452,10 +452,14 @@ export function addReactions(net: Network, input: ReactionInput) {
   const at = new Date().toISOString();
   const postDate = isoDate(input.postDate) || net.today;
   const base = { post: input.post.trim() || "Untitled post", postDate, author: authorId, at };
-  const rows: Reaction[] = [
-    ...res.matched.filter((m) => !picked.has(nameKey(m.entry.name))).map((m) => ({ ...base, contactId: m.contactId, name: m.entry.name, how: m.how })),
+  // Two people of one name can both react: a pick never drops another
+  // match; only the same person twice is collapsed.
+  const rows: Reaction[] = [];
+  for (const r of [
+    ...res.matched.map((m) => ({ ...base, contactId: m.contactId, name: m.entry.name, how: m.how })),
     ...picks.map((p) => ({ ...base, contactId: p.person_id, name: cleanName(p.name), how: "picked" as const })),
-  ];
+  ])
+    if (!rows.some((x) => x.contactId === r.contactId)) rows.push(r);
   const saved = input.save === false ? 0 : rows.length ? addReactionRows(rows) : 0;
   const person = (id: string) => {
     const c = net.byId.get(id)!;

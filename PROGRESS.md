@@ -172,6 +172,13 @@ Decisions (part 2):
     mid-shot once and caught a stretched frame.
   - The video (`media/demo-walkthrough.webm`) is Playwright's recording
     with a drawn cursor (headless video has none), 86 s at 1440×900.
+  - The part-1 network image shows Other industries 899 and Abroad 106;
+    today it is 859 and 146. Not from tonight: the `demo-v1` code gives
+    859 and 146 on the same data. Part 1's screenshots were taken before
+    its last matching fix (international brand names never verified by
+    name alone).
+  - Mid widths (640–900 px of drawing, a 1024–1280 px window) use the full
+    layout with short industry names; below 640 px the phone layout.
 
 ## Morning report
 

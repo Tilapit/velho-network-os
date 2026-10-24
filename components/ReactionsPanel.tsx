@@ -27,16 +27,15 @@ export function ReactionsPanel({ owners, posts, today }: { owners: { id: string;
   const [author, setAuthor] = useState(owners[0]?.id ?? "");
   const [text, setText] = useState("");
   const [result, setResult] = useState<Result | null>(null);
-  const [picks, setPicks] = useState<Record<string, string>>({});
+  const [picks, setPicks] = useState<Record<number, string>>({});
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
 
   async function send(save: boolean) {
     setBusy(true);
     setMsg("");
-    const chosen = Object.entries(picks)
-      .filter(([, id]) => id && id !== "none")
-      .map(([name, person_id]) => ({ name, person_id }));
+    // Picks are kept per review entry: two entries can share a name.
+    const chosen = (result?.review ?? []).flatMap((r, i) => (picks[i] && picks[i] !== "none" ? [{ name: r.name, person_id: picks[i] }] : []));
     const r = await fetch("/api/reactions", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ post, postDate: date, author, text, picks: save ? chosen : [], save }) });
     const j = await r.json().catch(() => ({}));
     setBusy(false);
@@ -131,8 +130,8 @@ export function ReactionsPanel({ owners, posts, today }: { owners: { id: string;
             <div>
               <h3>Check these ({result.review.length})</h3>
               <p className="small muted">Two or more people in your networks have this name, and the headline does not settle it. Pick one, or leave it out.</p>
-              {result.review.map((r) => (
-                <fieldset key={r.name} className="review">
+              {result.review.map((r, i) => (
+                <fieldset key={i} className="review">
                   <legend>
                     <b>{r.name}</b>
                     <span className="small muted">
@@ -142,7 +141,7 @@ export function ReactionsPanel({ owners, posts, today }: { owners: { id: string;
                   </legend>
                   {r.candidates.map((c) => (
                     <label key={c.id} className="small row" style={{ gap: 8 }}>
-                      <input type="radio" name={r.name} checked={picks[r.name] === c.id} onChange={() => setPicks({ ...picks, [r.name]: c.id })} />
+                      <input type="radio" name={`pick-${i}`} checked={picks[i] === c.id} onChange={() => setPicks({ ...picks, [i]: c.id })} />
                       <span>
                         {c.name} · {c.title || "No title"}
                         {c.company ? ` · ${c.company}` : ""} <span className="muted">· known by {c.knownBy.join(" and ")}</span>
@@ -150,7 +149,7 @@ export function ReactionsPanel({ owners, posts, today }: { owners: { id: string;
                     </label>
                   ))}
                   <label className="small row" style={{ gap: 8 }}>
-                    <input type="radio" name={r.name} checked={!picks[r.name] || picks[r.name] === "none"} onChange={() => setPicks({ ...picks, [r.name]: "none" })} />
+                    <input type="radio" name={`pick-${i}`} checked={!picks[i] || picks[i] === "none"} onChange={() => setPicks({ ...picks, [i]: "none" })} />
                     <span>None of these</span>
                   </label>
                 </fieldset>

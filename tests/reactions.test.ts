@@ -124,6 +124,17 @@ test("reactions: stored with a weight in the score, a Reaction reason, and unmat
   assert.equal(old.parts.find((p) => p.label === "Reacted"), undefined);
 });
 
+test("reactions: picking one of two same-name people keeps the other's automatic match", () => {
+  const r = addReactions(net, {
+    post: "Two Mikkos",
+    postDate: "2026-10-20",
+    entries: [{ name: "Mikko Korhonen", headline: "CFO at Hydroline" }, { name: "Mikko Korhonen", headline: "Passionate about people" }],
+    picks: [{ name: "Mikko Korhonen", person_id: idOf("Mikko Korhonen", "Reaktor") }],
+  });
+  assert.deepEqual(r.matched.map((m) => [m.person.id, m.how]).sort(), [[idOf("Mikko Korhonen", "Hydroline"), "name_company"], [idOf("Mikko Korhonen", "Reaktor"), "picked"]].sort());
+  assert.equal(r.review.length, 0);
+});
+
 test("demo: two posts' reactions are seeded out of the box", async () => {
   const { loadDemoWithReactions } = await import("../lib/demo.ts");
   const { loadNetwork } = await import("../lib/network.ts");
