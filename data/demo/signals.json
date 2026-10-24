@@ -1,0 +1,59 @@
+[
+  {
+    "company": "Rautio Industrial Oy",
+    "type": "expansion",
+    "title": "Announces a second production line in Tampere, start-up spring 2027",
+    "date": "2026-10-14",
+    "source": "Company press release",
+    "url": "https://rautio.example/news/second-line"
+  },
+  {
+    "company": "Rautio Industrial Oy",
+    "type": "operational_hiring",
+    "title": "Hiring an ERP and production systems manager",
+    "date": "2026-10-08",
+    "source": "Job ad",
+    "url": "https://jobs.example/rautio-erp"
+  },
+  {
+    "company": "Lahden Kuljetus Oy",
+    "type": "leadership_change",
+    "title": "Elina Virta appointed Head of Operations",
+    "date": "2026-09-29",
+    "source": "Company news",
+    "url": "https://lahdenkuljetus.example/news",
+    "person": "Elina Virta"
+  },
+  {
+    "company": "Pohjola Pumps Oy",
+    "type": "operational_hiring",
+    "title": "Hiring a production planner to replace manual scheduling",
+    "date": "2026-10-12",
+    "source": "Job ad",
+    "url": "https://jobs.example/pohjola-planner"
+  },
+  {
+    "company": "Meriteollisuus Oy",
+    "type": "erp_modernization",
+    "title": "MES renewal listed in 2027 investment plan",
+    "date": "2026-04-02",
+    "source": "Annual report 2025",
+    "url": "https://meriteollisuus.example/annual-report"
+  },
+  {
+    "company": "Kivitehdas Oy",
+    "type": "funding",
+    "title": "Receives regional growth funding",
+    "date": "2026-10-01",
+    "source": "Business Finland decision list",
+    "url": "https://example.org/funding"
+  },
+  {
+    "company": "Teollisuus Nord Oy",
+    "type": "acquisition",
+    "title": "Acquires a Swedish distributor",
+    "date": "2026-10-10",
+    "source": "Press release",
+    "url": "https://example.org/acq"
+  }
+]

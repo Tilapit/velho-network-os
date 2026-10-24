@@ -1,0 +1,99 @@
+post_id,name,profile_url,headline,type,reaction,comment,engaged_on
+p1,Kaisa Rinne,https://www.linkedin.com/in/kaisa-rinne,COO at Rautio Industrial,comment,,We counted ours last year: 22 spreadsheets feeding one ERP. The handovers are where the errors happen.,2026-08-20
+p4,Kaisa Rinne,https://www.linkedin.com/in/kaisa-rinne,COO at Rautio Industrial,comment,,Our production planning tool is from 2009 and has no API at all. Curious how you approach this.,2026-09-24
+p6,Kaisa Rinne,https://www.linkedin.com/in/kaisa-rinne,COO at Rautio Industrial,reaction,insightful,,2026-10-16
+p1,Tuomas Heikkilä,https://www.linkedin.com/in/tuomas-heikkila,Director at Meriteollisuus,comment,,Same story with our 20-year-old MES. Everyone works around it instead of with it.,2026-08-21
+p4,Tuomas Heikkilä,https://www.linkedin.com/in/tuomas-heikkila,Director at Meriteollisuus,reaction,like,,2026-09-25
+p2,Mikko Salo,https://www.linkedin.com/in/mikko-salo-nt,"CEO, Nordtek Components",reaction,like,,2026-08-29
+p4,Mikko Salo,https://www.linkedin.com/in/mikko-salo-nt,"CEO, Nordtek Components",reaction,insightful,,2026-09-24
+p6,Mikko Salo,https://www.linkedin.com/in/mikko-salo-nt,"CEO, Nordtek Components",reaction,like,,2026-10-15
+p6,Elina Virta,https://www.linkedin.com/in/elina-virta,"Head of Operations, Lahden Kuljetus",reaction,like,,2026-10-17
+p2,Antti Laine,https://www.linkedin.com/in/antti-laine-pp,CEO at Pohjola Pumps,comment,,Would love to see the before/after numbers on this.,2026-08-30
+p6,Sami Lehto,https://www.linkedin.com/in/sami-lehto,"CEO, Kivitehdas",reaction,like,,2026-10-16
+p6,Laura Niemi,https://www.linkedin.com/in/laura-niemi-fw,Operations Manager at Fiskari Works,comment,,This is exactly our situation with dealer quotes.,2026-10-16
+p2,Jari Koski,https://www.linkedin.com/in/jari-koski-hm,CEO at Harjula Metalworks,comment,,Proud to have been part of this one.,2026-08-28
+p6,Riikka Saarinen,https://www.linkedin.com/in/riikka-saarinen,"Head of Supply Chain, Saarinen Components",reaction,insightful,,2026-10-18
+p6,Oskari Lind,,"MD, Lindström Packaging",reaction,like,,2026-10-19
+p3,Aino Korhonen,https://www.linkedin.com/in/aino-korhonen-0,Software Engineer at Reaktor-like Studio,reaction,love,,2026-09-10
+p5,Aino Korhonen,https://www.linkedin.com/in/aino-korhonen-0,Software Engineer at Reaktor-like Studio,reaction,like,,2026-10-07
+p7,Aino Korhonen,https://www.linkedin.com/in/aino-korhonen-0,Software Engineer at Reaktor-like Studio,reaction,love,,2026-10-21
+p5,Eero Järvinen,https://www.linkedin.com/in/eero-jarvinen-1,Product Designer at Pixelpaja,reaction,celebrate,,2026-10-07
+p7,Veera Peltonen,https://www.linkedin.com/in/veera-peltonen-2,Student at Aalto University,reaction,celebrate,,2026-10-21
+p3,Veera Peltonen,https://www.linkedin.com/in/veera-peltonen-2,Student at Aalto University,reaction,like,,2026-09-10
+p3,Joonas Lahtinen,https://www.linkedin.com/in/joonas-lahtinen-3,Growth Marketer at SaaSify,reaction,celebrate,,2026-09-10
+p5,Joonas Lahtinen,https://www.linkedin.com/in/joonas-lahtinen-3,Growth Marketer at SaaSify,reaction,celebrate,,2026-10-07
+p7,Joonas Lahtinen,https://www.linkedin.com/in/joonas-lahtinen-3,Growth Marketer at SaaSify,reaction,celebrate,,2026-10-21
+p5,Sanni Laitinen,https://www.linkedin.com/in/sanni-laitinen-4,Recruiter at TalentLink,reaction,celebrate,,2026-10-07
+p7,Ville Heikkinen,https://www.linkedin.com/in/ville-heikkinen-5,Founder at Chatbotti,reaction,like,,2026-10-21
+p3,Ville Heikkinen,https://www.linkedin.com/in/ville-heikkinen-5,Founder at Chatbotti,reaction,love,,2026-09-10
+p3,Iida Salonen,https://www.linkedin.com/in/iida-salonen-6,Data Scientist at Numerot Oy,reaction,celebrate,,2026-09-10
+p5,Iida Salonen,https://www.linkedin.com/in/iida-salonen-6,Data Scientist at Numerot Oy,reaction,like,,2026-10-07
+p7,Iida Salonen,https://www.linkedin.com/in/iida-salonen-6,Data Scientist at Numerot Oy,reaction,like,,2026-10-21
+p5,Antti Ahonen,https://www.linkedin.com/in/antti-ahonen-7,Account Executive at CloudSales,reaction,like,,2026-10-07
+p7,Noora Ojala,https://www.linkedin.com/in/noora-ojala-8,Frontend Developer at Koodi Oy,reaction,celebrate,,2026-10-21
+p3,Noora Ojala,https://www.linkedin.com/in/noora-ojala-8,Frontend Developer at Koodi Oy,reaction,love,,2026-09-10
+p3,Teemu Hämäläinen,https://www.linkedin.com/in/teemu-hamalainen-9,UX Researcher at Pixelpaja,reaction,like,,2026-09-10
+p5,Teemu Hämäläinen,https://www.linkedin.com/in/teemu-hamalainen-9,UX Researcher at Pixelpaja,reaction,like,,2026-10-07
+p7,Teemu Hämäläinen,https://www.linkedin.com/in/teemu-hamalainen-9,UX Researcher at Pixelpaja,reaction,celebrate,,2026-10-21
+p5,Emma Kallio,https://www.linkedin.com/in/emma-kallio-10,Investor Relations at Pohjoinen Ventures,reaction,like,,2026-10-07
+p7,Lauri Kettunen,https://www.linkedin.com/in/lauri-kettunen-11,Consultant at Big Four Advisory,reaction,love,,2026-10-21
+p3,Lauri Kettunen,https://www.linkedin.com/in/lauri-kettunen-11,Consultant at Big Four Advisory,reaction,love,,2026-09-10
+p3,Sofia Jokinen,https://www.linkedin.com/in/sofia-jokinen-12,Community Manager at Startup Hub Espoo,reaction,love,,2026-09-10
+p5,Sofia Jokinen,https://www.linkedin.com/in/sofia-jokinen-12,Community Manager at Startup Hub Espoo,reaction,love,,2026-10-07
+p7,Sofia Jokinen,https://www.linkedin.com/in/sofia-jokinen-12,Community Manager at Startup Hub Espoo,reaction,love,,2026-10-21
+p5,Matias Virtanen,https://www.linkedin.com/in/matias-virtanen-13,Student at Hanken,reaction,like,,2026-10-07
+p7,Milla Lehtonen,https://www.linkedin.com/in/milla-lehtonen-14,Engineer at Koodi Oy,reaction,love,,2026-10-21
+p3,Milla Lehtonen,https://www.linkedin.com/in/milla-lehtonen-14,Engineer at Koodi Oy,reaction,love,,2026-09-10
+p3,Henri Rantanen,https://www.linkedin.com/in/henri-rantanen-15,Sales Manager at Toimisto Kalusteet,reaction,like,,2026-09-10
+p5,Henri Rantanen,https://www.linkedin.com/in/henri-rantanen-15,Sales Manager at Toimisto Kalusteet,reaction,celebrate,,2026-10-07
+p7,Henri Rantanen,https://www.linkedin.com/in/henri-rantanen-15,Sales Manager at Toimisto Kalusteet,reaction,like,,2026-10-21
+p5,Ella Tuominen,https://www.linkedin.com/in/ella-tuominen-16,Marketing Lead at Brändi Oy,reaction,celebrate,,2026-10-07
+p7,Rasmus Holmberg,https://www.linkedin.com/in/rasmus-holmberg-17,CTO at Chatbotti,reaction,love,,2026-10-21
+p3,Rasmus Holmberg,https://www.linkedin.com/in/rasmus-holmberg-17,CTO at Chatbotti,reaction,celebrate,,2026-09-10
+p3,Kiia Koskinen,https://www.linkedin.com/in/kiia-koskinen-18,Teacher at Espoon lukio,reaction,like,,2026-09-10
+p5,Kiia Koskinen,https://www.linkedin.com/in/kiia-koskinen-18,Teacher at Espoon lukio,reaction,like,,2026-10-07
+p7,Kiia Koskinen,https://www.linkedin.com/in/kiia-koskinen-18,Teacher at Espoon lukio,reaction,like,,2026-10-21
+p5,Otto Mattila,https://www.linkedin.com/in/otto-mattila-19,Analyst at Numerot Oy,reaction,like,,2026-10-07
+p7,Pinja Vainio,https://www.linkedin.com/in/pinja-vainio-20,Software Engineer at Reaktor-like Studio,reaction,like,,2026-10-21
+p3,Pinja Vainio,https://www.linkedin.com/in/pinja-vainio-20,Software Engineer at Reaktor-like Studio,reaction,celebrate,,2026-09-10
+p3,Akseli Miettinen,https://www.linkedin.com/in/akseli-miettinen-21,Product Designer at Pixelpaja,reaction,like,,2026-09-10
+p5,Akseli Miettinen,https://www.linkedin.com/in/akseli-miettinen-21,Product Designer at Pixelpaja,reaction,like,,2026-10-07
+p7,Akseli Miettinen,https://www.linkedin.com/in/akseli-miettinen-21,Product Designer at Pixelpaja,reaction,like,,2026-10-21
+p5,Venla Laine,https://www.linkedin.com/in/venla-laine-22,Student at Aalto University,reaction,like,,2026-10-07
+p7,Niko Turunen,https://www.linkedin.com/in/niko-turunen-23,Growth Marketer at SaaSify,reaction,celebrate,,2026-10-21
+p3,Niko Turunen,https://www.linkedin.com/in/niko-turunen-23,Growth Marketer at SaaSify,reaction,love,,2026-09-10
+p3,Saara Hiltunen,https://www.linkedin.com/in/saara-hiltunen-24,Recruiter at TalentLink,reaction,celebrate,,2026-09-10
+p5,Saara Hiltunen,https://www.linkedin.com/in/saara-hiltunen-24,Recruiter at TalentLink,reaction,like,,2026-10-07
+p7,Saara Hiltunen,https://www.linkedin.com/in/saara-hiltunen-24,Recruiter at TalentLink,reaction,like,,2026-10-21
+p5,Juho Pitkänen,https://www.linkedin.com/in/juho-pitkanen-25,Founder at Chatbotti,reaction,like,,2026-10-07
+p7,Ronja Nieminen,https://www.linkedin.com/in/ronja-nieminen-26,Data Scientist at Numerot Oy,reaction,love,,2026-10-21
+p3,Ronja Nieminen,https://www.linkedin.com/in/ronja-nieminen-26,Data Scientist at Numerot Oy,reaction,like,,2026-09-10
+p3,Aleksi Saarela,https://www.linkedin.com/in/aleksi-saarela-27,Account Executive at CloudSales,reaction,like,,2026-09-10
+p5,Aleksi Saarela,https://www.linkedin.com/in/aleksi-saarela-27,Account Executive at CloudSales,reaction,love,,2026-10-07
+p7,Aleksi Saarela,https://www.linkedin.com/in/aleksi-saarela-27,Account Executive at CloudSales,reaction,love,,2026-10-21
+p5,Inka Leinonen,https://www.linkedin.com/in/inka-leinonen-28,Frontend Developer at Koodi Oy,reaction,love,,2026-10-07
+p5,Kalle Aaltonen,https://www.linkedin.com/in/x-0,Software developer,reaction,like,,2026-10-07
+p5,Tiia Björk,https://www.linkedin.com/in/x-1,Student,reaction,like,,2026-10-07
+p5,Mikael Eskola,https://www.linkedin.com/in/x-2,Software developer,reaction,like,,2026-10-07
+p5,Oona Grönlund,https://www.linkedin.com/in/x-3,Student,reaction,like,,2026-10-07
+p5,Severi Haapala,https://www.linkedin.com/in/x-4,Software developer,reaction,like,,2026-10-07
+p5,Jenna Ikonen,https://www.linkedin.com/in/x-5,Student,reaction,like,,2026-10-07
+p5,Arttu Jääskeläinen,https://www.linkedin.com/in/x-6,Software developer,reaction,like,,2026-10-07
+p5,Elsa Kivelä,https://www.linkedin.com/in/x-7,Student,reaction,like,,2026-10-07
+p5,Patrik Lindqvist,https://www.linkedin.com/in/x-8,Software developer,reaction,like,,2026-10-07
+p5,Nella Mustonen,https://www.linkedin.com/in/x-9,Student,reaction,like,,2026-10-07
+p5,Tuukka Nurmi,https://www.linkedin.com/in/x-10,Software developer,reaction,like,,2026-10-07
+p5,Selma Orava,https://www.linkedin.com/in/x-11,Student,reaction,like,,2026-10-07
+p5,Valtteri Paasonen,https://www.linkedin.com/in/x-12,Software developer,reaction,like,,2026-10-07
+p5,Alisa Rinne-Ek,https://www.linkedin.com/in/x-13,Student,reaction,like,,2026-10-07
+p5,Roope Sjöberg,https://www.linkedin.com/in/x-14,Software developer,reaction,like,,2026-10-07
+p5,Minja Tapio,https://www.linkedin.com/in/x-15,Student,reaction,like,,2026-10-07
+p5,Daniel Uotila,https://www.linkedin.com/in/x-16,Software developer,reaction,like,,2026-10-07
+p5,Iiris Väisänen,https://www.linkedin.com/in/x-17,Student,reaction,like,,2026-10-07
+p5,Leevi Westerlund,https://www.linkedin.com/in/x-18,Software developer,reaction,like,,2026-10-07
+p5,Vilma Ylönen,https://www.linkedin.com/in/x-19,Student,reaction,like,,2026-10-07
+p5,Onni Åberg,https://www.linkedin.com/in/x-20,Software developer,reaction,like,,2026-10-07
+p5,Hilla Hakala,https://www.linkedin.com/in/x-21,Student,reaction,like,,2026-10-07
+p5,Eetu Kumpula,https://www.linkedin.com/in/x-22,Software developer,reaction,like,,2026-10-07
+p5,Lotta Lassila,https://www.linkedin.com/in/x-23,Student,reaction,like,,2026-10-07
+p5,Jesse Moilanen,https://www.linkedin.com/in/x-24,Software developer,reaction,like,,2026-10-07
