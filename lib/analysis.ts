@@ -166,7 +166,7 @@ export function analyse(net: Network, c: Contact): Analysis {
         : c.role.level === "manager"
           ? "Manager-level title: shapes decisions, rarely signs them off."
           : `Decision-maker in ${c.role.area === "other" ? "another area" : c.role.area}, not operations or production.`;
-  const approachWhy = c.approach === "direct" ? `${c.sender.ownerName} can write directly: ${c.sender.ownerName === "You" ? "you" : "they"} connected first.` : c.approach === "ask_intro" ? `Ask ${c.name.split(" ")[0]} who decides on operations at ${companyName}.` : "No reason to reach out yet.";
+  const approachWhy = c.approach === "direct" ? `${c.sender.ownerName === "You" ? "you write" : `${c.sender.ownerName} writes`} to them.` : c.approach === "ask_intro" ? `Ask ${c.name.split(" ")[0]} who decides on operations at ${companyName}.` : "No reason to reach out yet.";
 
   return {
     id: c.id,
