@@ -20,6 +20,8 @@ export function NetworkView(props: { nodes: ViewNode[]; groups: DGroup[]; owners
   const [person, setPerson] = useState<PersonPayload | null>(null);
   const [hoverGroup, setHoverGroup] = useState<number | null>(null);
   const [reacted, setReacted] = useState(false);
+  // A person hovered in the panel lights up in the drawing.
+  const [focus, setFocus] = useState<string | null>(null);
   const [sort, setSort] = useState<{ key: string; dir: 1 | -1 }>({ key: "score", dir: -1 });
   const side = useRef<HTMLElement>(null);
 
@@ -37,6 +39,7 @@ export function NetworkView(props: { nodes: ViewNode[]; groups: DGroup[]; owners
 
   function choose(id: string) {
     setSelected(id);
+    setFocus(null);
     // When the panel sits below the drawing, bring it into view.
     if (side.current && window.matchMedia("(max-width: 1023px)").matches) side.current.scrollIntoView({ behavior: "smooth", block: "start" });
   }
@@ -143,7 +146,7 @@ export function NetworkView(props: { nodes: ViewNode[]; groups: DGroup[]; owners
       </header>
 
       <section className="net-draw" aria-label="Your team's network">
-        <NetworkDrawing nodes={nodes} groups={groups} owners={owners} owner={owner} topIds={topIds} selected={selected} onSelect={choose} hoverGroup={hoverGroup} onHoverGroup={setHoverGroup} counts={counts} showReacted={reacted} />
+        <NetworkDrawing nodes={nodes} groups={groups} owners={owners} owner={owner} topIds={topIds} selected={selected} onSelect={choose} hoverGroup={hoverGroup} onHoverGroup={setHoverGroup} counts={counts} showReacted={reacted} focusId={focus} />
         <div className="legend">
           <span><i className="lg-strong" />Strong fit</span>
           <span><i className="lg-possible" />Possible fit</span>
@@ -171,7 +174,7 @@ export function NetworkView(props: { nodes: ViewNode[]; groups: DGroup[]; owners
                   Five to reach this week, chosen by code: fresh registered changes and reactions first, no one already contacted, senders spread across the team.
                 </p>
                 {props.week.map((w) => (
-                  <div key={w.id} className="prow week-card">
+                  <div key={w.id} className="prow week-card" onMouseEnter={() => setFocus(w.id)} onMouseLeave={() => setFocus(null)}>
                     <button type="button" className="prow-open" onClick={() => choose(w.id)}>
                       <span className="top-line">
                         <span className="name">{w.name}</span>
@@ -197,7 +200,7 @@ export function NetworkView(props: { nodes: ViewNode[]; groups: DGroup[]; owners
                 : "Strong fit: decides on operations, production or the whole company, at a company in your industries. Ordered by code, not by AI."}
             </p>
             {listed.slice(0, 12).map((n) => (
-              <button key={n.id} type="button" className={`prow${n.nf ? " dim" : ""}`} onClick={() => choose(n.id)}>
+              <button key={n.id} type="button" className={`prow${n.nf ? " dim" : ""}`} onClick={() => choose(n.id)} onMouseEnter={() => setFocus(n.id)} onMouseLeave={() => setFocus(null)} onFocus={() => setFocus(n.id)} onBlur={() => setFocus(null)}>
                 <span className="top-line">
                   <span className="name">{n.n}</span>
                   <FitTag fit={n.f === 2 ? "strong" : n.f === 1 ? "possible" : null} status={n.st} />

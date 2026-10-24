@@ -220,8 +220,10 @@ export function layout(nodes: DNode[], groups: DGroup[], owners: DOwner[], W: nu
   }));
 
   const index = new Map(nodes.map((n, i) => [n.id, i]));
-  // Mid widths keep the desktop layout but use short industry names.
-  const short = compact || fit - group < 250;
+  // Mid widths keep the desktop layout but use short industry names when the
+  // longest full name ("Wood and building products", about 170 px) would
+  // reach the decision-makers' column.
+  const short = compact || fit - group < 205;
   return { W, H, compact, short, top, xs, contact, band, target, present, order, splitY, groupPos, fitsIn, fitPos, ownerPos, ownerCount, index };
 }
 
@@ -679,8 +681,10 @@ export function NetworkDrawing(props: {
   onHoverGroup: (g: number | null) => void;
   counts: Counts;
   showReacted?: boolean;
+  /** A person hovered in the list next to the drawing: lit like a hover. */
+  focusId?: string | null;
 }) {
-  const { nodes, groups, owners, owner, topIds, selected, onSelect, hoverGroup, onHoverGroup, counts, showReacted = false } = props;
+  const { nodes, groups, owners, owner, topIds, selected, onSelect, hoverGroup, onHoverGroup, counts, showReacted = false, focusId = null } = props;
   const wrap = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const tipEl = useRef<HTMLDivElement>(null);
@@ -883,7 +887,7 @@ export function NetworkDrawing(props: {
     setStaticVersion((v) => v + 1);
   }, [L, nodes, groups, owners, bit, counts, rview]);
 
-  const hovIdx = hover && (hover.kind === "contact" || hover.kind === "fit" || hover.kind === "label") ? hover.i : -1;
+  const hovIdx = hover && (hover.kind === "contact" || hover.kind === "fit" || hover.kind === "label") ? hover.i : focusId && L ? L.index.get(focusId) ?? -1 : -1;
   const selIdx = selected && L ? L.index.get(selected) ?? -1 : -1;
   const hg = hoverGroup ?? (hover?.kind === "group" ? hover.i : null);
 

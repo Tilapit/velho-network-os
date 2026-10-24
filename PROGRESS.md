@@ -313,8 +313,13 @@ Decisions (part 2):
     859 and 146 on the same data. Part 1's screenshots were taken before
     its last matching fix (international brand names never verified by
     name alone).
-  - Mid widths (640–900 px of drawing, a 1024–1280 px window) use the full
-    layout with short industry names; below 640 px the phone layout.
+  - Mid widths (a 1024–1300 px window) use the full layout with short
+    industry names when the longest full name would reach the
+    decision-makers' column; below 640 px of drawing, the phone layout. A
+    first threshold also shortened the names at 1440; caught in the
+    screenshots and fixed.
+  - Hovering a person in the panel (This week or the list) lights their
+    path in the drawing.
 
 ## Morning report, part 1
 
