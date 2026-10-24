@@ -132,7 +132,7 @@ export function NetworkView(props: { nodes: ViewNode[]; groups: DGroup[]; owners
               Edit
             </Link>
           </div>
-          {reactedList.length ? (
+          {reactedList.length || reacted ? (
             <button type="button" className="btn small toggle" aria-pressed={reacted} onClick={() => setReacted(!reacted)} title="People who reacted to the team's posts in the last 30 days">
               <i className="lg-reacted" />
               Reacted recently · {reactedList.length}

@@ -7,7 +7,7 @@ and `design/`.
 ## Morning report, part 2 (night of 24–25 Oct)
 
 **Status: all six steps done and committed on `overnight`.** `npm test`
-passes (37 tests, 19 of them new), `npx tsc --noEmit` is clean and `npm run build`
+passes (40 tests, 22 of them new), `npx tsc --noEmit` is clean and `npm run build`
 passes. No console errors on any page at 1440 or 390 px. Nothing was
 reverted; `demo-v1` still tags the part-1 demo.
 
@@ -126,9 +126,23 @@ upload.
 
 ### Code review
 
-An independent review of tonight's diff (`demo-v1..HEAD`) ran in the
-background at the end; its findings and what was fixed are in the working
-log under "Code review".
+An independent review of tonight's diff (`demo-v1..HEAD`) found 15 issues
+(plus two I had fixed meanwhile). All 15 are fixed and covered by tests or
+checked by hand. The ones that matter most:
+- **The dev server listened on every network interface**, so the network
+  was readable from the same Wi-Fi. `npm run dev` and `npm start` now bind
+  127.0.0.1.
+- **Other websites could POST to the app in your browser**, including part
+  1's "Delete my data". Writes from other sites are refused now.
+- **A tunnel in front of `next dev` exposed dev endpoints** (source code).
+  The tunnel script now insists on the production server.
+- **Reactions:** LinkedIn's "· 1st" is relative to whoever copied the list,
+  not to the post's author ("Copied from whose LinkedIn" field); a marker
+  that rules out the only same-name person now leaves the name unmatched;
+  picks must be someone with that name.
+- **Draft here** masked only the "Name:" line; it now masks the person's
+  name everywhere and the teammates' names.
+Details in the working log under "Code review".
 
 ### Next steps
 
@@ -141,6 +155,33 @@ log under "Code review".
   webhooks remain out of scope, as in part 1.
 
 ## Part 2 (night of 25 Oct): working log
+
+### Code review (01:20–01:46, fixed 01:46–01:55)
+
+A background agent reviewed `demo-v1..HEAD` for correctness bugs. Each
+finding was checked before fixing:
+
+| # | Finding | Fix |
+| --- | --- | --- |
+| 1 | `next dev` listened on all interfaces; the local-only check trusted the Host header | `npm run dev` / `npm start` bind 127.0.0.1 (checked: the LAN address refuses) |
+| 2 | A review pick could store a reaction on anyone | A pick must be a person with that name; others are returned as `ignoredPicks` |
+| 3 | Degree markers read as relative to the post's author | They are relative to who copied the list: "Copied from whose LinkedIn" (MCP `copied_by`), default the author |
+| 4 | One same-name candidate was stored even when the marker ruled it out | Unmatched, with the reason |
+| 5 | "Draft here" could show A's draft on B | Late replies for another person are dropped |
+| 6 | Parser: a repeated name became the headline; same-name neighbours merged; "Maria dos Santos" and lowercase names dropped | Fixed; unusual names are read when a marker or repeat anchors them |
+| 7 | A tunnel in front of `next dev` exposed `/__nextjs_*` (checked: 204 past the middleware) | The tunnel script refuses the dev server; docs say `npm run build && npm start`; `allowedDevOrigins` set |
+| 8 | Clicks hit the nearest dot in a 12 px cell, even far from it when zoomed | Hit circles in screen pixels |
+| 9 | No panning on touch when zoomed | One-finger pan while zoomed |
+| 10 | Tunnel default port 3310, `npm start` uses 3100 | Default 3100, on 127.0.0.1 |
+| 11 | Draft request carried teammates' names, and the person's name inside company or title | Every occurrence masked, put back locally; "do not sign" |
+| 12 | Other websites could POST to localhost (reactions, drafts, part 1's delete-all) | Middleware refuses writes with a cross-site `Sec-Fetch-Site` or a foreign `Origin` (checked: 403) |
+| 13 | "ceo at Kemira" in why lines | Only the first letter is lowered, and not in acronyms |
+| 14 | "Reacted recently" could stay on with its button gone | The button stays while it is on |
+| 15 | Date fallback shifted a day (UTC); "12.4.26" misread | Two-digit years, "12-Apr-26", calendar dates |
+
+Still open from the review: lines the reactions parser cannot read as a
+person are skipped silently (they are not listed as "not read").
+
 
 Brief: `OVERNIGHT_2_PROMPT.md`. Started 00:32. `git tag demo-v1` is on
 b935098, the part-1 demo, so a working demo always exists.

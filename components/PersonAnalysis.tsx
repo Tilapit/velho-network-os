@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Analysis } from "@/lib/analysis.ts";
 import { FitTag, Source } from "./ui";
 import { WriteInClaude } from "./WriteInClaude";
@@ -24,6 +24,8 @@ export function PersonAnalysis({ data, onBack, standalone }: { data: PersonPaylo
   const [angle, setAngle] = useState<{ text: string; by: string; error?: string }>(data.savedAngle ? { text: data.savedAngle, by: "claude" } : { text: data.angle.text, by: "template" });
   const [busy, setBusy] = useState(false);
   const [draft, setDraft] = useState<{ text?: string; error?: string; busy?: boolean }>({});
+  const shown = useRef(data.id);
+  shown.current = data.id;
   const by = data.owners.find((o) => o.id === data.knownBy[0]?.owner)?.name ?? data.owners[0]?.name ?? "You";
 
   useEffect(() => {
@@ -55,9 +57,12 @@ export function PersonAnalysis({ data, onBack, standalone }: { data: PersonPaylo
   }
 
   async function draftHere() {
+    const id = data.id;
     setDraft({ busy: true });
-    const r = await fetch(`/api/people/${data.id}/draft`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ type: data.approach === "ask_intro" ? "ask_intro" : "direct" }) });
+    const r = await fetch(`/api/people/${id}/draft`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ type: data.approach === "ask_intro" ? "ask_intro" : "direct" }) });
     const j = await r.json().catch(() => ({ error: "Failed" }));
+    // Another person may be open by now: their panel must not get this draft.
+    if (shown.current !== id) return;
     setDraft(r.ok ? { text: j.text } : { error: j.error ?? "Failed" });
   }
 

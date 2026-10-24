@@ -107,5 +107,8 @@ test("dates: LinkedIn, ISO, Finnish and slash forms; impossible dates are empty"
   assert.equal(isoDate("10/24/2026"), "2026-10-24");
   assert.equal(isoDate("24/10/2026"), "2026-10-24");
   assert.equal(isoDate("31.2.2026"), "");
+  assert.equal(isoDate("12.4.26"), "2026-04-12");
+  assert.equal(isoDate("12-Apr-26"), "2026-04-12");
+  assert.equal(isoDate("12 April 2026"), "2026-04-12");
   assert.equal(isoDate("soon"), "");
 });

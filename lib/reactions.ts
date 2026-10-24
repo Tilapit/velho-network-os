@@ -50,7 +50,15 @@ function looksLikeName(s: string): boolean {
   if (!n || n.length > 60 || /\d|@|\||:|https?:|\bat\b|\bja\b|\band\b/i.test(n)) return false;
   const words = n.split(" ");
   if (words.length < 2 || words.length > 5) return false;
-  return words.every((w) => /^\p{Lu}[\p{L}'’.-]*$/u.test(w) || /^(van|von|de|der|den|af|da|di|la|le|du)$/i.test(w));
+  return words.every((w) => /^\p{Lu}[\p{L}'’.-]*$/u.test(w) || /^(van|von|de|der|den|af|da|di|la|le|du|dos|das|del|della|e|y|el|al|bin|ibn|ter|ten|zu|op)$/i.test(w) || /^(al|el|bin|ibn|d)[-'’]\p{Lu}/u.test(w));
+}
+
+/** Name-shaped whatever the capitals: used only right before a degree marker or a repeat. */
+function looseName(s: string): boolean {
+  const n = cleanName(s);
+  if (!n || n.length > 60 || /\d|@|\||:|https?:|\b(at|ja|and|och)\b/i.test(n)) return false;
+  const w = n.split(" ");
+  return w.length >= 2 && w.length <= 6 && w.every((x) => /^[\p{L}'’.-]+$/u.test(x));
 }
 
 type Tok = { kind: "name" | "view" | "degree" | "noise" | "text"; value: string; degree?: Degree };
@@ -94,19 +102,29 @@ export function parseReactions(text: string): ParsedReaction[] {
     const isName = (i: number) => {
       const a = t[i];
       if (a.kind === "view") return true;
-      if (a.kind !== "name") return false;
       const b = t[i + 1];
-      return !!b && (b.kind === "degree" || ((b.kind === "name" || b.kind === "view") && same(a.value, b.value)));
+      const repeat = !!b && b.kind !== "degree" && same(a.value, b.value);
+      if (a.kind === "text") return looseName(a.value) && !!b && (b.kind === "degree" || repeat);
+      return a.kind === "name" && !!b && (b.kind === "degree" || repeat);
     };
+    // While still on a person's name lines, the same name again is a repeat;
+    // after their marker or headline it is the next person with that name.
+    let inName = false;
     for (let i = 0; i < t.length; i++) {
       const x = t[i];
+      const c = cur as ParsedReaction | null;
+      if (c && inName && x.kind !== "degree" && same(c.name, x.value)) continue;
       if (isName(i)) {
-        if (cur && same((cur as ParsedReaction).name, x.value)) continue;
         push();
         cur = { name: cleanName(x.value) };
+        inName = true;
       } else if (x.kind === "degree") {
-        if (cur && !(cur as ParsedReaction).degree) (cur as ParsedReaction).degree = x.degree;
-      } else if (cur && !(cur as ParsedReaction).headline && x.kind !== "view") (cur as ParsedReaction).headline = x.value;
+        if (c && !c.degree) c.degree = x.degree;
+        inName = false;
+      } else {
+        if (c && !c.headline && x.kind !== "view") c.headline = x.value;
+        inName = false;
+      }
     }
   } else {
     // A plain list: every name-like line is a person, other lines are their headline.
@@ -152,11 +170,12 @@ export function headlineNames(headline: string | undefined, c: Contact): boolean
 export const candidateOf = (c: Contact): Candidate => ({ id: c.id, name: c.name, title: c.position, company: c.match?.company && !c.match.foreign ? shortName(c.match.company.name) : c.company, knownBy: c.knownBy.map((k) => k.ownerName) });
 
 /**
- * Name first. With the post's author known, a "1st" marker keeps only people
- * the author knows and "2nd"/"3rd" only people they do not. With several
- * left, the company in the headline decides; otherwise it goes to review.
+ * Name first. LinkedIn's degree marker is relative to whoever copied the list
+ * (`viewer`): "1st" keeps only people they know, "2nd"/"3rd" only people they
+ * do not, even with a single candidate (a stranger with the same name). With
+ * several left, the company in the headline decides; otherwise review.
  */
-export function matchReactions(net: Network, entries: ParsedReaction[], opts: { author?: string } = {}): MatchResult {
+export function matchReactions(net: Network, entries: ParsedReaction[], opts: { viewer?: string } = {}): MatchResult {
   const index = new Map<string, Contact[]>();
   for (const c of net.contacts) {
     const k = nameKey(c.name);
@@ -173,13 +192,15 @@ export function matchReactions(net: Network, entries: ParsedReaction[], opts: { 
       res.unmatched.push({ entry, why: "Not in the team's networks" });
       continue;
     }
-    if (opts.author && entry.degree && cands.length > 1) {
-      const knows = (c: Contact) => c.knownBy.some((k) => k.owner === opts.author);
+    if (opts.viewer && entry.degree) {
+      const knows = (c: Contact) => c.knownBy.some((k) => k.owner === opts.viewer);
       const kept = cands.filter((c) => (entry.degree === "1st" ? knows(c) : !knows(c)));
-      if (kept.length) {
-        if (kept.length < cands.length) how = "name_degree";
-        cands = kept;
+      if (!kept.length) {
+        res.unmatched.push({ entry, why: "Same name as someone in your networks, but the degree marker says it is someone else" });
+        continue;
       }
+      if (kept.length < cands.length) how = "name_degree";
+      cands = kept;
     }
     if (cands.length > 1 && entry.headline) {
       const byCo = cands.filter((c) => headlineNames(entry.headline, c));

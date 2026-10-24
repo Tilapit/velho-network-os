@@ -187,7 +187,7 @@ export default async function Settings() {
                   A token, the same in both terminals: <code>export MCP_TOKEN=$(openssl rand -hex 24)</code>
                 </li>
                 <li>
-                  Terminal 1: <code>npm run dev</code>. Terminal 2: <code>npm run tunnel</code> (needs <code>cloudflared</code>; it prints the public URL and the header).
+                  The production server, not the dev server: <code>npm run build</code>, then terminal 1: <code>npm start</code>. Terminal 2: <code>npm run tunnel</code> (needs <code>cloudflared</code>; it prints the public URL and the header).
                 </li>
                 <li>
                   claude.ai: Customize → Connectors → + Add → Add custom connector. Name: Velho Network. URL: the printed one, ending in /api/mcp. Authentication: No sign in. Request headers: <code>Authorization</code> with the value <code>Bearer &lt;token&gt;</code>.

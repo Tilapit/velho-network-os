@@ -25,6 +25,8 @@ export function ReactionsPanel({ owners, posts, today }: { owners: { id: string;
   const [post, setPost] = useState("");
   const [date, setDate] = useState(today);
   const [author, setAuthor] = useState(owners[0]?.id ?? "");
+  // The "· 1st" markers are relative to whoever copied the list; usually the author.
+  const [copiedBy, setCopiedBy] = useState<string | null>(null);
   const [text, setText] = useState("");
   const [result, setResult] = useState<Result | null>(null);
   const [picks, setPicks] = useState<Record<number, string>>({});
@@ -36,7 +38,7 @@ export function ReactionsPanel({ owners, posts, today }: { owners: { id: string;
     setMsg("");
     // Picks are kept per review entry: two entries can share a name.
     const chosen = (result?.review ?? []).flatMap((r, i) => (picks[i] && picks[i] !== "none" ? [{ name: r.name, person_id: picks[i] }] : []));
-    const r = await fetch("/api/reactions", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ post, postDate: date, author, text, picks: save ? chosen : [], save }) });
+    const r = await fetch("/api/reactions", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ post, postDate: date, author, copiedBy: copiedBy ?? author, text, picks: save ? chosen : [], save }) });
     const j = await r.json().catch(() => ({}));
     setBusy(false);
     if (!r.ok) return setMsg(j.error ?? "Failed");
@@ -81,6 +83,16 @@ export function ReactionsPanel({ owners, posts, today }: { owners: { id: string;
             <label className="field">
               <span>Whose post</span>
               <select value={author} onChange={(e) => setAuthor(e.target.value)}>
+                {owners.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="field" title="LinkedIn's '· 1st' and '· 2nd' are relative to whoever copied the list">
+              <span>Copied from whose LinkedIn</span>
+              <select value={copiedBy ?? author} onChange={(e) => setCopiedBy(e.target.value)}>
                 {owners.map((o) => (
                   <option key={o.id} value={o.id}>
                     {o.name}

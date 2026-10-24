@@ -11,6 +11,7 @@ process.env.APP_TODAY = "2026-10-24";
 process.env.PRH_OFFLINE = "1";
 
 const { parseReactions, matchReactions, cleanName } = await import("../lib/reactions.ts");
+const { crossSiteWrite } = await import("../lib/csrf.ts");
 const { buildNetwork } = await import("../lib/network.ts");
 const { DEFAULT_PROFILE } = await import("../lib/industry.ts");
 const { looseKey } = await import("../lib/prh.ts");
@@ -88,7 +89,7 @@ test("reactions matcher: name, company in the headline, degree marker, review an
     { name: "Mikko Korhonen", degree: "1st" },
     { name: "Mikko Korhonen" },
     { name: "Nobody Here" },
-  ], { author: "you" });
+  ], { viewer: "you" });
   assert.deepEqual(m.matched.map((x) => [x.entry.name, x.contactId, x.how]), [
     ["Laura Mäkelä", idOf("Laura Mäkelä", "Lunawood"), "name"],
     ["Mikko Korhonen", idOf("Mikko Korhonen", "Hydroline"), "name_company"],
@@ -176,7 +177,45 @@ test("draft here: the request to Claude carries no name", async () => {
   const { loadNetwork } = await import("../lib/network.ts");
   const demo = await loadNetwork();
   const c = demo.contacts.find((x) => x.fit === "strong")!;
-  const sent = draftPrompt(messageContext(demo, { person_id: c.id, type: "direct" })!);
-  assert.ok(!sent.includes(c.name) && !sent.includes(c.name.split(" ").at(-1)!), "neither the full name nor the last name");
+  const names = { name: c.name, sender: c.sender.ownerName, owners: demo.owners.map((o) => o.name) };
+  const sent = draftPrompt(messageContext(demo, { person_id: c.id, type: "direct" })!, names);
+  for (const part of c.name.split(" ")) assert.ok(!sent.includes(part), `no "${part}"`);
+  for (const o of ["Co-founder", "Board member"]) assert.ok(!sent.includes(o), `no teammate "${o}"`);
   assert.match(sent, /\[FIRST_NAME\]/);
+  // A sole trader named after the person: masked inside the company too.
+  const own = draftPrompt({ type: "direct", facts: ["Name: Aino Kallio", "Company: Aino Kallio Tmi, consulting", "Sender: Janne, connected 1 Jan 2024; also known by Mikko."], mustNotUse: ["Current role: downloaded (Janne, Mikko)"], tone: [], examples: [] }, { name: "Aino Kallio", sender: "Janne", owners: ["Janne", "Mikko"] });
+  assert.ok(!/Aino|Kallio|Janne|Mikko/.test(own), own);
+});
+
+test("review fixes: picks need the person's own name; markers are relative to who copied; a contradicting marker leaves the name unmatched", () => {
+  const laura = idOf("Laura Mäkelä", "Lunawood");
+  const bad = addReactions(net, { post: "Picks", postDate: "2026-10-20", picks: [{ name: "Totally Different Person", person_id: laura }], save: false });
+  assert.equal(bad.matched.length, 0);
+  assert.equal(bad.ignoredPicks?.length, 1);
+  // "· 2nd" on your own copy: the only Laura is your 1st-degree connection, so it is someone else.
+  const m1 = matchReactions(net, [{ name: "Laura Mäkelä", degree: "2nd", headline: "Teacher at Some School" }], { viewer: "you" });
+  assert.equal(m1.matched.length, 0);
+  assert.match(m1.unmatched[0].why, /degree marker/);
+  // The co-founder's post copied by you: "1st" means someone you know.
+  const r = addReactions(net, { post: "Copied by you", postDate: "2026-10-20", author: "Co-founder", copiedBy: "You", entries: [{ name: "Mikko Korhonen", degree: "1st" }], save: false });
+  assert.deepEqual(r.matched.map((x) => x.person.id), [idOf("Mikko Korhonen", "Reaktor")]);
+});
+
+test("review fixes: the parser keeps repeats out of headlines, splits same-name neighbours, reads unusual names", () => {
+  assert.deepEqual(parseReactions("Laura Mäkelä\nLaura Mäkelä\nOperations Director at Lunawood\n"), [{ name: "Laura Mäkelä", headline: "Operations Director at Lunawood" }]);
+  const two = parseReactions("Mikko Korhonen\nMikko Korhonen\n· 1st\nCFO at Hydroline\nMikko Korhonen\nMikko Korhonen\n· 2nd\nDeveloper at Reaktor\n");
+  assert.deepEqual(two.map((x) => [x.degree, x.headline]), [["1st", "CFO at Hydroline"], ["2nd", "Developer at Reaktor"]]);
+  const odd = parseReactions("Maria dos Santos\nMaria dos Santos\n· 2nd\nEngineer\naino kallio\n· 1st\nTuotantojohtaja\n");
+  assert.deepEqual(odd.map((x) => x.name), ["Maria dos Santos", "aino kallio"]);
+});
+
+
+test("review fixes: other websites cannot write; this app's pages, scripts and reads can", () => {
+  const r = (method: string, h: Record<string, string>) => new Request("http://localhost:3100/api/reactions", { method, headers: { host: "localhost:3100", ...h } });
+  assert.equal(crossSiteWrite(r("POST", { "sec-fetch-site": "cross-site", origin: "https://evil.example" })), true);
+  assert.equal(crossSiteWrite(r("POST", { origin: "http://localhost:3000" })), true);
+  assert.equal(crossSiteWrite(r("POST", { "sec-fetch-site": "same-site" })), true);
+  assert.equal(crossSiteWrite(r("POST", { "sec-fetch-site": "same-origin", origin: "http://localhost:3100" })), false);
+  assert.equal(crossSiteWrite(r("POST", {})), false, "curl and scripts");
+  assert.equal(crossSiteWrite(r("GET", { "sec-fetch-site": "cross-site" })), false, "reads are not writes");
 });

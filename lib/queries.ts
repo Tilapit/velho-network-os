@@ -190,7 +190,9 @@ export function weekWhy(net: Network, c: Contact): { kind: WeekPick["kind"]; why
   const r = c.reactions.filter((x) => daysBetween(x.postDate ?? x.at.slice(0, 10), net.today) <= RECENT_DAYS).sort((a, b) => (b.postDate ?? b.at).localeCompare(a.postDate ?? a.at))[0];
   if (r) {
     const author = r.author ? net.owners.find((o) => o.id === r.author)?.name : undefined;
-    return { kind: "reaction", why: `Reacted to ${!author || author === "You" ? "your" : `${author}'s`} post on ${dayMonth(r.postDate ?? r.at.slice(0, 10))}; ${role.toLowerCase()} at ${company}.` };
+    // "Director, Operations" -> "director, Operations"; "CEO" stays "CEO".
+    const lead = /^\p{Lu}\p{Ll}/u.test(role) ? role.charAt(0).toLowerCase() + role.slice(1) : role;
+    return { kind: "reaction", why: `Reacted to ${!author || author === "You" ? "your" : `${author}'s`} post on ${dayMonth(r.postDate ?? r.at.slice(0, 10))}; ${lead} at ${company}.` };
   }
   const two = c.knownBy.length > 1 ? `, known by ${c.knownBy.map((k) => k.ownerName).join(" and ")}` : "";
   return { kind: "fit", why: `${role} at ${company}${two}.` };
@@ -419,6 +421,8 @@ export type ReactionInput = {
   postDate?: string;
   /** Owner id or name of whose post it was. */
   author?: string;
+  /** Whose LinkedIn the list was copied from: the "1st"/"2nd" markers are relative to them. Default: the author. */
+  copiedBy?: string;
   /** The reactions list as copied from LinkedIn. */
   text?: string;
   /** People read from a screenshot. */
@@ -436,8 +440,12 @@ export type ReactionInput = {
  * someone picks; names with no match are returned once and never stored.
  */
 export function addReactions(net: Network, input: ReactionInput) {
-  const author = input.author ? ownerId(net, input.author) : undefined;
-  const authorId = author && author !== "__none__" ? author : undefined;
+  const own = (x?: string) => {
+    const id = x ? ownerId(net, x) : undefined;
+    return id && id !== "__none__" ? id : undefined;
+  };
+  const authorId = own(input.author);
+  const viewer = own(input.copiedBy) ?? authorId;
   const seen = new Set<string>();
   const all: ParsedReaction[] = [...(input.entries ?? []), ...(input.text ? parseReactions(input.text) : []), ...(input.names ?? []).map((n) => ({ name: cleanName(n) }))];
   const entries = all.filter((e) => {
@@ -446,8 +454,15 @@ export function addReactions(net: Network, input: ReactionInput) {
     seen.add(k);
     return true;
   });
-  const res = matchReactions(net, entries, { author: authorId });
-  const picks = (input.picks ?? []).filter((p) => net.byId.has(p.person_id));
+  const res = matchReactions(net, entries, { viewer });
+  // A pick must be someone with that name: a pick never moves a reaction to another person.
+  const ignoredPicks: { name: string; person_id: string; why: string }[] = [];
+  const picks = (input.picks ?? []).filter((p) => {
+    const c = net.byId.get(p.person_id);
+    const why = !c ? "No person with this id" : nameKey(c.name) !== nameKey(p.name) ? "The picked person does not have this name" : "";
+    if (why) ignoredPicks.push({ ...p, why });
+    return !why;
+  });
   const picked = new Set(picks.map((p) => nameKey(p.name)));
   const at = new Date().toISOString();
   const postDate = isoDate(input.postDate) || net.today;
@@ -475,6 +490,7 @@ export function addReactions(net: Network, input: ReactionInput) {
     matched: rows.map((r) => ({ name: r.name, how: r.how, person: person(r.contactId) })),
     review: res.review.filter((r) => !picked.has(nameKey(r.entry.name))).map((r) => ({ name: r.entry.name, headline: r.entry.headline, degree: r.entry.degree, candidates: r.candidates.map((c) => ({ ...c, url: appUrl(`/people/${c.id}`) })) })),
     unmatched: res.unmatched.map((u) => ({ name: u.entry.name, why: u.why })),
+    ...(ignoredPicks.length ? { ignoredPicks } : {}),
     note: "Names in 'unmatched' are not stored. Names in 'review' are stored only after someone picks the right person.",
   };
 }

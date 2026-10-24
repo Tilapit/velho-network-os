@@ -749,9 +749,10 @@ export function NetworkDrawing(props: {
           (m.get(k) ?? m.set(k, []).get(k)!).push(h);
         }
     };
-    L.contact.forEach((p, i) => p && add(p, { kind: "contact", i }, Math.max(4, p.r + 2)));
-    L.fitPos.forEach((p, i) => add(p, { kind: "fit", i }, 6));
-    L.groupPos.forEach((p, i) => L.present[i] && add(p, { kind: "group", i }, Math.max(10, p.r + 5)));
+    // Each item sits in every cell its hit circle (at 1x zoom) touches; find() checks the circle.
+    L.contact.forEach((p, i) => p && add(p, { kind: "contact", i }, Math.max(6, p.r + 3)));
+    L.fitPos.forEach((p, i) => add(p, { kind: "fit", i }, 7));
+    L.groupPos.forEach((p, i) => L.present[i] && add(p, { kind: "group", i }, p.r + 6));
     L.ownerPos.forEach((p, i) => add(p, { kind: "owner", i }, p.r + 8));
     return { cell, m };
   }, [L]);
@@ -764,14 +765,19 @@ export function NetworkDrawing(props: {
   function find(x: number, y: number): Hit | null {
     for (const lb of labels) if (x >= lb.x - 14 && x <= lb.x + lb.w && Math.abs(y - lb.y) <= 16) return { kind: "label", i: lb.ni };
     const list = grid.m.get(Math.floor(y / grid.cell) * 4096 + Math.floor(x / grid.cell)) ?? [];
+    // Hit circles in screen pixels: zoomed in, a click must land near the dot.
+    const z = view.z;
     let best: Hit | null = null;
     let bd = Infinity;
     for (const h of list) {
       const p = posOf(h);
       if (!p) continue;
-      const d = (p.x - x) ** 2 + (p.y - y) ** 2 - (h.kind === "group" ? 60 : h.kind === "owner" ? 120 : h.kind === "fit" ? 10 : 0);
-      if (d < bd) {
-        bd = d;
+      const d = (p.x - x) ** 2 + (p.y - y) ** 2;
+      const R = h.kind === "group" ? p.r + 6 / z : h.kind === "owner" ? p.r + 8 / z : Math.max(p.r + 3 / z, (h.kind === "fit" ? 7 : 6) / z);
+      if (d > R * R) continue;
+      const score = d - (h.kind === "group" ? 60 : h.kind === "owner" ? 120 : h.kind === "fit" ? 10 : 0) / (z * z);
+      if (score < bd) {
+        bd = score;
         best = h;
       }
     }
@@ -989,13 +995,12 @@ export function NetworkDrawing(props: {
   const same = (a: Hit | null, b: Hit | null) => (a && b ? a.kind === b.kind && a.i === b.i : a === b);
 
   function onPointerDown(e: React.PointerEvent<HTMLCanvasElement>) {
-    if (e.pointerType !== "mouse" || view.z <= 1) return;
+    if (view.z <= 1 || (e.pointerType !== "mouse" && e.pointerType !== "touch")) return;
     drag.current = { x: e.clientX, y: e.clientY, v: view, moved: false };
     e.currentTarget.setPointerCapture(e.pointerId);
   }
 
   function onPointerMove(e: React.PointerEvent<HTMLCanvasElement>) {
-    if (e.pointerType === "touch") return;
     const d = drag.current;
     if (d && L) {
       const dx = e.clientX - d.x;
@@ -1007,6 +1012,7 @@ export function NetworkDrawing(props: {
         return;
       }
     }
+    if (e.pointerType === "touch") return;
     const p = point(e);
     const h = find(p.x, p.y);
     if (!same(h, hover)) setHover(h);
@@ -1043,7 +1049,7 @@ export function NetworkDrawing(props: {
         {L ? (
           <canvas
             ref={canvas}
-            style={{ width: L.W, height: L.H, cursor: hover && hover.kind !== "owner" ? "pointer" : view.z > 1 ? "grab" : "default" }}
+            style={{ width: L.W, height: L.H, cursor: hover && hover.kind !== "owner" ? "pointer" : view.z > 1 ? "grab" : "default", touchAction: view.z > 1 ? "none" : "manipulation" }}
             onPointerDown={onPointerDown}
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}

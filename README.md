@@ -94,7 +94,8 @@ Connect to Claude) gives the zip to upload to Claude. Example sessions are in
 
 ```sh
 export MCP_TOKEN=$(openssl rand -hex 24)
-npm run dev        # terminal 1
+npm run build
+npm start          # terminal 1: the production server on 127.0.0.1:3100
 npm run tunnel     # terminal 2: a Cloudflare quick tunnel; prints the URL and header
 ```
 
@@ -105,7 +106,10 @@ Claude connects from Anthropic's cloud, hence the public URL.
 
 With `MCP_TOKEN` set, `/api/mcp` needs `Authorization: Bearer <token>` and
 every page answers only on this machine, so the tunnel exposes the connector
-and nothing else. Without it, everything is local: don't expose the port.
+and nothing else. The tunnel script refuses the dev server, which answers
+some of its own endpoints before any check runs. `npm run dev` and `npm
+start` listen on 127.0.0.1 only, and other websites open in your browser
+cannot change anything in the app.
 
 ## Data and privacy
 

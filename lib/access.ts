@@ -1,7 +1,9 @@
-// Who may reach the app. Without MCP_TOKEN everything is as on a laptop:
-// local use, no login. With MCP_TOKEN set (to connect claude.ai through a
-// tunnel), /api/mcp needs "Authorization: Bearer <token>" from everyone, and
-// every other page and API answers only on this machine.
+// Who may reach the app. The server listens on 127.0.0.1 only. Without
+// MCP_TOKEN everything is as on a laptop: local use, no login. With MCP_TOKEN
+// set (to connect claude.ai through a tunnel), /api/mcp needs
+// "Authorization: Bearer <token>" from everyone, and every other page and API
+// answers only on this machine. Other websites open in the same browser can
+// never change anything (lib/csrf.ts).
 import crypto from "node:crypto";
 
 export function mcpToken(): string | undefined {
@@ -18,3 +20,4 @@ export function mcpAuthorized(req: Request): boolean {
   const b = crypto.createHash("sha256").update(token).digest();
   return crypto.timingSafeEqual(a, b);
 }
+

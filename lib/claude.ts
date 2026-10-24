@@ -52,20 +52,34 @@ export async function writeAngle(a: Analysis): Promise<{ text: string; by: "clau
 // ---------- "Draft here" ----------
 
 type DraftContext = { type: string; facts: string[]; mustNotUse: string[]; tone: string[]; examples: string[] };
+/** The names to keep on this machine: the person's, the sender's and the other teammates'. */
+export type DraftNames = { name: string; sender: string; owners: string[] };
+
+const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const word = (w: string, flags: string) => new RegExp(`(?<![\\p{L}\\p{N}])${esc(w)}(?![\\p{L}\\p{N}])`, flags);
 
 /**
- * What a draft request sends: the message context with the person's name
- * replaced by [FIRST_NAME], so no name leaves this machine. The server puts
- * the first name back into the reply.
+ * What a draft request sends: the message context with every name masked.
+ * The person's first name becomes [FIRST_NAME], the rest of their name
+ * [LAST_NAME] (also inside a company or title, e.g. a sole trader named after
+ * them), the sender [SENDER] and other teammates "a teammate". The server
+ * puts the names back into the reply, so no name leaves this machine.
  */
-export function draftPrompt(ctx: DraftContext): string {
-  const facts = ctx.facts.map((f) => (f.startsWith("Name: ") ? "Name: [FIRST_NAME] (write [FIRST_NAME] where their first name goes)" : f));
+export function draftPrompt(ctx: DraftContext, n: DraftNames): string {
+  const parts = n.name.split(/\s+/).filter((w) => w.length > 1);
+  const mask = (line: string) => {
+    let s = line;
+    for (const o of [...n.owners].sort((a, b) => b.length - a.length)) if (o.trim()) s = s.replace(word(o, "gu"), o === n.sender ? "[SENDER]" : "a teammate");
+    parts.forEach((w, i) => (s = s.replace(word(w, "giu"), i === 0 ? "[FIRST_NAME]" : "[LAST_NAME]")));
+    return s;
+  };
+  const facts = ctx.facts.map((f) => (f.startsWith("Name: ") ? "Name: [FIRST_NAME] [LAST_NAME] (write [FIRST_NAME] where their first name goes)" : mask(f)));
   return [
     `Message type: ${ctx.type}`,
     "Facts (use only these):",
     ...facts.map((f) => `- ${f}`),
     "Do not use:",
-    ...ctx.mustNotUse.map((f) => `- ${f}`),
+    ...ctx.mustNotUse.map((f) => `- ${mask(f)}`),
     "Tone rules:",
     ...ctx.tone.map((f) => `- ${f}`),
     "Examples about made-up companies (for style only, never for facts):",
@@ -73,7 +87,7 @@ export function draftPrompt(ctx: DraftContext): string {
   ].join("\n");
 }
 
-export async function writeDraft(ctx: DraftContext, firstName: string): Promise<{ text: string; model: string } | { error: string }> {
+export async function writeDraft(ctx: DraftContext, names: DraftNames): Promise<{ text: string; model: string } | { error: string }> {
   if (!claudeAvailable()) return { error: "No ANTHROPIC_API_KEY set. Use Write in Claude instead." };
   const client = new Anthropic();
   try {
@@ -85,13 +99,15 @@ export async function writeDraft(ctx: DraftContext, firstName: string): Promise<
       fallbacks: "default",
       system:
         "You draft one short LinkedIn message for Velho, a small Finnish AI and automation consultancy. Follow the tone rules exactly and use only the facts given. " +
-        "Write [FIRST_NAME] for the recipient's first name. Return only the message text, no subject line, no quotes, no notes.",
-      messages: [{ role: "user" as const, content: draftPrompt(ctx) }],
+        "Write [FIRST_NAME] for the recipient's first name. Do not sign the message: the sender adds their own name. Return only the message text, no subject line, no quotes, no notes.",
+      messages: [{ role: "user" as const, content: draftPrompt(ctx, names) }],
     };
     const msg = (await client.beta.messages.create(params as unknown as Parameters<typeof client.beta.messages.create>[0])) as Anthropic.Beta.BetaMessage;
     if (msg.stop_reason === "refusal") return { error: "Claude declined to write this one." };
     const text = msg.content.map((b) => (b.type === "text" ? b.text : "")).join("").trim();
-    return text ? { text: text.replaceAll("[FIRST_NAME]", firstName), model: msg.model } : { error: "Empty reply" };
+    const parts = names.name.split(/\s+/);
+    const back = (s: string) => s.replaceAll("[FIRST_NAME]", parts[0] ?? "").replaceAll("[LAST_NAME]", parts.slice(1).join(" ")).replaceAll("[SENDER]", names.sender);
+    return text ? { text: back(text), model: msg.model } : { error: "Empty reply" };
   } catch (e) {
     return { error: e instanceof Error ? e.message : String(e) };
   }

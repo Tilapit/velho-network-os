@@ -8,7 +8,7 @@ A recording of the app part (86 s, no sound) is in
 ```sh
 cd velho-network-os
 npm install                      # once
-APP_TODAY=2026-10-24 APP_BASE_URL=http://localhost:3310 npx next dev -p 3310
+APP_TODAY=2026-10-24 APP_BASE_URL=http://localhost:3310 npx next dev -p 3310 -H 127.0.0.1
 ```
 
 - **Port.** Another app had 3100 overnight, so everything below uses 3310.
@@ -23,9 +23,10 @@ APP_TODAY=2026-10-24 APP_BASE_URL=http://localhost:3310 npx next dev -p 3310
   ```
   Skill: Settings → Connect to Claude → **Download velho-network-skill.zip**,
   or copy `claude/velho-network/` into `~/.claude/skills/`.
-- **claude.ai instead (untested).** Needs a public URL: `export
-  MCP_TOKEN=$(openssl rand -hex 24)`, then `npm run dev` in one terminal
-  and `npm run tunnel` in another (needs `cloudflared`). In claude.ai:
+- **claude.ai instead (untested).** Needs a public URL and the production
+  server: `export MCP_TOKEN=$(openssl rand -hex 24)`, `npm run build`, then
+  `npm start` in one terminal and `npm run tunnel` in another (needs
+  `cloudflared`; both on port 3100). In claude.ai:
   Customize → Connectors → + Add → Add custom connector, the printed URL,
   Authentication "No sign in", Request headers `Authorization` = `Bearer
   <token>`. Settings → Connect to Claude has the steps.

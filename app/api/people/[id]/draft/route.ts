@@ -17,7 +17,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const c = net.byId.get(id);
   if (!c) return NextResponse.json({ error: "Not found" }, { status: 404 });
   const ctx = messageContext(net, { person_id: id, type: type ?? (c.approach === "ask_intro" ? "ask_intro" : "direct") })!;
-  const r = await writeDraft(ctx, c.name.split(" ")[0]);
+  const r = await writeDraft(ctx, { name: c.name, sender: c.sender.ownerName, owners: net.owners.map((o) => o.name) });
   console.log(`[draft] ${new Date().toISOString()} ${id} ${"error" in r ? "failed" : "ok"}`);
   return "error" in r ? NextResponse.json(r, { status: 400 }) : NextResponse.json({ ...r, type: ctx.type, sender: ctx.sender });
 }

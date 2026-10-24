@@ -47,14 +47,17 @@ export function isoDate(s: string | undefined): string {
   if (!s) return "";
   const t = s.trim();
   if (/^\d{4}-\d{2}-\d{2}/.test(t)) return t.slice(0, 10);
-  const m = t.match(/^(\d{1,2})\s+([A-Za-z]{3})\w*\s+(\d{4})$/);
-  if (m && MONTHS[m[2].toLowerCase()] !== undefined) return ymd(+m[3], MONTHS[m[2].toLowerCase()], +m[1]);
-  const fi = t.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
-  if (fi) return ymd(+fi[3], +fi[2] - 1, +fi[1]);
-  const sl = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (sl) return +sl[1] > 12 ? ymd(+sl[3], +sl[2] - 1, +sl[1]) : ymd(+sl[3], +sl[1] - 1, +sl[2]);
+  // Two-digit years are 20xx: LinkedIn connections start in 2003.
+  const yr = (y: string) => (y.length === 2 ? 2000 + Number(y) : Number(y));
+  const m = t.match(/^(\d{1,2})[\s-]+([A-Za-z]{3})\w*[\s-]+(\d{4}|\d{2})$/);
+  if (m && MONTHS[m[2].toLowerCase()] !== undefined) return ymd(yr(m[3]), MONTHS[m[2].toLowerCase()], +m[1]);
+  const fi = t.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4}|\d{2})$/);
+  if (fi) return ymd(yr(fi[3]), +fi[2] - 1, +fi[1]);
+  const sl = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4}|\d{2})$/);
+  if (sl) return +sl[1] > 12 ? ymd(yr(sl[3]), +sl[2] - 1, +sl[1]) : ymd(yr(sl[3]), +sl[1] - 1, +sl[2]);
+  // Anything else Date understands, read as a calendar date (no shift to UTC).
   const d = new Date(t);
-  return isNaN(d.getTime()) ? "" : d.toISOString().slice(0, 10);
+  return isNaN(d.getTime()) ? "" : ymd(d.getFullYear(), d.getMonth(), d.getDate());
 }
 
 export function today(): string {

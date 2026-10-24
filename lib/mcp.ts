@@ -182,11 +182,12 @@ export function buildMcpServer(): McpServer {
     {
       title: "Add reactions to a post",
       description:
-        "Stores who reacted to one of the team's LinkedIn posts, as a 'reacted' signal on each person. Give the reactions list as the user copied it from LinkedIn (`text`), or people you read from a screenshot the user shared (`reactions`, with headline and degree when visible), or plain `names`. The same parser and matcher as the app: a name with one match in the merged network is stored (inferred); ties are broken by the company in the headline and, with `author`, by the 1st/2nd degree marker; the rest come back in `review` with candidates and are stored only when you pass `picks` after the user confirms. Names in `unmatched` are not in the networks and are never stored. Never scrape LinkedIn to get these.",
+        "Stores who reacted to one of the team's LinkedIn posts, as a 'reacted' signal on each person. Give the reactions list as the user copied it from LinkedIn (`text`), or people you read from a screenshot the user shared (`reactions`, with headline and degree when visible), or plain `names`. The same parser and matcher as the app: a name with one match in the merged network is stored (inferred); ties are broken by the company in the headline and, with `author` (or `copied_by`), by the 1st/2nd degree marker; a degree marker that rules out the only same-name person leaves the name unmatched; the rest come back in `review` with candidates and are stored only when you pass `picks` after the user confirms. Names in `unmatched` are not in the networks and are never stored. Never scrape LinkedIn to get these.",
       inputSchema: {
         post_label: z.string().describe("A short label for the post"),
         post_date: z.string().optional().describe("The day the post went out, YYYY-MM-DD. Default today."),
         author: z.string().optional().describe("Whose post: owner id or name, e.g. 'You' or 'Co-founder'"),
+        copied_by: z.string().optional().describe("Whose LinkedIn the list was copied or screenshotted from; the '1st'/'2nd' markers are relative to them. Default: the author."),
         text: z.string().max(200_000).optional().describe("The reactions list exactly as copied from LinkedIn"),
         reactions: z
           .array(z.object({ name: z.string(), headline: z.string().optional(), degree: z.enum(["1st", "2nd", "3rd"]).optional() }))
@@ -201,7 +202,7 @@ export function buildMcpServer(): McpServer {
     },
     async (a) => {
       if (!a.text && !a.reactions?.length && !a.names?.length && !a.picks?.length) return { content: [{ type: "text" as const, text: "Give `text`, `reactions`, `names` or `picks`." }], isError: true };
-      const r = addReactions(await loadNetwork(), { post: a.post_label, postDate: a.post_date, author: a.author, text: a.text, entries: a.reactions, names: a.names, picks: a.picks, save: !a.dry_run });
+      const r = addReactions(await loadNetwork(), { post: a.post_label, postDate: a.post_date, author: a.author, copiedBy: a.copied_by, text: a.text, entries: a.reactions, names: a.names, picks: a.picks, save: !a.dry_run });
       log("add_reactions", r.matched.map((m) => m.person.id));
       return json(r);
     },
