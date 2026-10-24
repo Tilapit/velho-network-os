@@ -76,6 +76,9 @@ test("reactions parser: LinkedIn's copied list with repeats, markers, headlines 
 test("reactions parser: a plain list of names, one per line", () => {
   assert.deepEqual(parseReactions("Laura Mäkelä\nMikko Korhonen\n\nAnna Virtanen\n").map((x) => x.name), ["Laura Mäkelä", "Mikko Korhonen", "Anna Virtanen"]);
   assert.equal(cleanName("Dr. Aino Kallio, CSCP (she/her) 🌱"), "Aino Kallio");
+  assert.equal(cleanName("Aino Kallio | AI & automation"), "Aino Kallio");
+  assert.equal(cleanName("Aino Kallio (Virtanen)"), "Aino Kallio");
+  assert.equal(cleanName("Juha-Pekka Nieminen"), "Juha-Pekka Nieminen");
 });
 
 test("reactions matcher: name, company in the headline, degree marker, review and unmatched", () => {

@@ -155,6 +155,23 @@ Decisions (part 2):
   …` in its config. Written down, untested.
 - `.env.example` is outside what this session may read, so `MCP_TOKEN` is
   documented in the README and Settings instead.
+- **Step 6 polish.**
+  - Every page checked at 1440 and 390 for horizontal overflow (a script
+    lists elements wider than the viewport). The new reactions form
+    overflowed by 18 px at 390 (grid min-content); fixed globally with
+    `min-width: 0` on stack children and `max-width: 100%` on inputs.
+  - On mobile the zoom buttons covered the decision-maker column; the
+    compact layout now keeps a strip for them.
+  - People has a `?reacted=1` view and a Reacted column; the Network
+    panel's "Show all" follows the toggle. The CSV export has
+    `reacted_posts_90d`.
+  - Names in pasted reactions lose taglines after " | " or " – " and
+    anything in brackets, on both sides of the match.
+  - The network page is screenshotted with a tall viewport, not a
+    full-page capture: Playwright's full-page capture resized the canvas
+    mid-shot once and caught a stretched frame.
+  - The video (`media/demo-walkthrough.webm`) is Playwright's recording
+    with a drawn cursor (headless video has none), 86 s at 1440×900.
 
 ## Morning report
 

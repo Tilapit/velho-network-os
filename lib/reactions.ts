@@ -25,11 +25,17 @@ const DEGREE = /^(?:[·•∙⋅|-]\s*)?(1st|2nd|3rd\+?)(?:\s+degree(?:\s+connec
 const INLINE_DEGREE = /^(.*?)\s*[·•∙⋅]\s*(1st|2nd|3rd\+?)(?:\s+degree(?:\s+connection)?)?$/i;
 const VIEW = /^view\s+(.+?)['’]s?\s+(?:profile|graphic link)$/i;
 
-/** "Dr. Aino Kallio, CSCP (she/her) 🌱" -> "Aino Kallio". LinkedIn names carry no commas but credentials. */
+/**
+ * "Dr. Aino Kallio, CSCP (she/her) 🌱" -> "Aino Kallio". LinkedIn names carry
+ * no commas but credentials; what follows " | " or " – " and anything in
+ * brackets is a tagline. The same cleaning runs on the network's names, so
+ * both sides of a match are read alike.
+ */
 export function cleanName(s: string): string {
   return s
     .split(",")[0]
-    .replace(/\((?:she|he|they|hän|hon|han)\s*\/[^)]*\)/gi, " ")
+    .split(/\s[|–—]\s|\s-\s/)[0]
+    .replace(/\([^)]*\)|\[[^\]]*\]/g, " ")
     .replace(/[\p{Extended_Pictographic}\u{FE0F}\u{200D}\u{1F3FB}-\u{1F3FF}]/gu, " ")
     .replace(/^(dr|mr|mrs|ms|prof|ing)\.?\s+/i, "")
     .replace(/\s+/g, " ")

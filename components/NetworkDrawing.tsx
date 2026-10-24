@@ -110,7 +110,8 @@ export function heightFor(W: number) {
 export function layout(nodes: DNode[], groups: DGroup[], owners: DOwner[], W: number, H: number) {
   const compact = W < 760;
   const top = compact ? 50 : 86;
-  const bottom = compact ? 12 : 18;
+  // Compact: a strip at the bottom keeps the zoom buttons off the decision-makers.
+  const bottom = compact ? 46 : 18;
   const span = H - top - bottom;
   const owner = compact ? 13 : Math.max(40, W * 0.048);
   const c0 = compact ? 28 : Math.max(128, W * 0.135);
