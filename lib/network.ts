@@ -327,7 +327,8 @@ export async function loadNetwork(): Promise<Network> {
   const raws = new Set<string>();
   for (const n of networks) for (const r of parseConnections(n.text).records) if (r.company) raws.add(r.company);
   const resolved = new Map<string, Resolved>();
-  await Promise.all([...raws].map(async (raw) => resolved.set(raw, await resolveName(raw, state.overrides[looseKey(raw)]))));
+  const demo = owners.length > 0 && owners.every((o) => o.demo);
+  await Promise.all([...raws].map(async (raw) => resolved.set(raw, await resolveName(raw, state.overrides[looseKey(raw)], { demo }))));
   const signals = loadSignals();
   if (G.__vnSignalIndex?.set !== signals) G.__vnSignalIndex = { set: signals, map: indexSignals(signals) };
   const net = buildNetwork({ networks, resolved, state, profile, signals, today: today() }, G.__vnSignalIndex.map);

@@ -71,6 +71,7 @@ export const DEFAULT_PROFILE: Profile = {
     { code: "41-43", label: "Construction" },
     { code: "46", label: "Wholesale" },
     { code: "49-53", label: "Transport and logistics" },
+    { code: "4932", label: "Taxis", lowerPriority: true },
     { code: "01-09", label: "Agriculture and mining", lowerPriority: true },
     { code: "35-39", label: "Energy, water and waste", lowerPriority: true },
   ],

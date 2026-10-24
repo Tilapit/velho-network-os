@@ -33,6 +33,8 @@ export type CompanySignal = {
   tol?: string;
   industry?: string;
   town?: string;
+  /** When the company itself was registered. */
+  registered?: string;
   type: SignalType;
   /** Date PRH registered the notice. */
   date: string;
@@ -40,7 +42,7 @@ export type CompanySignal = {
   entryCodes: string[];
 };
 
-export type SignalSet = { fetchedAt: string; start: string; end: string; complete: boolean; pages: number; signals: CompanySignal[] };
+export type SignalSet = { fetchedAt: string; start: string; end: string; complete: boolean; pages: number; signals: CompanySignal[]; snapshot?: boolean };
 
 // Bankruptcy, liquidation and restructuring are not a reason to offer Velho.
 const EXCLUDED_SITUATIONS = new Set(["KONK", "SELTILA", "SANE"]);
@@ -92,6 +94,10 @@ export function signalsFromPage(type: SignalType, page: any, start: string, end:
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if ((c.companySituations ?? []).some((s: any) => !s.endDate && EXCLUDED_SITUATIONS.has(s.type))) continue;
     if (c.status === "5" || c.tradeRegisterStatus === "2" || c.tradeRegisterStatus === "4") continue;
+    // A company founded in (or just before) the window: its "new managing
+    // director" is the first registration, not a change.
+    const registered: string | undefined = c.businessId?.registrationDate ?? c.registrationDate;
+    if (registered && registered >= addDays(start, -30)) continue;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const notices: any[] = c.publicNotices ?? [];
     if (notices.some((n) => (n.entryCodes ?? []).some((e: string) => EXCLUDED_CODES.has(e)))) continue;
@@ -109,6 +115,7 @@ export function signalsFromPage(type: SignalType, page: any, start: string, end:
         tol: c.mainBusinessLine?.type,
         industry: en(c.mainBusinessLine?.descriptions),
         town: addr?.postOffices?.find((p: { languageCode: string }) => p.languageCode === "1")?.city ?? addr?.postOffices?.[0]?.city,
+        registered,
         type,
         date: n.registrationDate,
         recordNumber: n.recordNumber,
@@ -182,17 +189,25 @@ export async function refreshSignals(opts: { days?: number; end?: string; log?: 
   return set;
 }
 
-let memo: { mtime: number; set: SignalSet | null } | null = null;
+let memo: { file: string; mtime: number; set: SignalSet | null } | null = null;
 
-/** The last fetched signal set, or null if the radar has never been refreshed. */
+const snapshotFile = () => path.join(process.env.DEMO_DIR || path.join(process.cwd(), "data", "demo"), "signals-snapshot.json");
+
+/**
+ * The last fetched signal set. Without one (a fresh clone), the snapshot
+ * shipped in data/demo, which says when it was fetched. Null if neither exists.
+ */
 export function loadSignals(): SignalSet | null {
-  try {
-    const mtime = fs.statSync(signalsFile()).mtimeMs;
-    if (memo?.mtime === mtime) return memo.set;
-    const set = JSON.parse(fs.readFileSync(signalsFile(), "utf8")) as SignalSet;
-    memo = { mtime, set };
-    return set;
-  } catch {
-    return null;
+  for (const file of [signalsFile(), snapshotFile()]) {
+    try {
+      const mtime = fs.statSync(file).mtimeMs;
+      if (memo?.file === file && memo.mtime === mtime) return memo.set;
+      const set = JSON.parse(fs.readFileSync(file, "utf8")) as SignalSet;
+      memo = { file, mtime, set };
+      return set;
+    } catch {
+      continue;
+    }
   }
+  return null;
 }

@@ -1,6 +1,8 @@
 // Company names -> PRH companies. The model only ever reads the cache
 // (offline), so a page never waits for PRH; a background job fills the cache
 // and bumps `generation` so the next model load picks the new matches up.
+import fs from "node:fs";
+import path from "node:path";
 import { getCompany, looseKey, matchCompany, stats, type MatchStatus, type PrhCompany } from "./prh.ts";
 import { hasForeignForm, looksForeign } from "./industry.ts";
 import type { Override } from "./state.ts";
@@ -20,11 +22,24 @@ export type Resolved = {
 
 const memo = new Map<string, Resolved>();
 
+type Snap = Record<string, { status: MatchStatus; note: string; company?: PrhCompany; candidates: PrhCompany[] }>;
+let snapshot: Snap | null = null;
+/** PRH decisions for the demo's company names (data/demo/prh-matches.json). */
+function demoSnapshot(): Snap {
+  if (snapshot) return snapshot;
+  try {
+    snapshot = JSON.parse(fs.readFileSync(path.join(process.env.DEMO_DIR || path.join(process.cwd(), "data", "demo"), "prh-matches.json"), "utf8")) as Snap;
+  } catch {
+    snapshot = {};
+  }
+  return snapshot;
+}
+
 export function clearMatchMemo() {
   memo.clear();
 }
 
-export async function resolveName(raw: string, override?: Override): Promise<Resolved> {
+export async function resolveName(raw: string, override?: Override, opts: { demo?: boolean } = {}): Promise<Resolved> {
   const key = looseKey(raw);
   if (override?.notFinnish) return { raw, key, status: "none", candidates: [], note: "You marked this as not a Finnish company", by: "you", foreign: true };
   if (override?.businessId) {
@@ -33,7 +48,9 @@ export async function resolveName(raw: string, override?: Override): Promise<Res
   }
   const hit = memo.get(raw);
   if (hit && hit.status !== "pending") return hit;
-  const m = await matchCompany(raw, { offline: true });
+  let m: { status: MatchStatus; note: string; company?: PrhCompany; candidates: PrhCompany[] } = await matchCompany(raw, { offline: true });
+  // Demo networks fall back to the shipped snapshot, so the demo never waits for PRH.
+  if (m.status === "pending" && opts.demo && demoSnapshot()[raw]) m = demoSnapshot()[raw];
   const r: Resolved = {
     raw,
     key,

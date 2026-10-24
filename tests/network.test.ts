@@ -193,9 +193,11 @@ test("signals: notices pages filter types, dates, housing companies and bankrupt
       { businessId: { value: "2" }, names: [{ name: "As Oy B", type: "1", version: 1 }], companyForms: [{ type: "2", version: 1 }], publicNotices: [{ registrationDate: "2026-10-01", recordNumber: "r2", entryCodes: ["TOIM"] }] },
       { businessId: { value: "3" }, names: [{ name: "C Oy", type: "1", version: 1 }], companyForms: [{ type: "16", version: 1 }], companySituations: [{ type: "KONK" }], publicNotices: [{ registrationDate: "2026-10-01", recordNumber: "r3", entryCodes: ["TOIM"] }] },
       { businessId: { value: "4" }, names: [{ name: "D Oy", type: "1", version: 1 }], companyForms: [{ type: "16", version: 1 }], publicNotices: [{ registrationDate: "2026-01-01", recordNumber: "r4", entryCodes: ["TOIM"] }] },
+      { businessId: { value: "5", registrationDate: "2026-09-01" }, names: [{ name: "New Oy", type: "1", version: 1 }], companyForms: [{ type: "16", version: 1 }], publicNotices: [{ registrationDate: "2026-09-02", recordNumber: "r5", entryCodes: ["TOIM"] }] },
     ],
   };
   const out = signalsFromPage("md_change", page, "2026-07-26", "2026-10-24");
+  // "5" was founded in the window: its first MD is not a change.
   assert.deepEqual(out.map((s) => s.businessId), ["1"]);
 });
 
@@ -236,4 +238,20 @@ test("reactions: a unique name is stored, a duplicate name is returned and not s
   assert.equal(r.unmatched.length, 2);
   const state = JSON.parse(fs.readFileSync(path.join(dir, "state.json"), "utf8"));
   assert.equal(state.reactions.length, 1);
+});
+
+test("demo loads with one call and works offline from the shipped snapshots", async () => {
+  const { loadDemo } = await import("../lib/store.ts");
+  const { loadNetwork } = await import("../lib/network.ts");
+  const owners = loadDemo();
+  assert.deepEqual(owners.map((o) => o.name), ["You", "Co-founder", "Board member"]);
+  assert.ok(owners.every((o) => o.demo));
+  const net = await loadNetwork();
+  assert.equal(net.demo, true);
+  assert.equal(net.stats.rows, 2660);
+  assert.ok(net.stats.contacts > 2200 && net.stats.contacts < 2400, `merged by URL: ${net.stats.contacts}`);
+  assert.equal(net.stats.names.pending, 0, "every demo company name is answered by the cache or the snapshot");
+  assert.ok(net.stats.fits > 50);
+  assert.ok(net.signals && net.signals.signals.length > 1000, "radar snapshot loaded");
+  assert.ok(net.contacts.every((c) => c.group), "every contact is in one group");
 });

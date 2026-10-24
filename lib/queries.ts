@@ -249,6 +249,7 @@ export function getRadar(net: Network, f: RadarFilter = {}): { window: { start: 
   let rows: RadarRow[] = [];
   for (const [businessId, sigs] of byCo) {
     const first = sigs[0];
+    const lower = industryRule(first.tol, net.profile)?.lowerPriority;
     const group = groupForTol(first.tol);
     if (groups && !groups.includes(group)) continue;
     const co = net.companies.get(businessId);
@@ -270,7 +271,8 @@ export function getRadar(net: Network, f: RadarFilter = {}): { window: { start: 
       town: first.town,
       signals: list.map((s) => ({ type: s.type, label: SIGNAL_TYPES[s.type].label, date: s.date, recordNumber: s.recordNumber })),
       latest: list[0].date,
-      score: radarScore(list, net.today),
+      // Lower-priority industries count half.
+      score: radarScore(list, net.today) * (lower ? 0.5 : 1),
       known,
       source: ytjUrl(businessId),
       url: appUrl(`/companies/${businessId}`),
