@@ -1,0 +1,354 @@
+// The team's network as one model: every owner's LinkedIn export merged by
+// profile URL (never by name), company names matched in PRH, titles read
+// against the target profile, and a deterministic score for ranking.
+import crypto from "node:crypto";
+import fs from "node:fs";
+import { parseConnections } from "./ingest.ts";
+import { daysBetween, profileKey, today } from "./normalize.ts";
+import { ownerText, readOwners, sourcesSignature, type Owner } from "./store.ts";
+import { readState, stateSignature, type Reaction, type State, type StatusEntry } from "./state.ts";
+import { matchJob, resolveName, startMatching, type Resolved } from "./matching.ts";
+import { analyseTitle, isStrongRole, type RoleInfo } from "./roles.ts";
+import { DEFAULT_PROFILE, groupForTol, industryRule, type GroupId, type IndustryRule, type Profile } from "./industry.ts";
+import { loadSignals, signalsFile, SIGNAL_TYPES, type CompanySignal, type SignalSet } from "./signals.ts";
+import { looseKey, type MatchStatus, type PrhCompany } from "./prh.ts";
+
+export type Fit = "strong" | "possible";
+/** direct: a decision-maker who fits. ask_intro: works at a target company, does not decide. */
+export type Approach = "direct" | "ask_intro" | "skip";
+
+export type KnownBy = { owner: string; ownerName: string; connectedOn: string; file: string; row: number };
+export type ScorePart = { label: string; points: number; why: string };
+
+export type Contact = {
+  id: string;
+  name: string;
+  url: string;
+  company: string;
+  position: string;
+  /** Every teammate who has this person in their export, earliest first. */
+  knownBy: KnownBy[];
+  /** Suggested sender: the teammate who connected first. */
+  sender: KnownBy;
+  match: Resolved | null;
+  companyId: string | null;
+  group: GroupId;
+  rule: IndustryRule | null;
+  role: RoleInfo;
+  fit: Fit | null;
+  approach: Approach;
+  /** Other people the team knows at the same company. */
+  colleagues: number;
+  signals: CompanySignal[];
+  reactions: Reaction[];
+  status?: StatusEntry;
+  score: number;
+  parts: ScorePart[];
+};
+
+export type CompanyEntry = {
+  /** Business ID when matched in PRH, otherwise "x-" and a hash of the name. */
+  id: string;
+  businessId?: string;
+  name: string;
+  rawNames: string[];
+  status: MatchStatus;
+  prh?: PrhCompany;
+  group: GroupId;
+  rule: IndustryRule | null;
+  contactIds: string[];
+  signals: CompanySignal[];
+};
+
+export type Network = {
+  owners: Owner[];
+  demo: boolean;
+  profile: Profile;
+  today: string;
+  contacts: Contact[];
+  byId: Map<string, Contact>;
+  companies: Map<string, CompanyEntry>;
+  names: Map<string, Resolved>;
+  signals: SignalSet | null;
+  signalsByCompany: Map<string, CompanySignal[]>;
+  stats: NetworkStats;
+};
+
+export type NetworkStats = {
+  rows: number;
+  contacts: number;
+  knownByTwo: number;
+  noCompany: number;
+  names: Record<MatchStatus | "foreign", number>;
+  companies: { matched: number; total: number };
+  decisionMakers: number;
+  inProfile: number;
+  fits: number;
+  strong: number;
+};
+
+const hash = (s: string, n = 10) => crypto.createHash("sha1").update(s).digest("hex").slice(0, n);
+const MATCHED = (s?: MatchStatus) => s === "verified" || s === "inferred";
+
+// ---------- score ----------
+
+/** Points per fact. The score orders the list; it is a heuristic, not a probability. */
+export const WEIGHTS = {
+  strong: 40,
+  possible: 20,
+  verified: 10,
+  level: { exec: 15, director: 10, board: 6, manager: 4, other: 0 },
+  signalPerWeight: 4,
+  signalExtraType: 2,
+  team: 8,
+  colleague: 3,
+  colleagueMax: 9,
+  recent: 3,
+  reacted: 5,
+};
+
+/** Signal points for a company: 4 x the weight of its strongest signal, +2 per extra type. */
+export function signalPoints(signals: CompanySignal[]): { points: number; why: string } {
+  if (!signals.length) return { points: 0, why: "" };
+  const types = [...new Set(signals.map((s) => s.type))].sort((a, b) => SIGNAL_TYPES[b].weight - SIGNAL_TYPES[a].weight);
+  const points = SIGNAL_TYPES[types[0]].weight * WEIGHTS.signalPerWeight + (types.length - 1) * WEIGHTS.signalExtraType;
+  return { points, why: types.map((t) => SIGNAL_TYPES[t].label).join(", ") };
+}
+
+export function scoreContact(c: Pick<Contact, "fit" | "match" | "role" | "knownBy" | "colleagues" | "signals" | "reactions">, now: string): ScorePart[] {
+  const parts: ScorePart[] = [];
+  if (c.fit) parts.push({ label: "Fit", points: c.fit === "strong" ? WEIGHTS.strong : WEIGHTS.possible, why: c.fit === "strong" ? "Strong fit" : "Possible fit" });
+  if (c.match?.status === "verified") parts.push({ label: "Company match", points: WEIGHTS.verified, why: "Company verified in PRH" });
+  const lv = WEIGHTS.level[c.role.level];
+  if (c.role.decisionMaker && lv) parts.push({ label: "Role", points: lv, why: `${c.role.level} level title` });
+  const sig = signalPoints(c.signals);
+  if (sig.points) parts.push({ label: "Signal", points: sig.points, why: sig.why });
+  if (c.knownBy.length > 1) parts.push({ label: "Team", points: WEIGHTS.team, why: `Known by ${c.knownBy.length} teammates` });
+  if (c.colleagues) parts.push({ label: "Network", points: Math.min(WEIGHTS.colleagueMax, c.colleagues * WEIGHTS.colleague), why: `${c.colleagues} other connection${c.colleagues > 1 ? "s" : ""} at the company` });
+  const latest = c.knownBy.map((k) => k.connectedOn).filter(Boolean).sort().at(-1);
+  if (latest && daysBetween(latest, now) <= 365) parts.push({ label: "Recent", points: WEIGHTS.recent, why: "Connected in the last year" });
+  if (c.reactions.length) parts.push({ label: "Reacted", points: WEIGHTS.reacted, why: `Reacted to ${c.reactions.length} post${c.reactions.length > 1 ? "s" : ""}` });
+  return parts;
+}
+
+export function fitFor(role: RoleInfo, rule: IndustryRule | null): Fit | null {
+  if (!role.decisionMaker || !rule) return null;
+  return !rule.lowerPriority && isStrongRole(role) ? "strong" : "possible";
+}
+
+export function approachFor(fit: Fit | null, rule: IndustryRule | null): Approach {
+  return fit ? "direct" : rule ? "ask_intro" : "skip";
+}
+
+// ---------- build (pure) ----------
+
+export type BuildInput = {
+  networks: { owner: Owner; text: string }[];
+  resolved: Map<string, Resolved>;
+  state: State;
+  profile: Profile;
+  signals: SignalSet | null;
+  today: string;
+};
+
+type Draft = { key: string; name: string; url: string; company: string; position: string; knownBy: KnownBy[]; importedAt: string };
+
+/** Merges owners' rows by profile URL. Rows without a URL stay separate. */
+export function mergeNetworks(networks: { owner: Owner; text: string }[]): { drafts: Draft[]; rows: number } {
+  const byKey = new Map<string, Draft>();
+  let rows = 0;
+  for (const { owner, text } of networks) {
+    const { records } = parseConnections(text, owner.original);
+    rows += records.length;
+    for (const r of records) {
+      const pk = profileKey(r.url);
+      const key = pk || `nourl:${owner.id}:${r.row}`;
+      const kb: KnownBy = { owner: owner.id, ownerName: owner.name, connectedOn: r.connectedOn, file: owner.original, row: r.row };
+      const d = byKey.get(key);
+      if (!d) {
+        byKey.set(key, { key, name: `${r.first} ${r.last}`.trim(), url: r.url, company: r.company, position: r.position, knownBy: [kb], importedAt: owner.importedAt });
+        continue;
+      }
+      if (!d.knownBy.some((k) => k.owner === owner.id)) d.knownBy.push(kb);
+      // The newest export has the current title.
+      if (owner.importedAt > d.importedAt && (r.company || r.position)) Object.assign(d, { company: r.company, position: r.position, importedAt: owner.importedAt });
+    }
+  }
+  for (const d of byKey.values()) d.knownBy.sort((a, b) => (a.connectedOn || "9").localeCompare(b.connectedOn || "9"));
+  return { drafts: [...byKey.values()], rows };
+}
+
+export function indexSignals(set: SignalSet | null): Map<string, CompanySignal[]> {
+  const m = new Map<string, CompanySignal[]>();
+  for (const s of set?.signals ?? []) {
+    const list = m.get(s.businessId);
+    if (list) list.push(s);
+    else m.set(s.businessId, [s]);
+  }
+  return m;
+}
+
+export function buildNetwork(input: BuildInput, signalsByCompany = indexSignals(input.signals)): Network {
+  const { profile, state } = input;
+  const { drafts, rows } = mergeNetworks(input.networks);
+  const companies = new Map<string, CompanyEntry>();
+  const contacts: Contact[] = drafts.map((d) => {
+    const id = hash(d.key);
+    const match = d.company ? input.resolved.get(d.company) ?? null : null;
+    let companyId: string | null = null;
+    let group: GroupId = "not_matched";
+    let rule: IndustryRule | null = null;
+    if (match && MATCHED(match.status) && match.company && !match.foreign) {
+      companyId = match.company.businessId;
+      group = groupForTol(match.company.tol);
+      rule = industryRule(match.company.tol, profile);
+    } else if (match && match.status !== "skipped") {
+      companyId = `x-${hash(match.key || d.company.toLowerCase(), 8)}`;
+      if (match.foreign) group = "abroad";
+    }
+    if (companyId) {
+      let co = companies.get(companyId);
+      if (!co) {
+        const matched = !!match && MATCHED(match.status) && !!match.company && !match.foreign;
+        co = {
+          id: companyId,
+          businessId: matched ? match!.company!.businessId : undefined,
+          name: matched ? match!.company!.name : d.company,
+          rawNames: [],
+          status: match!.status,
+          prh: matched ? match!.company : undefined,
+          group,
+          rule,
+          contactIds: [],
+          signals: matched ? signalsByCompany.get(companyId) ?? [] : [],
+        };
+        companies.set(companyId, co);
+      }
+      if (!co.rawNames.includes(d.company)) co.rawNames.push(d.company);
+      if (match!.status === "verified") co.status = "verified";
+      co.contactIds.push(id);
+    }
+    const role = analyseTitle(d.position, profile.roles);
+    const fit = fitFor(role, rule);
+    return {
+      id,
+      name: d.name,
+      url: d.url,
+      company: d.company,
+      position: d.position,
+      knownBy: d.knownBy,
+      sender: d.knownBy[0],
+      match,
+      companyId,
+      group,
+      rule,
+      role,
+      fit,
+      approach: approachFor(fit, rule),
+      colleagues: 0,
+      signals: companyId ? companies.get(companyId)!.signals : [],
+      reactions: state.reactions.filter((r) => r.contactId === id),
+      status: state.status[id],
+      score: 0,
+      parts: [],
+    };
+  });
+  for (const c of contacts) {
+    if (c.companyId) c.colleagues = companies.get(c.companyId)!.contactIds.length - 1;
+    c.parts = scoreContact(c, input.today);
+    c.score = c.parts.reduce((n, p) => n + p.points, 0);
+  }
+  contacts.sort(rankOrder);
+  const names: Record<MatchStatus | "foreign", number> = { verified: 0, inferred: 0, ambiguous: 0, none: 0, skipped: 0, pending: 0, foreign: 0 };
+  for (const r of input.resolved.values()) {
+    names[r.status]++;
+    if (r.foreign) names.foreign++;
+  }
+  const fits = contacts.filter((c) => c.fit);
+  return {
+    owners: input.networks.map((n) => n.owner),
+    demo: input.networks.length > 0 && input.networks.every((n) => n.owner.demo),
+    profile,
+    today: input.today,
+    contacts,
+    byId: new Map(contacts.map((c) => [c.id, c])),
+    companies,
+    names: input.resolved,
+    signals: input.signals,
+    signalsByCompany,
+    stats: {
+      rows,
+      contacts: contacts.length,
+      knownByTwo: contacts.filter((c) => c.knownBy.length > 1).length,
+      noCompany: contacts.filter((c) => !c.company).length,
+      names,
+      companies: { matched: [...companies.values()].filter((c) => c.businessId).length, total: companies.size },
+      decisionMakers: contacts.filter((c) => c.role.decisionMaker).length,
+      inProfile: contacts.filter((c) => c.rule).length,
+      fits: fits.length,
+      strong: fits.filter((c) => c.fit === "strong").length,
+    },
+  };
+}
+
+/** Strong before possible, "Not a fit" last, then score, then name. */
+export function rankOrder(a: Contact, b: Contact): number {
+  const f = (c: Contact) => (c.status?.status === "not_fit" ? 3 : c.fit === "strong" ? 0 : c.fit === "possible" ? 1 : 2);
+  return f(a) - f(b) || b.score - a.score || a.name.localeCompare(b.name, "fi");
+}
+
+// ---------- load (cached) ----------
+
+type Memo = { sig: string; net: Network };
+const G = globalThis as unknown as { __vnNetwork?: Memo; __vnSignalIndex?: { set: SignalSet | null; map: Map<string, CompanySignal[]> } };
+
+function signalsSig(): string {
+  try {
+    return String(fs.statSync(signalsFile()).mtimeMs);
+  } catch {
+    return "-";
+  }
+}
+
+/** The current model. Reads only local files and the PRH cache; never waits for PRH. */
+export async function loadNetwork(): Promise<Network> {
+  const sig = [sourcesSignature(), stateSignature(), signalsSig(), matchJob().generation, process.env.APP_TODAY ?? ""].join("#");
+  if (G.__vnNetwork?.sig === sig) return G.__vnNetwork.net;
+  const owners = readOwners();
+  const networks = owners.flatMap((owner) => {
+    try {
+      return [{ owner, text: ownerText(owner) }];
+    } catch {
+      return [];
+    }
+  });
+  const state = readState();
+  const profile = state.profile ?? DEFAULT_PROFILE;
+  const raws = new Set<string>();
+  for (const n of networks) for (const r of parseConnections(n.text).records) if (r.company) raws.add(r.company);
+  const resolved = new Map<string, Resolved>();
+  await Promise.all([...raws].map(async (raw) => resolved.set(raw, await resolveName(raw, state.overrides[looseKey(raw)]))));
+  const signals = loadSignals();
+  if (G.__vnSignalIndex?.set !== signals) G.__vnSignalIndex = { set: signals, map: indexSignals(signals) };
+  const net = buildNetwork({ networks, resolved, state, profile, signals, today: today() }, G.__vnSignalIndex.map);
+  G.__vnNetwork = { sig, net };
+  return net;
+}
+
+/**
+ * Starts the background PRH lookup for names not in the cache yet, names with
+ * decision-makers first. Only company names are sent to PRH.
+ */
+export function ensureMatching(net: Network) {
+  if (process.env.PRH_OFFLINE === "1") return matchJob();
+  const pending = [...net.names.values()].filter((r) => r.status === "pending").map((r) => r.raw);
+  if (!pending.length) return matchJob();
+  const weight = new Map<string, number>();
+  for (const c of net.contacts) if (c.company) weight.set(c.company, (weight.get(c.company) ?? 0) + (c.role.decisionMaker ? 10 : 1));
+  pending.sort((a, b) => (weight.get(b) ?? 0) - (weight.get(a) ?? 0));
+  return startMatching(pending);
+}
+
+export function contactsFor(net: Network, owner?: string): Contact[] {
+  return owner ? net.contacts.filter((c) => c.knownBy.some((k) => k.owner === owner)) : net.contacts;
+}

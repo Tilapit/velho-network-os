@@ -11,9 +11,9 @@ Branch `overnight`. Brief: `OVERNIGHT_PROMPT.md` (wins on conflict), then
 
 | Step | Budget | Status |
 | --- | --- | --- |
-| 1. Mock data (3 networks) | 45 min | in progress (started 23:25) |
-| 2. Data layer | 2 h | |
-| 3. Signal radar | 1 h 15 | fetch started early (23:27), see below |
+| 1. Mock data (3 networks) | 45 min | done 23:41 |
+| 2. Data layer | 2 h | done 00:00 |
+| 3. Signal radar | 1 h 15 | data fetched 23:33 (21,080 signals, 604 pages, 6 min); radar queries in lib/queries.ts |
 | 4. Web app UI | 2 h 30 | |
 | 5. MCP server + skill | 1 h 30 | |
 | 6. Verify and hand over | 45 min | |
@@ -64,6 +64,47 @@ Branch `overnight`. Brief: `OVERNIGHT_PROMPT.md` (wins on conflict), then
     46, transport 49–53. Lower priority: 01–09, 35–39.
   - PRH has no headcount, so it is always shown as Missing.
 
+- **Data layer.**
+  - Networks live in `data/sources/networks/<owner>.csv` plus `owners.json`.
+  - People merge by profile URL only. Rows without a URL stay separate.
+  - The suggested sender is the earliest connection.
+  - Contact ids are a sha1 of the profile key, so no names appear in URLs or logs.
+- **Matching never blocks a page.** The model reads the PRH cache only. A
+  background job (3 workers) looks up uncached names, those with
+  decision-makers first.
+  - Cold run for all three mock networks (about 700 names, most target SMEs
+    already cached): 3 min 54 s.
+- **"Abroad".** Not in PRH (or only a close match) and either a foreign company
+  form (AB, OÜ, GmbH, AG, SE, Inc, LLC; "Ab" only without "Oy") or a short list
+  of well-known international employers.
+- **Titles.**
+  - C-level and owner titles always count as decision-makers.
+  - Other titles need a profile term plus a manager-or-higher level. Junior
+    words (planner, engineer, specialist, worker) veto at manager level.
+  - Finnish and Swedish forms are matched (tuotanto-, -johtaja, -direktör,
+    -chef). "Työnjohtaja", "puheenjohtaja" and "Product Owner" are excluded.
+- **Score** (`lib/network.ts` WEIGHTS, for ordering only):
+
+  | Factor | Points |
+  | --- | --- |
+  | Fit | strong 40, possible 20 |
+  | Verified match | 10 |
+  | Level | exec 15, director 10, board 6, manager 4 |
+  | Signal | 4 × weight of the strongest, +2 per extra type |
+  | Known by 2+ teammates | 8 |
+  | Colleagues at the company | 3 each, max 9 |
+  | Connected in the last year | 3 |
+  | Reacted | 5 |
+- **Old prototype removed.** Score, recommendations, drafts, engagement,
+  intelligence, the cytoscape graph, the story demo and its tests. Nothing in
+  the new scope used them. `Connections-small.csv` is kept and parsed by a
+  test.
+- **Claude angle.**
+  - `claude-opus-5-5` at low effort with the server-side refusal fallback.
+  - It receives role and company facts only, never the person's name.
+- **Message examples** in `message_context` use made-up companies, so no real
+  company gets an invented fact.
+
 ## Open issues
 
 - PRH has no headcount. A director at a large group's subsidiary can show as
@@ -71,4 +112,4 @@ Branch `overnight`. Brief: `OVERNIGHT_PROMPT.md` (wins on conflict), then
 
 ## Next step
 
-Write `scripts/generate-mock-connections.mjs`.
+Step 4, the web app UI. Read `design/*.dc.html` first.

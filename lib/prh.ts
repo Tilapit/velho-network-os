@@ -160,7 +160,7 @@ export async function searchYtj(query: string, opts: { offline?: boolean } = {})
 
 // ---------- Matching a LinkedIn company name to a PRH company ----------
 
-export type MatchStatus = "verified" | "inferred" | "ambiguous" | "none" | "skipped";
+export type MatchStatus = "verified" | "inferred" | "ambiguous" | "none" | "skipped" | "pending";
 
 export type PrhMatch = {
   name: string;
@@ -244,6 +244,19 @@ export function decide(name: string, results: PrhSearch[]): Omit<PrhMatch, "quer
   return { name, key, status: "none", candidates: [], note: total > 100 ? "Name too common to match without a business ID" : "No registered Finnish company with this name" };
 }
 
+/** One company by business ID (for a match the founder picks by hand), cached. */
+export async function getCompany(businessId: string, opts: { offline?: boolean } = {}): Promise<PrhCompany | null> {
+  const id = businessId.trim();
+  if (!/^\d{7}-\d$/.test(id)) return null;
+  const cached = readCache<PrhSearch>("ytj", hash(`businessId:${id}`));
+  if (cached) return cached.companies[0] ?? null;
+  if (opts.offline) return null;
+  const raw = (await politeGet(`${YTJ}/companies?businessId=${encodeURIComponent(id)}`)) as { totalResults: number; companies: unknown[] } | null;
+  const result: PrhSearch = { query: `businessId:${id}`, fetchedAt: new Date().toISOString(), totalResults: raw?.totalResults ?? 0, companies: (raw?.companies ?? []).map(compact) };
+  writeCache("ytj", hash(`businessId:${id}`), result);
+  return result.companies[0] ?? null;
+}
+
 /** Looks a LinkedIn company name up in YTJ. Never guesses: see decide(). */
 export async function matchCompany(name: string, opts: { offline?: boolean } = {}): Promise<PrhMatch> {
   const key = looseKey(name);
@@ -254,14 +267,17 @@ export async function matchCompany(name: string, opts: { offline?: boolean } = {
   const queries = [base];
   const results: PrhSearch[] = [];
   const first = await searchYtj(base, opts);
-  if (!first) return { name, key, status: "none", candidates: [], note: "Not looked up yet", queries: [] };
+  if (!first) return { name, key, status: "pending", candidates: [], note: "Not looked up in PRH yet", queries: [] };
   results.push(first);
   // A short or common name returns hundreds of hits in register order, so the
   // right company may not be on the first page. Narrow with the legal form.
   if (first.totalResults > 100) {
     for (const q of [`${base} Oy`, `Oy ${base}`]) {
       const r = await searchYtj(q, opts);
-      if (!r) continue;
+      if (!r) {
+        if (decide(name, results).status !== "verified") return { name, key, status: "pending", candidates: [], note: "Not looked up in PRH yet", queries };
+        continue;
+      }
       queries.push(q);
       results.push(r);
       if (decide(name, results).status === "verified") break;

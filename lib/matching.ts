@@ -1,0 +1,112 @@
+// Company names -> PRH companies. The model only ever reads the cache
+// (offline), so a page never waits for PRH; a background job fills the cache
+// and bumps `generation` so the next model load picks the new matches up.
+import { getCompany, looseKey, matchCompany, stats, type MatchStatus, type PrhCompany } from "./prh.ts";
+import { hasForeignForm, looksForeign } from "./industry.ts";
+import type { Override } from "./state.ts";
+
+export type Resolved = {
+  raw: string;
+  /** looseKey of the name: overrides are stored under it. */
+  key: string;
+  status: MatchStatus;
+  company?: PrhCompany;
+  candidates: PrhCompany[];
+  note: string;
+  by: "rule" | "you";
+  /** Not in PRH and the name looks international (company form or a known brand). */
+  foreign: boolean;
+};
+
+const memo = new Map<string, Resolved>();
+
+export function clearMatchMemo() {
+  memo.clear();
+}
+
+export async function resolveName(raw: string, override?: Override): Promise<Resolved> {
+  const key = looseKey(raw);
+  if (override?.notFinnish) return { raw, key, status: "none", candidates: [], note: "You marked this as not a Finnish company", by: "you", foreign: true };
+  if (override?.businessId) {
+    const c = await getCompany(override.businessId, { offline: true });
+    if (c) return { raw, key, status: "verified", company: c, candidates: [c], note: "You picked this company in PRH", by: "you", foreign: false };
+  }
+  const hit = memo.get(raw);
+  if (hit && hit.status !== "pending") return hit;
+  const m = await matchCompany(raw, { offline: true });
+  const r: Resolved = {
+    raw,
+    key,
+    status: m.status,
+    company: m.company,
+    candidates: m.candidates,
+    note: m.note,
+    by: "rule",
+    // "Spotify AB" is the Swedish company even if a Finnish subsidiary is close.
+    foreign: ((m.status === "none" || m.status === "ambiguous") && looksForeign(raw, key)) || (m.status === "inferred" && hasForeignForm(raw)),
+  };
+  memo.set(raw, r);
+  return r;
+}
+
+export type MatchJob = {
+  running: boolean;
+  total: number;
+  done: number;
+  failed: number;
+  requests: number;
+  startedAt?: string;
+  finishedAt?: string;
+  seconds?: number;
+  generation: number;
+  lastError?: string;
+};
+
+const G = globalThis as unknown as { __vnMatchJob?: MatchJob };
+
+export function matchJob(): MatchJob {
+  return (G.__vnMatchJob ??= { running: false, total: 0, done: 0, failed: 0, requests: 0, generation: 0 });
+}
+
+/**
+ * Looks the given names up in PRH in the background, in the order given
+ * (callers put names with decision-makers first). Three workers; the PRH
+ * client keeps at most three requests in flight and backs off on 429.
+ */
+export function startMatching(names: string[]): MatchJob {
+  const job = matchJob();
+  if (job.running || !names.length) return job;
+  const t0 = Date.now();
+  const r0 = stats.requests;
+  Object.assign(job, { running: true, total: names.length, done: 0, failed: 0, requests: 0, startedAt: new Date().toISOString(), finishedAt: undefined, seconds: undefined, lastError: undefined });
+  const queue = [...names];
+  const worker = async () => {
+    for (let n = queue.shift(); n !== undefined; n = queue.shift()) {
+      try {
+        await matchCompany(n);
+        memo.delete(n);
+      } catch (e) {
+        job.failed++;
+        job.lastError = e instanceof Error ? e.message : String(e);
+      }
+      job.done++;
+      job.requests = stats.requests - r0;
+      job.generation++;
+    }
+  };
+  void Promise.all([worker(), worker(), worker()]).then(() => {
+    job.running = false;
+    job.finishedAt = new Date().toISOString();
+    job.seconds = Math.round((Date.now() - t0) / 100) / 10;
+    job.requests = stats.requests - r0;
+    job.generation++;
+  });
+  return job;
+}
+
+/** Resolves when the running job (if any) has finished. For scripts and tests. */
+export async function matchingDone(): Promise<MatchJob> {
+  const job = matchJob();
+  while (job.running) await new Promise((r) => setTimeout(r, 200));
+  return job;
+}
