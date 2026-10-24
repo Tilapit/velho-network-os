@@ -6,6 +6,7 @@ import path from "node:path";
 import { getCompany, looseKey, matchCompany, stats, type MatchStatus, type PrhCompany } from "./prh.ts";
 import { hasForeignForm, knownInternational, looksForeign } from "./industry.ts";
 import type { Override } from "./state.ts";
+import { COLD_SECONDS_PER_NAME } from "./estimate.ts";
 
 export type Resolved = {
   raw: string;
@@ -127,6 +128,24 @@ export function startMatching(names: string[]): MatchJob {
     job.generation++;
   });
   return job;
+}
+
+/** The pace of a running or finished job once it has done 30 names, else the measured cold pace. */
+export function secondsPerName(): number {
+  const job = matchJob();
+  const elapsed = job.running && job.startedAt ? (Date.now() - Date.parse(job.startedAt)) / 1000 : job.seconds;
+  return elapsed && job.done >= 30 ? elapsed / job.done : COLD_SECONDS_PER_NAME;
+}
+
+/** How long the PRH lookups for these company names will take, from what is cached now. */
+export async function lookupEstimate(names: string[], opts: { demo?: boolean } = {}): Promise<{ names: number; toLookUp: number; seconds: number }> {
+  const uniq = [...new Set(names.filter(Boolean))];
+  let toLookUp = 0;
+  for (const n of uniq) {
+    const r = await resolveName(n, undefined, opts);
+    if (r.status === "pending" || r.snapshot) toLookUp++;
+  }
+  return { names: uniq.length, toLookUp, seconds: Math.round(toLookUp * secondsPerName()) };
 }
 
 /** Resolves when the running job (if any) has finished. For scripts and tests. */

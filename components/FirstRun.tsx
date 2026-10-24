@@ -1,11 +1,28 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { parseConnections } from "@/lib/ingest.ts";
+import { COLD_SECONDS_PER_NAME, fmtWait } from "@/lib/estimate.ts";
+
+const fmt = (n: number) => n.toLocaleString("en-US");
 
 export function UploadForm({ defaultOwner = "You", compact }: { defaultOwner?: string; compact?: boolean }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+  // Read in the browser before anything is uploaded: how many company names, and the worst-case wait.
+  async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    setMsg(null);
+    if (!f) return setPreview(null);
+    const { records, report } = parseConnections(await f.text(), f.name);
+    if (!records.length) return setPreview(report.warnings[0] ?? "No connections found in this file.");
+    const names = new Set(records.map((r) => r.company).filter(Boolean)).size;
+    setPreview(
+      `${fmt(records.length)} connections at ${fmt(names)} company names. Looking them all up in the trade register (PRH) from scratch takes ${fmtWait(names * COLD_SECONDS_PER_NAME)}; names already looked up are instant. You can use the app meanwhile: the drawing fills in as matches arrive.`,
+    );
+  }
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setBusy(true);
@@ -15,7 +32,10 @@ export function UploadForm({ defaultOwner = "You", compact }: { defaultOwner?: s
     const j = await r.json().catch(() => ({}));
     setBusy(false);
     if (!r.ok) return setMsg(j.error ?? "Import failed");
-    setMsg(`${j.owner.name}: ${j.owner.rows} rows, ${j.owner.accepted} imported, ${j.owner.skipped} skipped, ${j.owner.noCompany} with no company, ${j.owner.noUrl} with no profile URL.`);
+    const est = j.estimate as { names: number; toLookUp: number; seconds: number } | undefined;
+    const prh = !est ? "" : est.toLookUp ? ` PRH: ${fmt(est.toLookUp)} of ${fmt(est.names)} company names to look up, ${fmtWait(est.seconds)}.` : ` PRH: all ${fmt(est.names)} company names are already looked up.`;
+    setMsg(`${j.owner.name}: ${fmt(j.owner.rows)} rows, ${fmt(j.owner.accepted)} imported, ${j.owner.skipped} skipped, ${j.owner.noCompany} with no company, ${j.owner.noUrl} with no profile URL.${prh}`);
+    setPreview(null);
     (e.target as HTMLFormElement).reset();
     router.refresh();
   }
@@ -28,12 +48,17 @@ export function UploadForm({ defaultOwner = "You", compact }: { defaultOwner?: s
         </label>
         <label className="field">
           <span>Their Connections.csv</span>
-          <input name="file" type="file" accept=".csv,text/csv" required />
+          <input name="file" type="file" accept=".csv,text/csv" required onChange={onFile} />
         </label>
         <button className="btn primary" disabled={busy}>
           {busy ? "Importing…" : "Import"}
         </button>
       </div>
+      {preview && !msg ? (
+        <p className="small muted" role="status">
+          {preview}
+        </p>
+      ) : null}
       {msg ? (
         <p className="small" role="status">
           {msg}

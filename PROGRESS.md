@@ -12,7 +12,7 @@ b935098, the part-1 demo, so a working demo always exists.
 | Step | Budget | Status |
 | --- | --- | --- |
 | 1. Network drawing as a neural network | 2 h | done 01:20 |
-| 2. Real-data proof | 1 h | |
+| 2. Real-data proof | 1 h | done 01:05 |
 | 3. Reactions | 1 h | |
 | 4. This week + Write in Claude | 45 min | |
 | 5. claude.ai and Claude Desktop | 45 min | |
@@ -51,6 +51,37 @@ Decisions (part 2):
   name labels; below 1024 px the page is one column: title and filters,
   drawing, panel, table.
 - **Before and after.** The part-1 images are kept in `screens/part1/`.
+- **Stress files.** `node scripts/generate-mock-connections.mjs --rows 10000
+  --seed 10010 --out data/stress/10k` (and 5,000 with seed 5005) scales all
+  three mock networks; `data/stress/` is gitignored. Measured on this Mac,
+  production build (`next start`), Chrome at DPR 2:
+
+  | Network | Rows | People | Parse | Model, cold | First frame of the drawing | Hover redraw (p95) | Frame with particles |
+  | --- | --- | --- | --- | --- | --- | --- | --- |
+  | Demo | 2,660 | 2,333 | 10 ms | 131 ms | 93 ms | 1 ms | 16.7 ms |
+  | 5k, "You" only | 5,000 | 5,000 | 14 ms | 273 ms | 157 ms | 1 ms | 16.7 ms |
+  | 10k, "You" only | 10,000 | 10,000 | 23 ms | 268 ms | 205 ms | 1 ms | 16.7 ms |
+  | 10k, whole team | 17,733 | 15,547 | 43 ms | 363 ms | 306 ms | 1 ms | 16.7 ms |
+
+  First frame is from navigation start, with the model already built (it is
+  memoised per file change; the first request after a server start adds the
+  "model, cold" column). No long tasks while sweeping the mouse over the
+  drawing. Canvas timings in JS exclude GPU rasterisation; the steady 16.7 ms
+  frames with particles show it is not a bottleneck. Nothing needed fixing.
+- **Importer.** Header found by its cells (any column order, quoted, after
+  the Notes preamble or first), delimiter guessed (comma, semicolon, tab),
+  BOM and CR stripped. Required: First Name, Last Name, Company, Position.
+  URL and Connected On are optional with a warning (an older export still
+  imports; its people never merge). Dates also accept `24.10.2026` and
+  `10/24/2026`. Fixtures in `tests/fixtures/`, tests in
+  `tests/ingest.test.ts`.
+- **Cold PRH estimate.** 0.53 s per company name not yet looked up (the
+  demo's cold run: 545 names in 4 min 45 s). The import form reads the file
+  in the browser and shows the worst case before upload; after the import
+  it shows how many names are really left; the progress bar shows time
+  left at the job's own pace. Note: the mock 10k file reuses a pool of
+  about 1,000 companies; a real 10,000-row export likely has 3,000–5,000
+  distinct names, which is 25–45 minutes cold.
 
 ## Morning report
 

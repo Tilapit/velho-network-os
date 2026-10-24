@@ -1,57 +1,83 @@
 // LinkedIn's Connections.csv parser. Returns clean records plus a report of
 // what was accepted and why rows were skipped, so the import can show
-// coverage honestly.
+// coverage honestly. It tolerates what happens to the file on the way: a
+// byte order mark, Windows line ends, the "Notes:" preamble or none, columns
+// reordered or added, quoted headers, and Excel's semicolon re-save with
+// Finnish dates. An older export without the URL column still imports; its
+// people just cannot be merged with teammates'.
 import Papa from "papaparse";
 import type { ImportReport } from "./types.ts";
 import { isoDate, profileKey } from "./normalize.ts";
 
 type Row = Record<string, string>;
 
-function parse(text: string): Row[] {
-  const res = Papa.parse<Row>(text.replace(/^﻿/, ""), { header: true, skipEmptyLines: true, transformHeader: (h) => h.trim() });
-  return res.data;
-}
-
-function need(rows: Row[], cols: string[], report: ImportReport): boolean {
-  const have = rows.length ? Object.keys(rows[0]) : [];
-  const missing = cols.filter((c) => !have.includes(c));
-  if (missing.length) report.warnings.push(`Missing columns: ${missing.join(", ")}`);
-  return missing.length === 0;
-}
-
 export type ConnectionRow = { first: string; last: string; url: string; email: string; company: string; position: string; connectedOn: string; row: number };
 
-/** LinkedIn "Get a copy of your data" → Connections.csv. Skips the Notes preamble. */
+/** Header names as LinkedIn writes them, plus the forms they take after a re-save. */
+const COLUMNS: Record<Exclude<keyof ConnectionRow, "row">, string[]> = {
+  first: ["first name"],
+  last: ["last name"],
+  url: ["url", "profile url", "linkedin url"],
+  email: ["email address", "email"],
+  company: ["company"],
+  position: ["position", "title"],
+  connectedOn: ["connected on"],
+};
+const REQUIRED = ["first", "last", "company", "position"] as const;
+
+const header = (h: string) => h.replace(/^﻿/, "").trim().replace(/^"|"$/g, "").trim().toLowerCase();
+
+/** LinkedIn "Get a copy of your data" → Connections.csv. */
 export function parseConnections(text: string, file = "Connections.csv") {
   const report: ImportReport = { kind: "connections", file, rows: 0, accepted: 0, warnings: [] };
-  const lines = text.replace(/^﻿/, "").split(/\r?\n/);
-  const start = lines.findIndex((l) => l.startsWith("First Name"));
+  const lines = text.replace(/^﻿/, "").split(/\r\n|\r|\n/);
+  // The header may come after LinkedIn's "Notes:" preamble, or first, and
+  // its columns may be in any order.
+  const start = lines.slice(0, 50).findIndex((l) => {
+    const cells = l.split(/[,;\t]/).map(header);
+    return cells.includes("first name") && cells.includes("last name");
+  });
   if (start < 0) {
     report.warnings.push("No 'First Name' header found. Is this LinkedIn's Connections.csv?");
     return { records: [] as ConnectionRow[], report };
   }
-  const rows = parse(lines.slice(start).join("\n"));
+  const res = Papa.parse<Row>(lines.slice(start).join("\n"), { header: true, skipEmptyLines: "greedy", transformHeader: header, delimitersToGuess: [",", ";", "\t"] });
+  const rows = res.data;
   report.rows = rows.length;
-  if (!need(rows, ["First Name", "Last Name", "URL", "Company", "Position", "Connected On"], report)) return { records: [], report };
+  const have = new Set(res.meta.fields ?? []);
+  const col = Object.fromEntries(Object.entries(COLUMNS).map(([k, names]) => [k, names.find((n) => have.has(n))])) as Record<keyof typeof COLUMNS, string | undefined>;
+  const missing = REQUIRED.filter((k) => !col[k]).map((k) => COLUMNS[k][0].replace(/\b\w/g, (c) => c.toUpperCase()));
+  if (missing.length) {
+    report.warnings.push(`Missing columns: ${missing.join(", ")}`);
+    return { records: [] as ConnectionRow[], report };
+  }
+  if (!col.url) report.warnings.push("No URL column (an older export?). These people cannot be merged with teammates' connections.");
+  if (!col.connectedOn) report.warnings.push("No 'Connected On' column, so the suggested sender cannot use connection dates.");
+  const get = (r: Row, k: keyof typeof COLUMNS) => {
+    const c = col[k];
+    return c ? (r[c] ?? "").trim() : "";
+  };
   const records: ConnectionRow[] = [];
   let noUrl = 0;
+  let noName = 0;
+  let badDate = 0;
   rows.forEach((r, i) => {
-    const first = (r["First Name"] || "").trim();
-    const last = (r["Last Name"] || "").trim();
-    if (!first && !last) return;
-    if (!profileKey(r["URL"])) noUrl++;
-    records.push({
-      first,
-      last,
-      url: (r["URL"] || "").trim(),
-      email: (r["Email Address"] || "").trim(),
-      company: (r["Company"] || "").trim(),
-      position: (r["Position"] || "").trim(),
-      connectedOn: isoDate(r["Connected On"]),
-      row: start + i + 2,
-    });
+    const first = get(r, "first");
+    const last = get(r, "last");
+    if (!first && !last) {
+      noName++;
+      return;
+    }
+    const url = get(r, "url");
+    if (!profileKey(url)) noUrl++;
+    const rawDate = get(r, "connectedOn");
+    const connectedOn = isoDate(rawDate);
+    if (rawDate && !connectedOn) badDate++;
+    records.push({ first, last, url, email: get(r, "email"), company: get(r, "company"), position: get(r, "position"), connectedOn, row: start + i + 2 });
   });
-  if (noUrl) report.warnings.push(`${noUrl} connections have no profile URL, so they cannot be merged with teammates' connections.`);
+  if (noName) report.warnings.push(`${noName} rows have no name and were skipped.`);
+  if (noUrl && col.url) report.warnings.push(`${noUrl} connections have no profile URL, so they cannot be merged with teammates' connections.`);
+  if (badDate) report.warnings.push(`${badDate} 'Connected On' dates were not understood and are left empty.`);
   report.accepted = records.length;
   return { records, report };
 }

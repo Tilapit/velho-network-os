@@ -33,16 +33,26 @@ export function slug(s: string): string {
 
 const MONTHS: Record<string, number> = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11 };
 
-/** Accepts ISO dates and LinkedIn's "12 Apr 2026". Returns YYYY-MM-DD or "". */
+const ymd = (y: number, m: number, d: number) => {
+  const dt = new Date(Date.UTC(y, m, d));
+  return dt.getUTCMonth() === m && dt.getUTCDate() === d ? dt.toISOString().slice(0, 10) : "";
+};
+
+/**
+ * Accepts ISO dates, LinkedIn's "12 Apr 2026", and what Excel makes of it on
+ * a re-save: "12.4.2026" (Finnish) or "4/12/2026" (day first when the first
+ * number is over 12). Returns YYYY-MM-DD or "".
+ */
 export function isoDate(s: string | undefined): string {
   if (!s) return "";
   const t = s.trim();
   if (/^\d{4}-\d{2}-\d{2}/.test(t)) return t.slice(0, 10);
   const m = t.match(/^(\d{1,2})\s+([A-Za-z]{3})\w*\s+(\d{4})$/);
-  if (m && MONTHS[m[2].toLowerCase()] !== undefined) {
-    const d = new Date(Date.UTC(+m[3], MONTHS[m[2].toLowerCase()], +m[1]));
-    return d.toISOString().slice(0, 10);
-  }
+  if (m && MONTHS[m[2].toLowerCase()] !== undefined) return ymd(+m[3], MONTHS[m[2].toLowerCase()], +m[1]);
+  const fi = t.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+  if (fi) return ymd(+fi[3], +fi[2] - 1, +fi[1]);
+  const sl = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (sl) return +sl[1] > 12 ? ymd(+sl[3], +sl[2] - 1, +sl[1]) : ymd(+sl[3], +sl[1] - 1, +sl[2]);
   const d = new Date(t);
   return isNaN(d.getTime()) ? "" : d.toISOString().slice(0, 10);
 }
