@@ -14,7 +14,7 @@ b935098, the part-1 demo, so a working demo always exists.
 | 1. Network drawing as a neural network | 2 h | done 00:51 |
 | 2. Real-data proof | 1 h | done 00:58 |
 | 3. Reactions | 1 h | done 01:09 |
-| 4. This week + Write in Claude | 45 min | |
+| 4. This week + Write in Claude | 45 min | done 01:17 |
 | 5. claude.ai and Claude Desktop | 45 min | |
 | 6. Polish and hand-over | 45 min+ | |
 
@@ -111,6 +111,26 @@ Decisions (part 2):
   - MCP `add_reactions` takes `text` (as copied), `reactions` (read from a
     screenshot), `names`, `picks` and `dry_run`. `find_people` has
     `reacted`.
+- **This week** (`thisWeek` in `lib/queries.ts`, also the MCP tool
+  `this_week`):
+  - Pool: everyone who fits, minus Sent, Replied, Meeting and Not a fit.
+    "To contact" stays in: planned is not contacted.
+  - Order: the ranking score, +12 for a registered change in the last 30
+    days, +10 for a reaction in the last 30 days, +10 for a strong fit.
+  - One slot is kept for a fresh change and one for a reaction, if any.
+    One person per company, at most two per industry, and at most
+    ceil(5 / teammates) per suggested sender; if that leaves fewer than
+    five, the spread rules are dropped.
+  - The why line is the strongest of: the registered change, the reaction,
+    the role and who knows them.
+- **Write in Claude** copies "Using Velho Network, write a Finnish LinkedIn
+  message to <name> (<id>), approach <direct|ask_intro>." Skip-approach
+  people get "direct". The skill tells Claude to call `message_context`
+  with that id.
+- **Draft here** (only with `ANTHROPIC_API_KEY`): `message_context` goes to
+  Claude with the name replaced by `[FIRST_NAME]`, which is put back
+  locally, so the privacy rule (no names to Claude) holds. Untested against
+  the live API tonight: no key on this machine.
 
 ## Morning report
 

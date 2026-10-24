@@ -5,7 +5,7 @@ import { GROUP, GROUPS, groupForTol, industryRule, type GroupId } from "./indust
 import { matchTerm } from "./roles.ts";
 import { SIGNAL_TYPES, addDays, type CompanySignal, type SignalType } from "./signals.ts";
 import { addReactionRows, STATUS_LABEL, type Reaction, type Status } from "./state.ts";
-import { fold, isoDate } from "./normalize.ts";
+import { daysBetween, fold, isoDate } from "./normalize.ts";
 import { candidateOf, cleanName, matchReactions, nameKey, parseReactions, postsWithin, RECENT_DAYS, type ParsedReaction } from "./reactions.ts";
 import { contactsFor, type Contact, type Fit, type Network } from "./network.ts";
 import { ytjUrl } from "./prh.ts";
@@ -166,6 +166,68 @@ export function peopleForTheme(net: Network, args: { theme: string; industries: 
     .filter((p) => p.themeApproach !== "skip")
     .sort((a, b) => (a.themeApproach === b.themeApproach ? b.score - a.score : a.themeApproach === "invite" ? -1 : 1));
   return { theme: args.theme, industries: groups.map((g) => GROUP[g].label), total: people.length, people: people.slice(0, Math.min(args.limit ?? 20, 100)) };
+}
+
+// ---------- this week ----------
+
+export type WeekPick = PersonSummary & { kind: "signal" | "reaction" | "fit"; why: string; sender: string; prompt: string };
+
+const DONE = new Set(["sent", "replied", "meeting", "not_fit"]);
+const SHORT_MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const dayMonth = (iso: string) => `${Number(iso.slice(8, 10))} ${SHORT_MON[Number(iso.slice(5, 7)) - 1]}`;
+
+/** The prompt "Write in Claude" copies: the user's own Claude, with the connector, writes the message. */
+export function claudePrompt(c: Pick<Contact, "name" | "id" | "approach">): string {
+  return `Using Velho Network, write a Finnish LinkedIn message to ${c.name} (${c.id}), approach ${c.approach === "ask_intro" ? "ask_intro" : "direct"}.`;
+}
+
+/** One line on why this person, this week: a fresh registered change, a reaction, or the fit. */
+export function weekWhy(net: Network, c: Contact): { kind: WeekPick["kind"]; why: string } {
+  const company = c.match?.company && !c.match.foreign ? shortName(c.match.company.name) : c.company;
+  const role = c.position ? `${c.position.charAt(0).toUpperCase()}${c.position.slice(1)}` : "Decision-maker";
+  const sig = c.signals.filter((s) => daysBetween(s.date, net.today) <= 30).sort((a, b) => SIGNAL_TYPES[b.type].weight - SIGNAL_TYPES[a.type].weight || b.date.localeCompare(a.date))[0];
+  if (sig) return { kind: "signal", why: `${SIGNAL_TYPES[sig.type].short} at ${company}, registered ${dayMonth(sig.date)} (PRH).` };
+  const r = c.reactions.filter((x) => daysBetween(x.postDate ?? x.at.slice(0, 10), net.today) <= RECENT_DAYS).sort((a, b) => (b.postDate ?? b.at).localeCompare(a.postDate ?? a.at))[0];
+  if (r) {
+    const author = r.author ? net.owners.find((o) => o.id === r.author)?.name : undefined;
+    return { kind: "reaction", why: `Reacted to ${!author || author === "You" ? "your" : `${author}'s`} post on ${dayMonth(r.postDate ?? r.at.slice(0, 10))}; ${role.toLowerCase()} at ${company}.` };
+  }
+  const two = c.knownBy.length > 1 ? `, known by ${c.knownBy.map((k) => k.ownerName).join(" and ")}` : "";
+  return { kind: "fit", why: `${role} at ${company}${two}.` };
+}
+
+/**
+ * Five people for this week, chosen by code. Strong fits and people with a
+ * registered change or a reaction in the last 30 days come first. Skips anyone
+ * already contacted or marked not a fit. At most one per company and two per
+ * industry, and the suggested senders are spread across the team.
+ */
+export function thisWeek(net: Network, n = 5): WeekPick[] {
+  const fresh = (c: Contact) => c.signals.some((s) => daysBetween(s.date, net.today) <= 30);
+  const reacted = (c: Contact) => postsWithin(c, net.today, RECENT_DAYS) > 0;
+  const week = (c: Contact) => c.score + (fresh(c) ? 12 : 0) + (reacted(c) ? 10 : 0) + (c.fit === "strong" ? 10 : 0);
+  const pool = net.contacts.filter((c) => c.fit && !DONE.has(c.status?.status ?? "none")).sort((a, b) => week(b) - week(a) || a.name.localeCompare(b.name, "fi"));
+  const perSender = Math.max(1, Math.ceil(n / Math.max(1, net.owners.length)));
+  const picks: Contact[] = [];
+  const take = (pred: (c: Contact) => boolean, strict: boolean) => {
+    const c = pool.find((x) => {
+      if (picks.includes(x) || !pred(x)) return false;
+      if (x.companyId && picks.some((p) => p.companyId === x.companyId)) return false;
+      if (!strict) return true;
+      return picks.filter((p) => p.group === x.group).length < 2 && picks.filter((p) => p.sender.owner === x.sender.owner).length < perSender;
+    });
+    if (c) picks.push(c);
+    return !!c;
+  };
+  // One slot each for a fresh change and a reaction, then the best of the rest.
+  take(fresh, true);
+  take(reacted, true);
+  while (picks.length < n && take(() => true, true));
+  // A small team or network: fill without the spread rules.
+  while (picks.length < n && take(() => true, false));
+  return picks
+    .sort((a, b) => week(b) - week(a))
+    .map((c) => ({ ...summary(net, c), ...weekWhy(net, c), sender: c.sender.ownerName, prompt: claudePrompt(c) }));
 }
 
 export function getPerson(net: Network, id: string): (Analysis & { appUrl: string }) | null {

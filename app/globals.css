@@ -129,6 +129,18 @@ td.num, th.num { text-align: right; }
 .prow .top-line { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
 .prow .name { font-weight: 600; font-size: 15px; }
 
+/* this week */
+.week { margin-bottom: 26px; }
+.week-card { cursor: default; gap: 0; }
+.week-card:hover { border-color: var(--border); }
+.prow-open { all: unset; display: flex; flex-direction: column; gap: 2px; cursor: pointer; }
+.prow-open:focus-visible { outline: 2px solid var(--selected); outline-offset: 4px; border-radius: 4px; }
+.prow-open:hover .name { color: var(--selected); }
+.why { color: var(--text-2); padding-left: 14px; position: relative; }
+.why::before { content: ""; position: absolute; left: 0; top: 0.55em; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+.why.signal::before { background: var(--amber); }
+.why.reaction::before { background: var(--green); }
+
 /* analysis */
 .reasons { list-style: none; margin: 0; padding: 0; }
 .reasons li { display: flex; gap: 12px; justify-content: space-between; align-items: baseline; padding: 8px 0; border-top: 1px solid var(--border); }

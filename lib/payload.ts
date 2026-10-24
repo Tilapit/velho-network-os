@@ -3,6 +3,7 @@ import { analyse } from "./analysis.ts";
 import { claudeAvailable } from "./claude.ts";
 import { readState } from "./state.ts";
 import type { Network } from "./network.ts";
+import { claudePrompt } from "./queries.ts";
 
 export function personPayload(net: Network, id: string) {
   const c = net.byId.get(id);
@@ -13,5 +14,6 @@ export function personPayload(net: Network, id: string) {
     claude: claudeAvailable(),
     savedAngle: saved?.text,
     owners: net.owners.map((o) => ({ id: o.id, name: o.name })),
+    prompt: claudePrompt(c),
   };
 }

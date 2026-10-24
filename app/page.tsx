@@ -4,6 +4,7 @@ import { matchJob } from "@/lib/matching.ts";
 import { NetworkView } from "@/components/NetworkView";
 import { MatchProgress } from "@/components/MatchProgress";
 import { FirstRun } from "@/components/FirstRun";
+import { thisWeek } from "@/lib/queries.ts";
 
 export const dynamic = "force-dynamic";
 
@@ -13,11 +14,12 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ p
   if (!net.owners.length) return <FirstRun />;
   ensureMatching(net);
   const d = drawingData(net);
+  const week = thisWeek(net).map(({ id, name, title, company, fit, status, kind, why, sender, prompt }) => ({ id, name, title, company, fit, status, kind, why, sender, prompt }));
   const job = matchJob();
   return (
     <>
       <MatchProgress initial={{ ...job }} />
-      <NetworkView {...d} initial={p && net.byId.has(p) ? p : undefined} />
+      <NetworkView {...d} week={week} initial={p && net.byId.has(p) ? p : undefined} />
     </>
   );
 }

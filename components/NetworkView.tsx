@@ -4,12 +4,16 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { NetworkDrawing, type DGroup, type DNode, type DOwner } from "./NetworkDrawing";
 import { PersonAnalysis, type PersonPayload } from "./PersonAnalysis";
 import { FitTag } from "./ui";
+import { WriteInClaude } from "./WriteInClaude";
+import type { WeekPick } from "@/lib/queries.ts";
 
 export type ViewNode = DNode & { co: string; via: string[]; st: string };
 
 const fmt = (n: number) => n.toLocaleString("en-US");
 
-export function NetworkView(props: { nodes: ViewNode[]; groups: DGroup[]; owners: DOwner[]; chips: string[]; matched: number; noCompany: number; initial?: string }) {
+type Week = Pick<WeekPick, "id" | "name" | "title" | "company" | "fit" | "status" | "kind" | "why" | "sender" | "prompt">;
+
+export function NetworkView(props: { nodes: ViewNode[]; groups: DGroup[]; owners: DOwner[]; chips: string[]; matched: number; noCompany: number; initial?: string; week: Week[] }) {
   const { nodes, groups, owners, chips } = props;
   const [owner, setOwner] = useState(-1);
   const [selected, setSelected] = useState<string | null>(props.initial ?? null);
@@ -160,6 +164,32 @@ export function NetworkView(props: { nodes: ViewNode[]; groups: DGroup[]; owners
           <PersonAnalysis data={person} onBack={back} />
         ) : (
           <>
+            {props.week.length && hoverGroup === null && !reacted ? (
+              <div className="week">
+                <h2>This week</h2>
+                <p className="small muted" style={{ marginBottom: 10 }}>
+                  Five to reach this week, chosen by code: fresh registered changes and reactions first, no one already contacted, senders spread across the team.
+                </p>
+                {props.week.map((w) => (
+                  <div key={w.id} className="prow week-card">
+                    <button type="button" className="prow-open" onClick={() => choose(w.id)}>
+                      <span className="top-line">
+                        <span className="name">{w.name}</span>
+                        <FitTag fit={w.fit} status={w.status === "To contact" ? "to_contact" : undefined} />
+                      </span>
+                      <span className="small muted">
+                        {w.title || "No title"} · {w.company}
+                      </span>
+                      <span className={`small why ${w.kind}`}>{w.why}</span>
+                    </button>
+                    <span className="row small" style={{ justifyContent: "space-between", gap: 8, marginTop: 4 }}>
+                      <span className="muted">{w.sender === "You" ? "You write" : `${w.sender} writes`}</span>
+                      <WriteInClaude prompt={w.prompt} className="link small" />
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : null}
             <h2>{hoverGroup !== null ? `${groups[hoverGroup].label}: ${listed.length} who fit` : reacted ? `Reacted recently: ${reactedList.length}` : `Strongest ${top.length} of ${fits.length}`}</h2>
             <p className="small muted" style={{ marginBottom: 14 }}>
               {reacted && hoverGroup === null

@@ -133,3 +133,36 @@ test("demo: two posts' reactions are seeded out of the box", async () => {
   assert.ok(reacted.some((c) => c.fit), "some who fit reacted");
   assert.equal(new Set(demo.contacts.flatMap((c) => c.reactions.map((r) => r.post))).size, 2);
 });
+
+test("this week: five by code, nobody contacted, one per company, senders spread, a prompt for Claude", async () => {
+  const { thisWeek, claudePrompt } = await import("../lib/queries.ts");
+  const { loadNetwork } = await import("../lib/network.ts");
+  const { setStatus } = await import("../lib/state.ts");
+  const demo = await loadNetwork();
+  const week = thisWeek(demo);
+  assert.equal(week.length, 5);
+  assert.ok(week.some((w) => w.kind === "signal"), "a fresh registered change");
+  assert.ok(week.some((w) => w.kind === "reaction"), "a reaction");
+  assert.equal(new Set(week.map((w) => w.businessId ?? w.company)).size, 5, "one per company");
+  const senders = new Map<string, number>();
+  for (const w of week) senders.set(w.sender, (senders.get(w.sender) ?? 0) + 1);
+  assert.ok(Math.max(...senders.values()) <= 2, `senders spread: ${[...senders.entries()]}`);
+  assert.ok(week.every((w) => w.why.length > 10 && w.why.length < 140));
+  assert.equal(week[0].prompt, claudePrompt(demo.byId.get(week[0].id)!));
+  assert.match(week[0].prompt, /^Using Velho Network, write a Finnish LinkedIn message to .+ \([0-9a-f]{10}\), approach (direct|ask_intro)\.$/);
+  // Marked as sent: off the list next time.
+  setStatus(week[0].id, "sent", "You");
+  const next = thisWeek(await loadNetwork());
+  assert.ok(!next.some((w) => w.id === week[0].id));
+});
+
+test("draft here: the request to Claude carries no name", async () => {
+  const { draftPrompt } = await import("../lib/claude.ts");
+  const { messageContext } = await import("../lib/queries.ts");
+  const { loadNetwork } = await import("../lib/network.ts");
+  const demo = await loadNetwork();
+  const c = demo.contacts.find((x) => x.fit === "strong")!;
+  const sent = draftPrompt(messageContext(demo, { person_id: c.id, type: "direct" })!);
+  assert.ok(!sent.includes(c.name) && !sent.includes(c.name.split(" ").at(-1)!), "neither the full name nor the last name");
+  assert.match(sent, /\[FIRST_NAME\]/);
+});

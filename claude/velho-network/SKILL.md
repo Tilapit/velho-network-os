@@ -1,6 +1,6 @@
 ---
 name: velho-network
-description: Use when someone at Velho asks who in the team's network to talk to, who to invite to an event or roundtable, which industries or companies to focus on, what changed at a company (trade register signals), or wants a short outreach message, or pastes names of people who reacted to a LinkedIn post. Works through the Velho Network MCP connector (tools rank_industries, find_people, people_for_theme, get_person, get_company, get_radar, message_context, add_reactions).
+description: Use when someone at Velho asks who in the team's network to talk to, who to invite to an event or roundtable, which industries or companies to focus on, what changed at a company (trade register signals), or wants a short outreach message, or pastes names of people who reacted to a LinkedIn post. Works through the Velho Network MCP connector (tools this_week, rank_industries, find_people, people_for_theme, get_person, get_company, get_radar, message_context, add_reactions).
 ---
 
 # Velho Network
@@ -18,6 +18,7 @@ it whenever you mention a person or a company, so the user can check why.
 
 | The user wants | Tool |
 | --- | --- |
+| Who to reach this week | `this_week` |
 | Where our way in is strongest, which industry to focus on | `rank_industries` |
 | People: by industry, role, town, fit, who knows them, with a recent change | `find_people` |
 | Who to invite to a theme, event or roundtable | `people_for_theme` (you choose the industries from the theme) |
@@ -33,12 +34,16 @@ machinery" also work).
 
 ## Workflows
 
-**Weekly review.** `find_people` with `fit: "strong"`, `status: "none"`,
-`limit: 15`. Pick five: prefer people with a registered change
-(`has_signal`), people known by two or more teammates, and a spread of
-industries. For each: one line on why (from `reasons`), the suggested sender,
-and the link. Then `message_context` for each of the five and write a short
-draft per person. Say which teammate should send each one.
+**Weekly review.** `this_week` gives the five, chosen by code (the same as
+the app's "This week" block). For each: their one-line `why`, the suggested
+sender and the link. Then `message_context` for each and write a short draft
+per person. Say which teammate should send each one. If the user wants more
+or different people, use `find_people` (for example `fit: "strong"`,
+`status: "none"`, `has_signal: true` or `reacted: true`).
+
+**"Write in Claude".** The app copies prompts like "Using Velho Network,
+write a Finnish LinkedIn message to <name> (<id>), approach direct." Call
+`message_context` with that `person_id` and `type`, then write the message.
 
 **Before a meeting.** `get_company` by name or business ID. Give: what the
 company does (PRH), registered changes in the last 90 days, who the team

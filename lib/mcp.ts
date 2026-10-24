@@ -6,7 +6,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { loadNetwork } from "./network.ts";
 import { GROUPS } from "./industry.ts";
-import { addReactions, appUrl, findPeople, getCompany, getPerson, getRadar, messageContext, peopleForTheme, rankIndustries } from "./queries.ts";
+import { addReactions, appUrl, findPeople, getCompany, getPerson, getRadar, messageContext, peopleForTheme, rankIndustries, thisWeek } from "./queries.ts";
 import type { SignalType } from "./signals.ts";
 
 const SOURCES = "All data comes from the team's own LinkedIn Connections exports, the Finnish trade register (PRH open data, CC BY 4.0) and the team's own feedback in the app. Nothing is scraped and nothing is sent to anyone.";
@@ -36,6 +36,21 @@ export function buildMcpServer(): McpServer {
       const rows = rankIndustries(net, { owner });
       log("rank_industries");
       return json({ industries: rows.map((r) => ({ ...r, url: appUrl("/") })) });
+    },
+  );
+
+  server.registerTool(
+    "this_week",
+    {
+      title: "This week",
+      description: `The five people to reach this week, chosen by code (the same as the app's "This week"): strong fits and people with a registered change or a reaction in the last 30 days first; skips anyone already contacted or marked not a fit; one per company, at most two per industry, suggested senders spread across the team. Each has a one-line why, the suggested sender and a url. Use it for the weekly review, then message_context per person. ${SOURCES}`,
+      inputSchema: {},
+      annotations: { readOnlyHint: true },
+    },
+    async () => {
+      const picks = thisWeek(await loadNetwork());
+      log("this_week", picks.map((p) => p.id));
+      return json({ people: picks.map(({ prompt, ...p }) => p) });
     },
   );
 
