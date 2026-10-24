@@ -194,7 +194,7 @@ b935098, the part-1 demo, so a working demo always exists.
 | 3. Reactions | 1 h | done 01:09 |
 | 4. This week + Write in Claude | 45 min | done 01:17 |
 | 5. claude.ai and Claude Desktop | 45 min | done 01:24 |
-| 6. Polish and hand-over | 45 min+ | done 01:40, then the code review |
+| 6. Polish and hand-over | 45 min+ | done 01:40; code review fixed by 01:58 |
 
 Decisions (part 2):
 
