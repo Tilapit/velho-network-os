@@ -207,6 +207,9 @@ test("review fixes: the parser keeps repeats out of headlines, splits same-name 
   assert.deepEqual(two.map((x) => [x.degree, x.headline]), [["1st", "CFO at Hydroline"], ["2nd", "Developer at Reaktor"]]);
   const odd = parseReactions("Maria dos Santos\nMaria dos Santos\n· 2nd\nEngineer\naino kallio\n· 1st\nTuotantojohtaja\n");
   assert.deepEqual(odd.map((x) => x.name), ["Maria dos Santos", "aino kallio"]);
+  // A line read as nobody is reported, not dropped silently.
+  const r = addReactions(net, { post: "Unread", text: "Laura Mäkelä\nLaura Mäkelä\n· 1st\nOperations Director at Lunawood\nSomething odd 123\n", save: false });
+  assert.deepEqual(r.unread, ["Something odd 123"]);
 });
 
 

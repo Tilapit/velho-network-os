@@ -179,8 +179,9 @@ finding was checked before fixing:
 | 14 | "Reacted recently" could stay on with its button gone | The button stays while it is on |
 | 15 | Date fallback shifted a day (UTC); "12.4.26" misread | Two-digit years, "12-Apr-26", calendar dates |
 
-Still open from the review: lines the reactions parser cannot read as a
-person are skipped silently (they are not listed as "not read").
+The review's last note, that lines the reactions parser cannot read as a
+person vanished silently, is handled too: they come back once as "Lines
+read as nobody" (also `unread` in MCP), never stored.
 
 
 Brief: `OVERNIGHT_2_PROMPT.md`. Started 00:32. `git tag demo-v1` is on

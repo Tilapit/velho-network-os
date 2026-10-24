@@ -12,6 +12,7 @@ type Result = {
   matched: { name: string; how?: string; person: Person }[];
   review: { name: string; headline?: string; degree?: string; candidates: (Person & { knownBy: string[] })[] }[];
   unmatched: { name: string; why: string }[];
+  unread: string[];
 };
 type Post = { post: string; postDate?: string; author?: string; people: number };
 
@@ -174,6 +175,12 @@ export function ReactionsPanel({ owners, posts, today }: { owners: { id: string;
               <p className="small muted">
                 Shown this once and not stored: {result.unmatched.map((u) => u.name).join(", ")}.
               </p>
+            </div>
+          ) : null}
+          {result.unread.length ? (
+            <div>
+              <h3>Lines read as nobody ({result.unread.length})</h3>
+              <p className="small muted">Check these for someone the paste did not show as a person. Not stored: {result.unread.slice(0, 12).map((l) => `"${l}"`).join(", ")}{result.unread.length > 12 ? ", …" : ""}.</p>
             </div>
           ) : null}
           <div className="row">

@@ -6,7 +6,7 @@ import { matchTerm } from "./roles.ts";
 import { SIGNAL_TYPES, addDays, type CompanySignal, type SignalType } from "./signals.ts";
 import { addReactionRows, STATUS_LABEL, type Reaction, type Status } from "./state.ts";
 import { daysBetween, fold, isoDate } from "./normalize.ts";
-import { candidateOf, cleanName, matchReactions, nameKey, parseReactions, postsWithin, RECENT_DAYS, type ParsedReaction } from "./reactions.ts";
+import { candidateOf, cleanName, matchReactions, nameKey, postsWithin, readReactions, RECENT_DAYS, type ParsedReaction } from "./reactions.ts";
 import { contactsFor, type Contact, type Fit, type Network } from "./network.ts";
 import { ytjUrl } from "./prh.ts";
 
@@ -447,7 +447,8 @@ export function addReactions(net: Network, input: ReactionInput) {
   const authorId = own(input.author);
   const viewer = own(input.copiedBy) ?? authorId;
   const seen = new Set<string>();
-  const all: ParsedReaction[] = [...(input.entries ?? []), ...(input.text ? parseReactions(input.text) : []), ...(input.names ?? []).map((n) => ({ name: cleanName(n) }))];
+  const read = input.text ? readReactions(input.text) : { entries: [], unread: [] };
+  const all: ParsedReaction[] = [...(input.entries ?? []), ...read.entries, ...(input.names ?? []).map((n) => ({ name: cleanName(n) }))];
   const entries = all.filter((e) => {
     const k = `${nameKey(e.name)}|${e.headline ?? ""}`;
     if (!nameKey(e.name) || seen.has(k)) return false;
@@ -490,7 +491,9 @@ export function addReactions(net: Network, input: ReactionInput) {
     matched: rows.map((r) => ({ name: r.name, how: r.how, person: person(r.contactId) })),
     review: res.review.filter((r) => !picked.has(nameKey(r.entry.name))).map((r) => ({ name: r.entry.name, headline: r.entry.headline, degree: r.entry.degree, candidates: r.candidates.map((c) => ({ ...c, url: appUrl(`/people/${c.id}`) })) })),
     unmatched: res.unmatched.map((u) => ({ name: u.entry.name, why: u.why })),
+    // Lines of the paste read as nobody: shown once, so a missed person can be spotted. Not stored.
+    unread: read.unread.slice(0, 50),
     ...(ignoredPicks.length ? { ignoredPicks } : {}),
-    note: "Names in 'unmatched' are not stored. Names in 'review' are stored only after someone picks the right person.",
+    note: "Names in 'unmatched' are not stored. Names in 'review' are stored only after someone picks the right person. 'unread' lists lines read as nobody; check them for a missed person.",
   };
 }

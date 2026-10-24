@@ -88,7 +88,13 @@ function tokens(text: string): Tok[] {
  * names, one per line.
  */
 export function parseReactions(text: string): ParsedReaction[] {
+  return readReactions(text).entries;
+}
+
+/** The same, plus the lines that were read as nobody (shown once, so a missed person is visible). */
+export function readReactions(text: string): { entries: ParsedReaction[]; unread: string[] } {
   const t = tokens(text).filter((x) => x.kind !== "noise");
+  const unread: string[] = [];
   const same = (a: string, b: string) => nameKey(a) === nameKey(b);
   const out: ParsedReaction[] = [];
   let cur: ParsedReaction | null = null;
@@ -123,6 +129,7 @@ export function parseReactions(text: string): ParsedReaction[] {
         inName = false;
       } else {
         if (c && !c.headline && x.kind !== "view") c.headline = x.value;
+        else if (x.kind !== "view") unread.push(x.value);
         inName = false;
       }
     }
@@ -134,17 +141,19 @@ export function parseReactions(text: string): ParsedReaction[] {
         push();
         cur = { name: cleanName(x.value) };
       } else if (cur && !(cur as ParsedReaction).headline) (cur as ParsedReaction).headline = x.value;
+      else unread.push(x.value);
     }
   }
   push();
   // The same person twice in one paste counts once.
   const seen = new Set<string>();
-  return out.filter((r) => {
+  const entries = out.filter((r) => {
     const k = `${nameKey(r.name)}|${r.headline ?? ""}`;
     if (!nameKey(r.name) || seen.has(k)) return false;
     seen.add(k);
     return true;
   });
+  return { entries, unread };
 }
 
 // ---------- matching ----------
