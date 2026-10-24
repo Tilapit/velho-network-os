@@ -1,6 +1,6 @@
 # Demo: 3 minutes
 
-A recording of the app part (86 s, no sound) is in
+A recording of the app part (85 s, no sound) is in
 `media/demo-walkthrough.webm`.
 
 ## Before you start (2 minutes)

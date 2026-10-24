@@ -12,7 +12,7 @@ passes. No console errors on any page at 1440 or 390 px. Nothing was
 reverted; `demo-v1` still tags the part-1 demo.
 
 Start the demo: `docs/DEMO.md` (3 minutes). Video of the app part:
-`media/demo-walkthrough.webm` (86 s, 1440×900).
+`media/demo-walkthrough.webm` (85 s, 1440×900).
 
 ### What changed tonight
 
@@ -348,7 +348,7 @@ Decisions (part 2):
     full-page capture: Playwright's full-page capture resized the canvas
     mid-shot once and caught a stretched frame.
   - The video (`media/demo-walkthrough.webm`) is Playwright's recording
-    with a drawn cursor (headless video has none), 86 s at 1440×900.
+    with a drawn cursor (headless video has none), 85 s at 1440×900.
   - The part-1 network image shows Other industries 899 and Abroad 106;
     today it is 859 and 146. Not from tonight: the `demo-v1` code gives
     859 and 146 on the same data. Part 1's screenshots were taken before
