@@ -5,3 +5,6 @@ node_modules
 data/sources
 data/state.json
 next-env.d.ts
+_archive/
+.claude/settings.local.json
+data/cache/

@@ -4,9 +4,11 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-// Run against a throwaway copy of the demo data with a fixed date.
+// Run against a throwaway copy of the 57-row story demo (data/demo/story plus
+// Connections-small.csv) with a fixed date.
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "vnos-"));
-fs.cpSync(path.join(process.cwd(), "data/demo"), path.join(dir, "demo"), { recursive: true });
+fs.cpSync(path.join(process.cwd(), "data/demo/story"), path.join(dir, "demo"), { recursive: true });
+fs.copyFileSync(path.join(process.cwd(), "data/demo/Connections-small.csv"), path.join(dir, "demo/Connections.csv"));
 process.env.DATA_DIR = dir;
 process.env.APP_TODAY = "2026-10-24";
 
@@ -25,6 +27,16 @@ test("LinkedIn export: preamble skipped, dates parsed", () => {
   assert.equal(records.length, 57);
   assert.equal(report.warnings.length, 0);
   assert.equal(isoDate("12 Apr 2026"), "2026-04-12");
+});
+
+test("1,500-row mock export: every row parses", () => {
+  for (const [file, n] of [["Connections.csv", 1500], ["Connections-cofounder.csv", 860], ["Connections-board.csv", 300]] as const) {
+    const text = fs.readFileSync(path.join(process.cwd(), "data/demo", file), "utf8");
+    const { records, report } = parseConnections(text, file);
+    assert.equal(report.rows, n, file);
+    assert.equal(records.length, n, file);
+    assert.ok(records.every((r) => /^\d{4}-\d{2}-\d{2}$/.test(r.connectedOn) && r.connectedOn <= "2026-10-24"), file);
+  }
 });
 
 test("company names normalise", () => {

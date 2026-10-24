@@ -1,6 +1,6 @@
 // Normalisation helpers used for de-duplication and identity matching.
 
-const SUFFIXES = /\b(oyj|oy|ab|ltd|limited|inc|gmbh|llc|as|a\/s|aps|plc|co|corp|group)\b\.?/g;
+const SUFFIXES = /\b(oyj|oy|ab|abp|ky|ay|tmi|ltd|limited|inc|gmbh|llc|as|a\/s|aps|plc|co|corp|corporation|group|osakeyhtio|aktiebolag)\b\.?/g;
 
 export function fold(s: string): string {
   return s
