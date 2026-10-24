@@ -189,8 +189,10 @@ export default async function Settings() {
                 <li>
                   Terminal 1: <code>npm run dev</code>. Terminal 2: <code>npm run tunnel</code> (needs <code>cloudflared</code>; it prints the public URL and the header).
                 </li>
-                <li>claude.ai: Settings → Connectors → Add custom connector. Name: Velho Network. URL: the printed one, ending in /api/mcp. Give it the Authorization header if it asks for one.</li>
-                <li>Claude Desktop shares the connectors of your claude.ai account. Without a tunnel, it can also reach this machine through <code>npx -y mcp-remote {appUrl("/api/mcp")} --header &quot;Authorization: Bearer …&quot;</code> in its config.</li>
+                <li>
+                  claude.ai: Customize → Connectors → + Add → Add custom connector. Name: Velho Network. URL: the printed one, ending in /api/mcp. Authentication: No sign in. Request headers: <code>Authorization</code> with the value <code>Bearer &lt;token&gt;</code>.
+                </li>
+                <li>Claude Desktop uses the same connectors once you are signed in. Claude connects from Anthropic&apos;s cloud, which is why the URL must be public. Without a tunnel, Claude Desktop can also reach this machine through <code>npx -y mcp-remote {appUrl("/api/mcp")} --header &quot;Authorization: Bearer …&quot;</code> in its config file.</li>
                 <li>Ctrl-C stops the tunnel. Through it, only /api/mcp answers, and only with the token.</li>
               </ol>
             </div>
@@ -206,7 +208,7 @@ export default async function Settings() {
                 Or <code>npm run skill:zip</code> (writes dist/velho-network-skill.zip).
               </span>
             </div>
-            <span className="small muted">claude.ai: Settings → Capabilities → Skills → Upload skill. Claude Code: copy claude/velho-network to ~/.claude/skills/.</span>
+            <span className="small muted">claude.ai: upload the zip in the Skills settings (Settings → Capabilities in Anthropic&apos;s guide; it needs a paid plan with code execution on). Claude Code: copy claude/velho-network to ~/.claude/skills/.</span>
           </div>
         </section>
 

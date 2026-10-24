@@ -67,9 +67,11 @@ cat <<TXT
 Public MCP URL:  $URL/api/mcp
 Header:          Authorization: Bearer $MCP_TOKEN
 
-claude.ai (and Claude Desktop, which shares its connectors):
-  Settings -> Connectors -> Add custom connector -> paste the URL above.
-  If it offers headers or an API key, give it the header above. This path is untested.
+claude.ai (and Claude Desktop, which uses the same connectors):
+  Customize -> Connectors -> + Add -> Add custom connector
+  Name: Velho Network   URL: the one above   Authentication: No sign in
+  Request headers: Authorization = Bearer $MCP_TOKEN
+  (Untested end to end: it follows Anthropic's help article.)
 Claude Code anywhere:
   claude mcp add --transport http velho $URL/api/mcp --header "Authorization: Bearer $MCP_TOKEN"
 

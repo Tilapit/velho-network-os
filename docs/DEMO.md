@@ -25,9 +25,10 @@ APP_TODAY=2026-10-24 APP_BASE_URL=http://localhost:3310 npx next dev -p 3310
   or copy `claude/velho-network/` into `~/.claude/skills/`.
 - **claude.ai instead (untested).** Needs a public URL: `export
   MCP_TOKEN=$(openssl rand -hex 24)`, then `npm run dev` in one terminal
-  and `npm run tunnel` in another (needs `cloudflared`). Add the printed URL
-  in claude.ai → Settings → Connectors → Add custom connector. Settings →
-  Connect to Claude has the steps.
+  and `npm run tunnel` in another (needs `cloudflared`). In claude.ai:
+  Customize → Connectors → + Add → Add custom connector, the printed URL,
+  Authentication "No sign in", Request headers `Authorization` = `Bearer
+  <token>`. Settings → Connect to Claude has the steps.
 - Don't click "Delete my data" before the demo.
 
 ## Script

@@ -98,6 +98,11 @@ npm run dev        # terminal 1
 npm run tunnel     # terminal 2: a Cloudflare quick tunnel; prints the URL and header
 ```
 
+In claude.ai: Customize → Connectors → + Add → Add custom connector, the
+printed URL, Authentication "No sign in", and under Request headers
+`Authorization` = `Bearer <token>`. Claude Desktop uses the same connectors.
+Claude connects from Anthropic's cloud, hence the public URL.
+
 With `MCP_TOKEN` set, `/api/mcp` needs `Authorization: Bearer <token>` and
 every page answers only on this machine, so the tunnel exposes the connector
 and nothing else. Without it, everything is local: don't expose the port.

@@ -108,9 +108,12 @@ upload.
 ### What is untested
 
 - **claude.ai custom connector.** No public URL tonight: `cloudflared` is
-  not installed and the brief said not to open a tunnel. Whether claude.ai's
-  connector dialog takes a custom Authorization header is not verified; if
-  it does not, the token would need another route (for example OAuth).
+  not installed and the brief said not to open a tunnel. Anthropic's help
+  article (checked tonight) says the custom connector dialog has
+  Authentication "No sign in" and a Request headers field for a bearer
+  token, and that Claude connects from Anthropic's cloud. The steps in
+  Settings, the README and the tunnel script follow it; it has not been
+  tried end to end.
 - **Claude Desktop** via `npx mcp-remote … --header`: written down, not run.
 - **Draft here**: no `ANTHROPIC_API_KEY` on this machine; the prompt
   building is unit-tested (no name in what is sent), the API call is not.
@@ -131,9 +134,9 @@ log under "Code review".
 
 - Paste a real reactions list and import a real export; check the review
   list and the PRH matches.
-- Install `cloudflared`, run `npm run tunnel`, and try claude.ai's custom
-  connector; if headers are not supported there, add OAuth or a per-user
-  key.
+- Install `cloudflared` (`brew install cloudflared`), run `npm run tunnel`,
+  and add the connector in claude.ai with the printed URL and header. For
+  more than the founders, replace the shared token with OAuth.
 - Hosting, OAuth, CRM integration, LinkedIn DMA connector, REST API and
   webhooks remain out of scope, as in part 1.
 
