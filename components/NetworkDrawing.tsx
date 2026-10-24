@@ -103,12 +103,15 @@ function scatter(n: number, w: number, h: number, rand: () => number): { x: numb
 
 const importance = (n: DNode) => (n.f === 2 ? 3 : n.f === 1 ? 2 : n.dm ? 1 : 0);
 
+/** Below this width the drawing uses the phone layout. */
+const COMPACT = 640;
+
 export function heightFor(W: number) {
-  return W < 760 ? Math.round(Math.max(470, Math.min(640, W * 1.45))) : Math.round(Math.max(600, Math.min(820, W * 0.68)));
+  return W < COMPACT ? Math.round(Math.max(470, Math.min(640, W * 1.45))) : Math.round(Math.max(600, Math.min(820, W * 0.68)));
 }
 
 export function layout(nodes: DNode[], groups: DGroup[], owners: DOwner[], W: number, H: number) {
-  const compact = W < 760;
+  const compact = W < COMPACT;
   const top = compact ? 50 : 86;
   // Compact: a strip at the bottom keeps the zoom buttons off the decision-makers.
   const bottom = compact ? 46 : 18;
@@ -217,7 +220,9 @@ export function layout(nodes: DNode[], groups: DGroup[], owners: DOwner[], W: nu
   }));
 
   const index = new Map(nodes.map((n, i) => [n.id, i]));
-  return { W, H, compact, top, xs, contact, band, target, present, order, splitY, groupPos, fitsIn, fitPos, ownerPos, ownerCount, index };
+  // Mid widths keep the desktop layout but use short industry names.
+  const short = compact || fit - group < 250;
+  return { W, H, compact, short, top, xs, contact, band, target, present, order, splitY, groupPos, fitsIn, fitPos, ownerPos, ownerCount, index };
 }
 
 type Layout = ReturnType<typeof layout>;
@@ -468,8 +473,8 @@ function drawStatic(ctx: CanvasRenderingContext2D, L: Layout, nodes: DNode[], gr
     ctx.beginPath();
     dot(ctx, p.x, p.y, p.r);
     ctx.fill();
-    const name = compact ? g.short : g.label;
-    const sub = compact ? `${fmt(total)}${fits ? ` · ${fits} fit` : ""}` : `${fmt(total)} people${fits ? ` · ${fits} fit` : ""}`;
+    const name = L.short ? g.short : g.label;
+    const sub = L.short ? `${fmt(total)}${fits ? ` · ${fits} fit` : ""}` : `${fmt(total)} people${fits ? ` · ${fits} fit` : ""}`;
     const fs1 = compact ? 10 : tgt ? 13 : 12;
     const fs2 = compact ? 9 : 11.5;
     ctx.font = `${tgt ? 500 : 400} ${fs1}px ${FF}`;
