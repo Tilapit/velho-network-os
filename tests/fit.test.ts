@@ -346,3 +346,35 @@ test("messages: Velho's voice, no source ever named, the type that fits, under 5
   assert.equal(messageContext(n, { person_id: aino.id })!.type, "direct");
   assert.equal(messageContext(n, { person_id: n.contacts.find((c) => c.name === "Olli Ojala")!.id })!.type, "ask_intro");
 });
+
+test("engaged, not connected: saved with only what the list showed, fit from the headline's company, deleted after 90 days", async () => {
+  const { headlineParts } = await import("../lib/reactions.ts");
+  const { engagedNotConnected } = await import("../lib/queries.ts");
+  const { readState, deleteEngaged, pruneEngaged, setStatus } = await import("../lib/state.ts");
+  const { writeCache, hash, searchText, CACHE_VERSION } = await import("../lib/prh.ts");
+  assert.deepEqual(headlineParts("Founder at Kuvitteellinen Oy | Investor"), { title: "Founder", company: "Kuvitteellinen Oy" });
+  assert.deepEqual(headlineParts("Head of Operations @ Testi Logistiikka"), { title: "Head of Operations", company: "Testi Logistiikka" });
+  assert.deepEqual(headlineParts("CEO | Esimerkki Oy | Speaker"), { title: "CEO", company: "Esimerkki Oy" });
+  assert.deepEqual(headlineParts("Student"), { title: "Student", company: "" });
+  // The end-to-end test above saved the paste: Daniel (3rd+) and Greta (2nd) are in no network.
+  const stored = readState().engaged ?? [];
+  assert.deepEqual(stored.map((e) => [e.name, e.degree]).sort(), [["Daniel Dahl", "3rd"], ["Greta Grön", "2nd"]]);
+  assert.deepEqual(Object.keys(stored[0]).sort(), ["at", "author", "degree", "headline", "id", "name", "post", "postDate"], "nothing else: no URL, no email");
+  // Daniel's company, as PRH would answer: a manufacturer with employees. Same fit rules as anyone.
+  writeCache("ytj", hash(searchText("Kuvitteellinen Oy")), { query: searchText("Kuvitteellinen Oy"), fetchedAt: "2026-10-24T00:00:00Z", totalResults: 1, v: CACHE_VERSION, companies: [co("1000009-9", "Kuvitteellinen Oy", "28150", { registers: { employer: true, employerSince: "2010-01-01", vat: true } })] });
+  // A PRH cache write does not change the model's signature; a fresh build reads it.
+  (globalThis as { __vnNetwork?: unknown }).__vnNetwork = undefined;
+  const n = await loadNetwork();
+  assert.deepEqual(n.engaged.map((e) => [e.name, e.fit]), [["Daniel Dahl", "strong"], ["Greta Grön", null]]);
+  const list = engagedNotConnected(n);
+  assert.equal(list.people[0].action, "Send a connection request");
+  assert.equal(list.people[0].sender, "Janne", "whose post it was");
+  assert.match(list.people[0].why, /^Reacted to Janne's post on 22 Oct\. Founder at Kuvitteellinen\. Strong fit\.$/);
+  // After 90 days they go, unless the team set a status.
+  setStatus(n.engaged[0].id, "to_contact", "Janne");
+  assert.equal(pruneEngaged("2027-02-01"), 1);
+  assert.deepEqual((readState().engaged ?? []).map((e) => e.name), ["Daniel Dahl"]);
+  deleteEngaged(n.engaged[0].id);
+  assert.equal((readState().engaged ?? []).length, 0);
+  assert.equal(readState().status[n.engaged[0].id], undefined);
+});

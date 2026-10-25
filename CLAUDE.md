@@ -23,7 +23,11 @@ The founders use it from their own Claude through an MCP connector.
   Rows without a URL stay separate. Pasted reactions are matched by name;
   with several people of that name, only the company in the headline or the
   degree marker against the post's author may decide, otherwise a teammate
-  picks. Names that match no one are never stored.
+  picks. Names that match no one are kept apart as "Engaged, not
+  connected" (name, headline as copied, degree marker, the post; no URL,
+  no enrichment, no email), matched to PRH by the headline's company with
+  the same fit rules, suggested as a connection request from whoever wrote
+  the post, and deleted 90 days after the post unless a status is set.
 - **PRH matching never guesses.**
   - An exact normalised name is "verified".
   - One close candidate is "inferred" and shown as "check".

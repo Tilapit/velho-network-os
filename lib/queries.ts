@@ -4,9 +4,9 @@ import { analyse, fmtDate, shortName, type Analysis } from "./analysis.ts";
 import { GROUP, GROUPS, groupForTol, industryRule, requiresEmployer, type GroupId } from "./industry.ts";
 import { matchTerm } from "./roles.ts";
 import { SIGNAL_TYPES, addDays, signalLabel, type CompanySignal, type SignalType } from "./signals.ts";
-import { addReactionRows, setStatus, STATUS_LABEL, type Reaction, type Status } from "./state.ts";
+import { addEngaged, addReactionRows, setStatus, type Engaged, STATUS_LABEL, type Reaction, type Status } from "./state.ts";
 import { daysBetween, fold, isoDate } from "./normalize.ts";
-import { candidateOf, cleanName, matchReactions, nameKey, postsWithin, readReactions, RECENT_DAYS, type ParsedReaction } from "./reactions.ts";
+import { candidateOf, cleanName, engagedId, headlineParts, matchReactions, nameKey, postsWithin, readReactions, RECENT_DAYS, type ParsedReaction } from "./reactions.ts";
 import { COOLDOWN_DAYS, contactsFor, isOyj, loadNetwork, SNOOZE_DAYS, type Contact, type Fit, type Network } from "./network.ts";
 import { ytjUrl } from "./prh.ts";
 import { readVoice, templateMessage, type MessageType } from "./voice.ts";
@@ -342,6 +342,39 @@ export function canIntroduce(net: Network, n = 3, owner?: string): { total: numb
       const title = c.position ? `${c.position.charAt(0).toUpperCase()}${c.position.slice(1, 60)}` : "No title";
       const why = `${title} at ${company}. ${hasFit.has(c.companyId) ? "Can introduce you to who decides." : "No decision-maker who fits is known there: ask who decides."}`;
       return { ...summary(net, c), why, sender: c.sender.ownerName, prompt: claudePrompt(c) };
+    }),
+  };
+}
+
+export type EngagedPick = { id: string; name: string; title: string; company: string; fit: Fit | null; degree?: string; post: string; postDate: string; why: string; action: "Send a connection request"; sender?: string };
+
+/**
+ * Reacted to a team post but in no one's network, ranked by fit (the same
+ * rules as everyone else). The action is always a connection request from
+ * whoever wrote the post, never a message. With an owner, only their posts.
+ */
+export function engagedNotConnected(net: Network, n = 5, owner?: string): { total: number; people: EngagedPick[] } {
+  const id = ownerId(net, owner);
+  const pool = net.engaged.filter((e) => !e.hidden && !e.tooSmall && (!id || e.sender === id));
+  return {
+    total: pool.length,
+    people: pool.slice(0, n).map((e) => {
+      const p = [...e.posts].sort((a, b) => b.postDate.localeCompare(a.postDate))[0];
+      const where = e.company ? ` at ${shortName(e.company)}` : "";
+      const what = e.fit ? `${e.fit === "strong" ? "Strong" : "Possible"} fit` : e.role.decisionMaker ? "Decision-maker, not in your industries" : "Not a decision-maker title";
+      return {
+        id: e.id,
+        name: e.name,
+        title: e.title,
+        company: e.company ? shortName(e.company) : "",
+        fit: e.fit,
+        ...(e.degree ? { degree: e.degree } : {}),
+        post: p.post,
+        postDate: p.postDate,
+        why: `Reacted to ${p.authorName ? (p.authorName === "You" ? "your" : `${p.authorName}'s`) : "a team"} post on ${dayMonth(p.postDate)}. ${e.title || "No title"}${where}. ${what}.`,
+        action: "Send a connection request" as const,
+        ...(e.senderName ? { sender: e.senderName } : {}),
+      };
     }),
   };
 }
@@ -755,6 +788,13 @@ export function addReactions(net: Network, input: ReactionInput) {
   ])
     if (!rows.some((x) => x.contactId === r.contactId)) rows.push(r);
   const saved = input.save === false ? 0 : rows.length ? addReactionRows(rows) : 0;
+  // Not in anyone's network: kept apart as "Engaged, not connected", with only
+  // what the list showed. Names ruled out by "1st" are not: "Copied from" is
+  // probably wrong for them.
+  const engagedRows: Engaged[] = res.unmatched
+    .filter((u) => u.kind === "none")
+    .map((u) => ({ id: engagedId(u.entry.name, u.entry.headline), name: cleanName(u.entry.name), ...(u.entry.headline ? { headline: u.entry.headline.slice(0, 200) } : {}), ...(u.entry.degree ? { degree: u.entry.degree } : {}), post: base.post, postDate, ...(authorId ? { author: authorId } : {}), at }));
+  const engagedSaved = input.save === false ? 0 : engagedRows.length ? addEngaged(engagedRows) : 0;
   const person = (id: string) => {
     const c = net.byId.get(id)!;
     return { id, name: c.name, title: c.position, company: candidateOf(c).company, fit: c.fit, url: appUrl(`/people/${id}`) };
@@ -770,6 +810,8 @@ export function addReactions(net: Network, input: ReactionInput) {
     review: res.review.filter((r) => !picked.has(nameKey(r.entry.name))).map((r) => ({ name: r.entry.name, headline: r.entry.headline, degree: r.entry.degree, candidates: r.candidates.map((c) => ({ ...c, url: appUrl(`/people/${c.id}`) })) })),
     copiedBy: name(viewer),
     unmatched: res.unmatched.filter((u) => u.kind === "none").map((u) => ({ name: u.entry.name, why: u.why })),
+    // The same people, saved apart (when stored) as engaged, not connected: name, headline, degree, post.
+    engaged: { saved: engagedSaved, people: engagedRows.map((e) => ({ id: e.id, name: e.name, headline: e.headline, degree: e.degree, company: headlineParts(e.headline).company || undefined })) },
     // Same name as someone in the networks, but the degree marker against "Copied from" says otherwise. Not stored.
     degreeMismatch: offByDegree.map((u) => ({ name: u.entry.name, degree: u.entry.degree })),
     ...(copiedByWarning ? { copiedByWarning } : {}),
@@ -778,6 +820,6 @@ export function addReactions(net: Network, input: ReactionInput) {
     // Company pages that reacted ("Ultrahack", "3,731 followers"): skipped, never matched to a person.
     companyPages: read.companyPages.length,
     ...(ignoredPicks.length ? { ignoredPicks } : {}),
-    note: "Names in 'unmatched' and 'degreeMismatch' are not stored. 'degreeMismatch' are names someone in the networks has, ruled out only by LinkedIn's degree marker against copiedBy; with copiedByWarning, ask who copied the list and match again. Names in 'review' are stored only after someone picks the right person. 'unread' lists lines read as nobody; check them for a missed person.",
+    note: "Names in 'unmatched' are not in the team's networks: on save they are kept as 'Engaged, not connected' (name, headline, degree, post only; deleted after 90 days unless a status is set). Names in 'degreeMismatch' are not stored. 'degreeMismatch' are names someone in the networks has, ruled out only by LinkedIn's degree marker against copiedBy; with copiedByWarning, ask who copied the list and match again. Names in 'review' are stored only after someone picks the right person. 'unread' lists lines read as nobody; check them for a missed person.",
   };
 }

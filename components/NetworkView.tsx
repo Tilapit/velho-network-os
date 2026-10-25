@@ -5,7 +5,7 @@ import { NetworkDrawing, type DGroup, type DNode, type DOwner } from "./NetworkD
 import { PersonAnalysis, type PersonPayload } from "./PersonAnalysis";
 import { FitTag } from "./ui";
 import { WriteInClaude } from "./WriteInClaude";
-import type { FunnelStep, IntroPick, WeekPick } from "@/lib/queries.ts";
+import type { EngagedPick, FunnelStep, IntroPick, WeekPick } from "@/lib/queries.ts";
 
 export type ViewNode = DNode & { co: string; via: string[]; st: string; sg: number; hd: boolean; cd: string };
 
@@ -42,6 +42,9 @@ export function NetworkView(props: {
   /** Not decision-makers at target companies who can introduce: the team's, and each teammate's. */
   intro: Intros;
   introBy: Intros[];
+  /** Reacted to a team post, in no one's network. */
+  engaged: { total: number; people: EngagedPick[] };
+  engagedBy: { total: number; people: EngagedPick[] }[];
   /** People → company found in PRH → in your industries → decision-makers who fit. */
   funnel: FunnelStep[];
   funnelBy: FunnelStep[][];
@@ -78,6 +81,7 @@ export function NetworkView(props: {
   const balanced = owners.length > 1 && week.every((w) => week.filter((x) => x.sender === w.sender).length <= perSender);
   const follow = owner >= 0 ? props.followBy[owner] ?? [] : props.follow;
   const intro = owner >= 0 ? props.introBy[owner] ?? { total: 0, people: [] } : props.intro;
+  const engaged = owner >= 0 ? props.engagedBy[owner] ?? { total: 0, people: [] } : props.engaged;
   const steps = owner >= 0 ? props.funnelBy[owner] ?? [] : props.funnel;
   const list = picked !== null ? inIndustry : reacted ? reactedList : null;
   // The drawing labels and lights the top of the list on the right.
@@ -356,6 +360,31 @@ export function NetworkView(props: {
               </div>
             ))}
             {!week.length ? <p className="small muted">Nobody left to reach: everyone who fits has a status.</p> : <p className="xs faint">Write in Claude copies a prompt for your own Claude, which writes the message. Nothing is sent from this app.</p>}
+            {engaged.people.length ? (
+              <div className="intros">
+                <h3>
+                  Engaged, not connected ·{" "}
+                  <Link href="/settings#engaged" className="link">
+                    {fmt(engaged.total)}
+                  </Link>
+                </h3>
+                <p className="xs faint" style={{ marginBottom: 8 }}>
+                  Reacted to a team post, in no one&apos;s network. Ranked by fit from their headline. Send a connection request, not a message.
+                </p>
+                {engaged.people.map((e) => (
+                  <div key={e.id} className="prow intro-card">
+                    <span className="top-line">
+                      <span className="name">{e.name}</span>
+                      {e.fit ? <FitTag fit={e.fit} /> : <span className="pill">{e.degree ?? "Not connected"}</span>}
+                    </span>
+                    <span className="small muted">{e.why}</span>
+                    <span className="row xs" style={{ justifyContent: "space-between", gap: 8, marginTop: 2 }}>
+                      <span className="muted">Send a connection request{e.sender ? `: ${e.sender}` : ""}</span>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : null}
             {intro.people.length ? (
               <div className="intros">
                 <h3>

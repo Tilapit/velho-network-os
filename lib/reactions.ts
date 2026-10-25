@@ -242,3 +242,28 @@ export function matchReactions(net: Network, entries: ParsedReaction[], opts: { 
 export function postsWithin(c: Pick<Contact, "reactions">, today: string, days: number): number {
   return new Set(c.reactions.filter((r) => daysBetween(r.postDate ?? r.at.slice(0, 10), today) <= days).map((r) => `${r.post}|${r.postDate ?? ""}`)).size;
 }
+
+// ---------- people who reacted but are in no one's network ----------
+
+/**
+ * "Head of Operations at Esimerkki Oy", "CTO @ Esimerkki", "CEO | Esimerkki
+ * Oy | Investor", "Tuotantojohtaja – Esimerkki Oy": the title and the company
+ * as written. No company when the headline does not say one plainly.
+ */
+export function headlineParts(headline?: string): { title: string; company: string } {
+  const h = (headline ?? "").replace(/[\p{Extended_Pictographic}\u{FE0F}\u{200D}\u{1F1E6}-\u{1F1FF}]/gu, " ").replace(/\s+/g, " ").trim();
+  if (!h) return { title: "", company: "" };
+  let m = h.match(/^(.+?)\s+(?:at|@|bei|chez|på|i)\s+(.+)$/i) ?? h.match(/^(.+?)\s*@\s*(.+)$/);
+  if (!m) m = h.match(/^(.+?)\s+[|–—]\s+(.+)$/) ?? h.match(/^(.+?)\s+-\s+(.+)$/);
+  if (!m) return { title: h, company: "" };
+  // "Esimerkki Oy | Investor | Speaker": the company is the first part after the title.
+  const company = m[2].split(/\s+[|–—•·]\s+|,\s+/)[0].trim();
+  return { title: m[1].trim(), company: company.length >= 2 && company.length <= 80 ? company : "" };
+}
+
+/** A stable id for someone engaged but not connected: their name and headline, never a URL (we have none). */
+export function engagedId(name: string, headline?: string): string {
+  let h = 0;
+  for (const ch of `${nameKey(name)}|${(headline ?? "").toLowerCase().trim()}`) h = (Math.imul(h, 31) + ch.codePointAt(0)!) | 0;
+  return `e-${(h >>> 0).toString(16).padStart(8, "0")}`;
+}

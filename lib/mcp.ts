@@ -7,7 +7,7 @@ import { z } from "zod";
 import { loadNetwork } from "./network.ts";
 import { GROUPS } from "./industry.ts";
 import { MESSAGE_TYPES } from "./voice.ts";
-import { addReactions, appUrl, canIntroduce, findPeople, followUps, getCompany, getPerson, getRadar, messageContext, peopleForTheme, rankIndustries, recordStatus, thisWeek } from "./queries.ts";
+import { addReactions, appUrl, canIntroduce, engagedNotConnected, findPeople, followUps, getCompany, getPerson, getRadar, messageContext, peopleForTheme, rankIndustries, recordStatus, thisWeek } from "./queries.ts";
 import type { SignalType } from "./signals.ts";
 
 const SOURCES = "All data comes from the team's own LinkedIn Connections exports, the Finnish trade register (PRH open data, CC BY 4.0) and the team's own feedback in the app. Nothing is scraped and nothing is sent to anyone.";
@@ -46,7 +46,7 @@ export function buildMcpServer(): McpServer {
     "this_week",
     {
       title: "This week",
-      description: `The five people to reach this week, chosen by code (the same as the app's "This week"): strong fits always before possible ones; within them people with a registered change or a reaction in the last 30 days first; one per company, at most two per industry while it works, and never more than five shared out evenly over the suggested senders (two each for a team of three), even if the list is shorter. ${RULE} Each has a one-line why, the suggested sender and a url. Also askForIntro: a smaller second group of people at companies in the team's industries who are not decision-makers but can introduce, with how many there are in all. Also says how many follow-ups are due: the weekly review is this_week plus follow_ups. ${SOURCES}`,
+      description: `The five people to reach this week, chosen by code (the same as the app's "This week"): strong fits always before possible ones; within them people with a registered change or a reaction in the last 30 days first; one per company, at most two per industry while it works, and never more than five shared out evenly over the suggested senders (two each for a team of three), even if the list is shorter. ${RULE} Each has a one-line why, the suggested sender and a url. Also engagedNotConnected: people who reacted to a team post but are in no one's network, ranked by fit; the only action is a connection request from whoever wrote the post. Also askForIntro: a smaller second group of people at companies in the team's industries who are not decision-makers but can introduce, with how many there are in all. Also says how many follow-ups are due: the weekly review is this_week plus follow_ups. ${SOURCES}`,
       inputSchema: {},
       annotations: { readOnlyHint: true },
     },
@@ -56,7 +56,8 @@ export function buildMcpServer(): McpServer {
       log("this_week", picks.map((p) => p.id));
       const intro = canIntroduce(net);
       log("this_week", intro.people.map((p) => p.id));
-      return json({ people: picks.map(({ prompt, ...p }) => p), askForIntro: { total: intro.total, people: intro.people.map(({ prompt, ...p }) => p) }, followUpsDue: followUps(net).total });
+      const engaged = engagedNotConnected(net);
+      return json({ people: picks.map(({ prompt, ...p }) => p), askForIntro: { total: intro.total, people: intro.people.map(({ prompt, ...p }) => p) }, engagedNotConnected: { ...engaged, note: "Reacted to a team post but in no one's network. Suggest a connection request from whoever wrote the post, never a message." }, followUpsDue: followUps(net).total });
     },
   );
 
@@ -225,7 +226,7 @@ export function buildMcpServer(): McpServer {
     {
       title: "Add reactions to a post",
       description:
-        "Stores who reacted to one of the team's LinkedIn posts, as a 'reacted' signal on each person. Give the reactions list as the user copied it from LinkedIn (`text`), or people you read from a screenshot the user shared (`reactions`, with headline and degree when visible), or plain `names`. The same parser and matcher as the app: a name with one match in the merged network is stored (inferred); ties are broken by the company in the headline and, with `author` (or `copied_by`), by the 1st/2nd degree marker; a degree marker that rules out the only same-name person leaves the name unmatched; the rest come back in `review` with candidates and are stored only when you pass `picks` after the user confirms. Names in `unmatched` are not in the networks and are never stored. Never scrape LinkedIn to get these.",
+        "Stores who reacted to one of the team's LinkedIn posts, as a 'reacted' signal on each person. Give the reactions list as the user copied it from LinkedIn (`text`), or people you read from a screenshot the user shared (`reactions`, with headline and degree when visible), or plain `names`. The same parser and matcher as the app: a name with one match in the merged network is stored (inferred); ties are broken by the company in the headline and, with `author` (or `copied_by`), by the 1st/2nd degree marker; a degree marker that rules out the only same-name person leaves the name unmatched; the rest come back in `review` with candidates and are stored only when you pass `picks` after the user confirms. Names in `unmatched` are not in the networks: when stored they are kept apart as 'Engaged, not connected' (name, headline as copied, degree, post only; deleted after 90 days unless a status is set). Never scrape LinkedIn to get these.",
       inputSchema: {
         post_label: z.string().describe("A short label for the post"),
         post_date: z.string().optional().describe("The day the post went out, YYYY-MM-DD. Default today."),

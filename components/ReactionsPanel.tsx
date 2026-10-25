@@ -60,7 +60,7 @@ export function ReactionsPanel({ owners, posts, today, owner }: { owners: { id: 
     }
     // Saved: the unmatched names were shown once and are gone now.
     // One line: what was stored and what was left out.
-    setMsg(`${j.saved} stored${j.saved < j.matched.length ? ` (${j.matched.length - j.saved} were already there)` : ""} · ${j.unmatched.length} not in your networks${j.degreeMismatch?.length ? ` · ${j.degreeMismatch.length} ruled out by "1st"` : ""} · ${j.companyPages ?? 0} company page${j.companyPages === 1 ? "" : "s"} skipped. Saved to "${j.post}"; they count in the ranking now.`);
+    setMsg(`${j.saved} stored${j.saved < j.matched.length ? ` (${j.matched.length - j.saved} were already there)` : ""} · ${j.engaged?.saved ?? 0} engaged, not connected${j.degreeMismatch?.length ? ` · ${j.degreeMismatch.length} ruled out by "1st"` : ""} · ${j.companyPages ?? 0} company page${j.companyPages === 1 ? "" : "s"} skipped. Saved to "${j.post}"; they count in the ranking now.`);
     setResult(null);
     setText("");
     setPost("");
@@ -220,9 +220,9 @@ export function ReactionsPanel({ owners, posts, today, owner }: { owners: { id: 
           ) : null}
           {result.unmatched.length ? (
             <div>
-              <h3>Not in your networks ({result.unmatched.length})</h3>
+              <h3>Not in your networks: saved as engaged, not connected ({result.unmatched.length})</h3>
               <p className="small muted">
-                Shown this once and not stored: {result.unmatched.map((u) => u.name).join(", ")}.
+                Kept apart under Settings → Engaged, not connected, with only the name, headline, degree and post; deleted after 90 days unless you set a status: {result.unmatched.map((u) => u.name).join(", ")}.
               </p>
             </div>
           ) : null}
@@ -233,8 +233,8 @@ export function ReactionsPanel({ owners, posts, today, owner }: { owners: { id: 
             </div>
           ) : null}
           <div className="row">
-            <button type="button" className="btn primary" disabled={busy || !toSave} onClick={() => send(true)}>
-              {busy ? "Saving…" : `Save ${toSave} reaction${toSave === 1 ? "" : "s"}`}
+            <button type="button" className="btn primary" disabled={busy || !(toSave || result.unmatched.length)} onClick={() => send(true)}>
+              {busy ? "Saving…" : `Save ${toSave} reaction${toSave === 1 ? "" : "s"}${result.unmatched.length ? ` and ${result.unmatched.length} engaged` : ""}`}
             </button>
             <button type="button" className="link" onClick={() => setResult(null)}>
               Back

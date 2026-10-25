@@ -6,13 +6,13 @@ import fs from "node:fs";
 import { parseConnections } from "./ingest.ts";
 import { daysBetween, profileKey, today } from "./normalize.ts";
 import { ownerText, readOwners, sourcesSignature, type Owner } from "./store.ts";
-import { applyNotTargets, readState, stateSignature, type Reaction, type State, type StatusEntry } from "./state.ts";
+import { applyNotTargets, pruneEngaged, readState, stateSignature, type Reaction, type State, type StatusEntry } from "./state.ts";
 import { BY_ID, matchJob, resolveName, startMatching, type Resolved } from "./matching.ts";
 import { analyseTitle, isStrongRole, type RoleInfo } from "./roles.ts";
 import { DEFAULT_PROFILE, groupForTol, industryRule, requiresEmployer, type GroupId, type IndustryRule, type Profile } from "./industry.ts";
 import { addDays, loadSignals, signalsFile, SIGNAL_TYPES, type CompanySignal, type SignalSet } from "./signals.ts";
 import { looseKey, type MatchStatus, type PrhCompany } from "./prh.ts";
-import { postsWithin, REACTION_DAYS } from "./reactions.ts";
+import { headlineParts, nameKey, postsWithin, REACTION_DAYS } from "./reactions.ts";
 
 export type Fit = "strong" | "possible";
 /** direct: a decision-maker who fits. ask_intro: works at a target company, does not decide. */
@@ -89,6 +89,36 @@ export type CompanyEntry = {
   signals: CompanySignal[];
 };
 
+/**
+ * Reacted to a team post, in no one's network. Only the pasted name and
+ * headline; the company comes from the headline and is matched in PRH like
+ * any other, with the same fit rules. The action is a connection request
+ * from whoever wrote the post.
+ */
+export type EngagedPerson = {
+  id: string;
+  name: string;
+  headline: string;
+  degree?: "1st" | "2nd" | "3rd";
+  posts: { post: string; postDate: string; author?: string; authorName?: string }[];
+  title: string;
+  /** The company as the headline says it, and its PRH match. */
+  companyRaw: string;
+  company: string;
+  match: Resolved | null;
+  group: GroupId;
+  rule: IndustryRule | null;
+  role: RoleInfo;
+  fit: Fit | null;
+  caps: string[];
+  tooSmall: boolean;
+  /** Whose post: the teammate who sends the connection request. */
+  sender?: string;
+  senderName?: string;
+  status?: StatusEntry;
+  hidden: boolean;
+};
+
 export type Network = {
   owners: Owner[];
   demo: boolean;
@@ -100,6 +130,8 @@ export type Network = {
   names: Map<string, Resolved>;
   signals: SignalSet | null;
   signalsByCompany: Map<string, CompanySignal[]>;
+  /** Reacted to a team post, not in any network: ranked by fit. */
+  engaged: EngagedPerson[];
   stats: NetworkStats;
 };
 
@@ -334,6 +366,7 @@ export function buildNetwork(input: BuildInput, signalsByCompany = indexSignals(
     if (r.foreign) names.foreign++;
   }
   const fits = contacts.filter((c) => c.fit);
+  const engaged = buildEngaged(input, contacts);
   return {
     owners: input.networks.map((n) => n.owner),
     demo: input.networks.length > 0 && input.networks.every((n) => n.owner.demo),
@@ -345,6 +378,7 @@ export function buildNetwork(input: BuildInput, signalsByCompany = indexSignals(
     names: input.resolved,
     signals: input.signals,
     signalsByCompany,
+    engaged,
     stats: {
       rows,
       contacts: contacts.length,
@@ -358,6 +392,60 @@ export function buildNetwork(input: BuildInput, signalsByCompany = indexSignals(
       strong: fits.filter((c) => c.fit === "strong").length,
     },
   };
+}
+
+/** Engaged people from the state, one per person, with their company matched and the fit rules applied. */
+export function buildEngaged(input: BuildInput, contacts: Contact[]): EngagedPerson[] {
+  const { profile, state } = input;
+  const owners = new Map(input.networks.map((n) => [n.owner.id, n.owner.name]));
+  const known = new Set(contacts.map((c) => nameKey(c.name)));
+  const byId = new Map<string, EngagedPerson>();
+  for (const e of state.engaged ?? []) {
+    // Imported since: they are a contact now, and the reaction belongs there.
+    if (known.has(nameKey(e.name))) continue;
+    const post = { post: e.post, postDate: e.postDate, author: e.author, authorName: e.author ? owners.get(e.author) : undefined };
+    const have = byId.get(e.id);
+    if (have) {
+      have.posts.push(post);
+      continue;
+    }
+    const { title, company: companyRaw } = headlineParts(e.headline);
+    const match = companyRaw ? input.resolved.get(companyRaw) ?? null : null;
+    const matched = !!match && (match.status === "verified" || match.status === "inferred") && !!match.company && !match.foreign;
+    const excluded = matched && profile.excluded?.some((x) => x.businessId === match!.company!.businessId);
+    const rule = matched && !excluded ? industryRule(match!.company!.tol, profile) : null;
+    let role = analyseTitle(title, profile.roles);
+    if (matched && NON_PROFIT_FORMS.has(match!.company!.formCode ?? "")) role = { ...role, decisionMaker: false, decides: "", notDecider: "an association or foundation in PRH", intro: 0 };
+    const caps = rule ? fitCaps(match, input.today) : [];
+    const tooSmall = !!rule && requiresEmployer(profile) && employerOf(match) === false;
+    const fit = tooSmall ? null : fitFor(role, rule, caps);
+    const status = state.status[e.id];
+    const s = status?.status;
+    byId.set(e.id, {
+      id: e.id,
+      name: e.name,
+      headline: e.headline ?? "",
+      degree: e.degree,
+      posts: [post],
+      title,
+      companyRaw,
+      company: matched ? match!.company!.name : companyRaw,
+      match,
+      group: matched ? groupForTol(match!.company!.tol) : "not_matched",
+      rule,
+      role,
+      fit,
+      caps,
+      tooSmall,
+      sender: e.author,
+      senderName: post.authorName,
+      status,
+      hidden: s === "sent" || s === "replied" || s === "meeting" || s === "not_fit" || (s === "snoozed" && input.today < (status?.until ?? addDays(status!.at.slice(0, 10), SNOOZE_DAYS))),
+    });
+  }
+  const rank = (x: EngagedPerson) => (x.fit === "strong" ? 0 : x.fit === "possible" ? 1 : x.role.decisionMaker ? 2 : 3);
+  const latest = (x: EngagedPerson) => x.posts.map((p) => p.postDate).sort().at(-1) ?? "";
+  return [...byId.values()].sort((a, b) => rank(a) - rank(b) || Number(a.degree === "3rd") - Number(b.degree === "3rd") || latest(b).localeCompare(latest(a)) || a.name.localeCompare(b.name, "fi"));
 }
 
 /** The last day anyone reached this person (sent, replied or meeting), or "". */
@@ -427,6 +515,8 @@ function signalsSig(): string {
 export async function loadNetwork(): Promise<Network> {
   // The not-target list holds in every data folder, not only the demo's.
   if (readOwners().length) applyNotTargets();
+  // Engaged people go after 90 days unless the team set a status on them.
+  pruneEngaged(today());
   const sig = [sourcesSignature(), stateSignature(), signalsSig(), matchJob().generation, process.env.APP_TODAY ?? ""].join("#");
   if (G.__vnNetwork?.sig === sig) return G.__vnNetwork.net;
   const owners = readOwners();
@@ -441,6 +531,11 @@ export async function loadNetwork(): Promise<Network> {
   const profile = state.profile ?? DEFAULT_PROFILE;
   const raws = new Set<string>();
   for (const n of networks) for (const r of parseConnections(n.text).records) if (r.company) raws.add(r.company);
+  // The companies engaged people name in their headline are looked up like any other.
+  for (const e of state.engaged ?? []) {
+    const c = headlineParts(e.headline).company;
+    if (c) raws.add(c);
+  }
   const resolved = new Map<string, Resolved>();
   const demo = owners.length > 0 && owners.every((o) => o.demo);
   await Promise.all([...raws].map(async (raw) => resolved.set(raw, await resolveName(raw, state.overrides[looseKey(raw)], { demo }))));

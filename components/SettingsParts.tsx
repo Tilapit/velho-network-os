@@ -250,3 +250,24 @@ export function MatchReview({ items }: { items: Review[] }) {
     </div>
   );
 }
+
+/** "Delete" for one engaged person, or "Delete all engaged". */
+export function DeleteEngaged({ id, label }: { id?: string; label: string }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  return (
+    <button
+      type="button"
+      className={id ? "link small" : "btn small"}
+      disabled={busy}
+      onClick={async () => {
+        setBusy(true);
+        await fetch(`/api/engaged?${id ? `id=${encodeURIComponent(id)}` : "all=1"}`, { method: "DELETE" });
+        setBusy(false);
+        router.refresh();
+      }}
+    >
+      {busy ? "Deleting…" : label}
+    </button>
+  );
+}

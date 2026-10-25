@@ -30,6 +30,13 @@ export type Override = { name: string; businessId?: string; notFinnish?: boolean
  */
 export type Reaction = { post: string; postDate?: string; author?: string; contactId: string; name: string; at: string; how?: "name" | "name_company" | "name_degree" | "picked" };
 export type Angle = { text: string; at: string; model: string };
+/**
+ * Reacted to a team post but is in no one's network. Only what the pasted
+ * list showed: name, headline as copied, degree marker, and the post. No
+ * profile URL, no enrichment, no email. Deleted after ENGAGED_DAYS unless the
+ * team set a status on them.
+ */
+export type Engaged = { id: string; name: string; headline?: string; degree?: "1st" | "2nd" | "3rd"; post: string; postDate: string; author?: string; at: string };
 
 export type State = {
   version: 2;
@@ -40,10 +47,15 @@ export type State = {
   angles: Record<string, Angle>;
   /** Business IDs from not-targets.json already added to the profile once, so one the team removes stays removed. */
   notTargetsApplied?: string[];
+  /** Reacted to a team post, not in any network. */
+  engaged?: Engaged[];
 };
 
 const file = () => path.join(dataDir(), "state.json");
-const empty = (): State => ({ version: 2, status: {}, overrides: {}, reactions: [], angles: {} });
+const empty = (): State => ({ version: 2, status: {}, overrides: {}, reactions: [], angles: {}, engaged: [] });
+
+/** Engaged people are deleted this many days after the post, unless the team set a status on them. */
+export const ENGAGED_DAYS = 90;
 
 export function readState(): State {
   try {
@@ -149,6 +161,45 @@ export function addReactionRows(rows: Reaction[]): number {
     }
   });
   return added;
+}
+
+/** Stores engaged people; one person once per post. Returns how many were new. */
+export function addEngaged(rows: Engaged[]): number {
+  let added = 0;
+  update((s) => {
+    const seen = new Set((s.engaged ??= []).map((e) => `${e.id}|${e.post}|${e.postDate}`));
+    for (const r of rows) {
+      const k = `${r.id}|${r.post}|${r.postDate}`;
+      if (seen.has(k)) continue;
+      seen.add(k);
+      s.engaged.push(r);
+      added++;
+    }
+  });
+  return added;
+}
+
+/** Deletes one engaged person (every post), or everyone with no id. */
+export function deleteEngaged(id?: string) {
+  update((s) => {
+    s.engaged = id ? (s.engaged ?? []).filter((e) => e.id !== id) : [];
+    if (id) delete s.status[id];
+    else for (const k of Object.keys(s.status)) if (k.startsWith("e-")) delete s.status[k];
+  });
+}
+
+/** Drops engaged rows older than ENGAGED_DAYS whose person has no status. Writes only when something goes. */
+export function pruneEngaged(today: string): number {
+  const s = readState();
+  const cutoff = new Date(Date.parse(today) - ENGAGED_DAYS * 86_400_000).toISOString().slice(0, 10);
+  const all = s.engaged ?? [];
+  const keep = all.filter((e) => s.status[e.id] || (e.postDate || e.at.slice(0, 10)) >= cutoff);
+  if (keep.length === all.length) return 0;
+  const kept = new Set(keep.map((e) => `${e.id}|${e.post}|${e.postDate}`));
+  update((st) => {
+    st.engaged = (st.engaged ?? []).filter((e) => kept.has(`${e.id}|${e.post}|${e.postDate}`));
+  });
+  return all.length - keep.length;
 }
 
 export type Post = { post: string; postDate?: string; author?: string; people: number; at: string };

@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { ensureMatching, loadNetwork } from "@/lib/network.ts";
 import { matchJob } from "@/lib/matching.ts";
-import { listPosts, readState } from "@/lib/state.ts";
+import { ENGAGED_DAYS, listPosts, readState } from "@/lib/state.ts";
 import { appUrl } from "@/lib/queries.ts";
 import { mcpToken } from "@/lib/access.ts";
 import { fmtDate } from "@/lib/analysis.ts";
 import { DemoButton, UploadForm } from "@/components/FirstRun";
-import { DeleteAll, DeleteOwner, MatchReview, ProfileForm, ProfileRules, type Review } from "@/components/SettingsParts";
+import { DeleteAll, DeleteEngaged, DeleteOwner, MatchReview, ProfileForm, ProfileRules, type Review } from "@/components/SettingsParts";
 import { MatchProgress } from "@/components/MatchProgress";
 import { ReactionsPanel } from "@/components/ReactionsPanel";
 import { dmaStatus } from "@/lib/linkedin-dma.ts";
@@ -126,6 +126,51 @@ export default async function Settings({ searchParams }: { searchParams: Promise
             Who reacted to the team&apos;s LinkedIn posts. Each match is a signal on the person: it shows in their analysis and adds 5 points to the ranking, +2 for each further post (posts from the last 90 days). Nothing is scraped: on LinkedIn, open the post&apos;s reactions, select the list, copy and paste it here. Or drop a screenshot into Claude, which calls add_reactions.
           </p>
           <ReactionsPanel owners={net.owners.map((o) => ({ id: o.id, name: o.name }))} posts={listPosts(state)} today={net.today} owner={owner} />
+        </section>
+
+        <section className="section" id="engaged">
+          <h2>Engaged, not connected ({net.engaged.length})</h2>
+          <p className="small muted" style={{ marginBottom: 10, maxWidth: 820 }}>
+            People who reacted to a team post but are in no one&apos;s network. Stored: only the name, the headline as copied, LinkedIn&apos;s degree marker and the post (label, date, whose post). No profile URL, no email, nothing looked up about the person; the company in the headline is matched in PRH like any company. Deleted automatically {ENGAGED_DAYS} days after the post unless the team set a status on them.
+          </p>
+          {net.engaged.length ? (
+            <>
+              <div className="table-wrap" style={{ marginBottom: 10 }}>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Headline</th>
+                      <th>Fit</th>
+                      <th>Post</th>
+                      <th />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {net.engaged.map((e) => (
+                      <tr key={e.id}>
+                        <td>
+                          {e.name}
+                          {e.degree ? <span className="muted small"> · {e.degree}</span> : null}
+                        </td>
+                        <td className="small">{e.headline || "—"}</td>
+                        <td className="small">{e.fit ? (e.fit === "strong" ? "Strong fit" : "Possible fit") : e.tooSmall ? "Too small" : "—"}</td>
+                        <td className="small muted">
+                          {e.posts.map((p) => `${p.post} (${fmtDate(p.postDate)})`).join("; ")}
+                        </td>
+                        <td>
+                          <DeleteEngaged id={e.id} label="Delete" />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <DeleteEngaged label="Delete all engaged" />
+            </>
+          ) : (
+            <p className="small muted">No one yet. Save a post&apos;s reactions: names not in your networks land here.</p>
+          )}
         </section>
 
         <section className="section" id="profile">

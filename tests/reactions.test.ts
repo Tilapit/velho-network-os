@@ -100,14 +100,17 @@ test("reactions matcher: name, company in the headline, degree marker, review an
   assert.deepEqual(m.unmatched.map((x) => x.entry.name), ["Nobody Here"]);
 });
 
-test("reactions: stored with a weight in the score, a Reaction reason, and unmatched names never stored", () => {
+test("reactions: stored with a weight in the score, a Reaction reason; names in no network kept apart as engaged", () => {
   const r = addReactions(net, { post: "Kolme oppia pilotista", postDate: "2026-10-14", author: "You", text: fx("reactions-linkedin.txt") });
   assert.equal(r.unmatched.length, 2, "Production Manager and Erkki Esimerkki are in no network");
   // "· 2nd" on your own post rules out the Mikko you know: the co-founder's Mikko at Hydroline.
   assert.ok(r.matched.some((x) => x.name === "Mikko Korhonen" && x.person.id === idOf("Mikko Korhonen", "Hydroline") && x.how === "name_degree"));
   const state = JSON.parse(fs.readFileSync(path.join(dir, "state.json"), "utf8"));
   const names = state.reactions.map((x: { name: string }) => x.name);
-  assert.ok(!names.includes("Erkki Esimerkki") && !JSON.stringify(state).includes("Erkki"), "unmatched names leave no trace");
+  assert.ok(!names.includes("Erkki Esimerkki"), "a name in no network is never a reaction on someone");
+  // It is kept apart, with only what the list showed (Settings → Engaged, not connected).
+  const erkki = state.engaged.find((e: { name: string }) => e.name === "Erkki Esimerkki");
+  assert.ok(erkki && !("url" in erkki) && !("email" in erkki));
   // Pasting the same post again stores nothing new.
   assert.equal(addReactions(net, { post: "Kolme oppia pilotista", postDate: "2026-10-14", author: "You", text: fx("reactions-linkedin.txt") }).saved, 0);
   // A second post: 5 points for one post, +2 for the second.
