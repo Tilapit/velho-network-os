@@ -10,7 +10,7 @@ import { readState, stateSignature, type Reaction, type State, type StatusEntry 
 import { matchJob, resolveName, startMatching, type Resolved } from "./matching.ts";
 import { analyseTitle, isStrongRole, type RoleInfo } from "./roles.ts";
 import { DEFAULT_PROFILE, groupForTol, industryRule, type GroupId, type IndustryRule, type Profile } from "./industry.ts";
-import { loadSignals, signalsFile, SIGNAL_TYPES, type CompanySignal, type SignalSet } from "./signals.ts";
+import { addDays, loadSignals, signalsFile, SIGNAL_TYPES, type CompanySignal, type SignalSet } from "./signals.ts";
 import { looseKey, type MatchStatus, type PrhCompany } from "./prh.ts";
 import { postsWithin, REACTION_DAYS } from "./reactions.ts";
 
@@ -19,6 +19,29 @@ export type Fit = "strong" | "possible";
 export type Approach = "direct" | "ask_intro" | "skip";
 
 export type KnownBy = { owner: string; ownerName: string; connectedOn: string; file: string; row: number };
+
+/** A follow-up is due this many days after "sent" with no reply recorded. */
+export const FOLLOW_UP_DAYS = 7;
+/** A snooze lasts this many days unless the team says otherwise. */
+export const SNOOZE_DAYS = 90;
+/** For this many days after anyone at a company was contacted, others there rank lower. */
+export const COOLDOWN_DAYS = 30;
+
+/**
+ * What the team's status means for recommendations today, the same for the
+ * whole team and every list (This week, find_people, people_for_theme).
+ * - sent: hidden; a follow-up is due 7 days later if no reply is recorded.
+ * - replied, meeting, not_fit: hidden for good.
+ * - snoozed: hidden until the snooze ends.
+ * - cooldown: someone else at the company was contacted in the last 30 days.
+ */
+export type Outreach = {
+  hidden: boolean;
+  followUpOn?: string;
+  followUpDue?: boolean;
+  until?: string;
+  cooldown?: { on: string; id: string; name: string };
+};
 export type ScorePart = { label: string; points: number; why: string };
 
 export type Contact = {
@@ -43,6 +66,7 @@ export type Contact = {
   signals: CompanySignal[];
   reactions: Reaction[];
   status?: StatusEntry;
+  outreach: Outreach;
   score: number;
   parts: ScorePart[];
 };
@@ -254,6 +278,7 @@ export function buildNetwork(input: BuildInput, signalsByCompany = indexSignals(
       signals: companyId ? companies.get(companyId)!.signals : [],
       reactions: state.reactions.filter((r) => r.contactId === id),
       status: state.status[id],
+      outreach: { hidden: false },
       score: 0,
       parts: [],
     };
@@ -263,6 +288,7 @@ export function buildNetwork(input: BuildInput, signalsByCompany = indexSignals(
     c.parts = scoreContact(c, input.today);
     c.score = c.parts.reduce((n, p) => n + p.points, 0);
   }
+  applyOutreach(contacts, input.today);
   contacts.sort(rankOrder);
   const names: Record<MatchStatus | "foreign", number> = { verified: 0, inferred: 0, ambiguous: 0, none: 0, skipped: 0, pending: 0, foreign: 0 };
   for (const r of input.resolved.values()) {
@@ -296,15 +322,54 @@ export function buildNetwork(input: BuildInput, signalsByCompany = indexSignals(
   };
 }
 
+/** The last day anyone reached this person (sent, replied or meeting), or "". */
+export function contactedOn(status?: StatusEntry): string {
+  if (!status) return "";
+  const days = [status, ...status.history].filter((h) => h.status === "sent" || h.status === "replied" || h.status === "meeting").map((h) => h.at.slice(0, 10));
+  return days.sort().at(-1) ?? "";
+}
+
+/** Fills in each contact's `outreach` from the team's statuses, as of `today`. */
+export function applyOutreach(contacts: Contact[], today: string) {
+  // Who at each company was reached in the last 30 days, latest first.
+  const reached = new Map<string, { on: string; id: string; name: string }[]>();
+  for (const c of contacts) {
+    const on = contactedOn(c.status);
+    if (!on || !c.companyId || daysBetween(on, today) > COOLDOWN_DAYS) continue;
+    reached.set(c.companyId, [...(reached.get(c.companyId) ?? []), { on, id: c.id, name: c.name }].sort((a, b) => b.on.localeCompare(a.on)));
+  }
+  for (const c of contacts) {
+    const cooldown = c.companyId ? reached.get(c.companyId)?.find((r) => r.id !== c.id) : undefined;
+    const s = c.status?.status ?? "none";
+    const day = c.status?.at.slice(0, 10) ?? today;
+    const o: Outreach = { hidden: false, ...(cooldown ? { cooldown } : {}) };
+    if (s === "sent") {
+      o.hidden = true;
+      o.followUpOn = addDays(day, FOLLOW_UP_DAYS);
+      o.followUpDue = today >= o.followUpOn;
+    } else if (s === "replied" || s === "meeting" || s === "not_fit") o.hidden = true;
+    else if (s === "snoozed") {
+      o.until = c.status?.until ?? addDays(day, SNOOZE_DAYS);
+      o.hidden = today < o.until;
+    }
+    c.outreach = o;
+  }
+}
+
 /** At a public limited company (Oyj) in PRH: usually a large listed group, not the SME Velho is after. */
 export function isOyj(c: Pick<Contact, "match">): boolean {
   return !!c.match && MATCHED(c.match.status) && !c.match.foreign && c.match.company?.formCode === "17";
 }
 
-/** Strong before possible, "Not a fit" last, then score; at an equal score an Oyj after the rest; then name. */
+/**
+ * Strong before possible, "Not a fit" last; within those, people whose
+ * colleague was just contacted after the rest; then score; at an equal score
+ * an Oyj after the rest; then name.
+ */
 export function rankOrder(a: Contact, b: Contact): number {
   const f = (c: Contact) => (c.status?.status === "not_fit" ? 3 : c.fit === "strong" ? 0 : c.fit === "possible" ? 1 : 2);
-  return f(a) - f(b) || b.score - a.score || Number(isOyj(a)) - Number(isOyj(b)) || a.name.localeCompare(b.name, "fi");
+  const cool = (c: Contact) => (c.outreach.cooldown ? 1 : 0);
+  return f(a) - f(b) || cool(a) - cool(b) || b.score - a.score || Number(isOyj(a)) - Number(isOyj(b)) || a.name.localeCompare(b.name, "fi");
 }
 
 // ---------- load (cached) ----------

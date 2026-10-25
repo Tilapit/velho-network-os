@@ -1,6 +1,6 @@
 ---
 name: velho-network
-description: Use when someone at Velho asks who in the team's network to talk to, who to invite to an event or roundtable, which industries or companies to focus on, what changed at a company (trade register signals), or wants a short outreach message, or pastes names of people who reacted to a LinkedIn post. Works through the Velho Network MCP connector (tools this_week, rank_industries, find_people, people_for_theme, get_person, get_company, get_radar, message_context, add_reactions).
+description: Use when someone at Velho asks who in the team's network to talk to, who to invite to an event or roundtable, which industries or companies to focus on, what changed at a company (trade register signals), or wants a short outreach message, or pastes names of people who reacted to a LinkedIn post. Also when they say they sent a message or heard back from someone. Works through the Velho Network MCP connector (tools this_week, follow_ups, set_status, rank_industries, find_people, people_for_theme, get_person, get_company, get_radar, message_context, add_reactions).
 ---
 
 # Velho Network
@@ -18,7 +18,9 @@ it whenever you mention a person or a company, so the user can check why.
 
 | The user wants | Tool |
 | --- | --- |
-| Who to reach this week | `this_week` |
+| Who to reach this week | `this_week`, then `follow_ups` |
+| Whose follow-up is due (sent a week ago, no reply) | `follow_ups` (optionally `owner`) |
+| "I sent it", "they replied", "we have a meeting", "not interested", "later" | `set_status`, after asking |
 | Where our way in is strongest, which industry to focus on | `rank_industries` |
 | People: by industry, role, town, fit, who knows them, with a recent change | `find_people` |
 | Who to invite to a theme, event or roundtable | `people_for_theme` (you choose the industries from the theme) |
@@ -37,9 +39,27 @@ machinery" also work).
 **Weekly review.** `this_week` gives the five, chosen by code (the same as
 the app's "This week" block). For each: their one-line `why`, the suggested
 sender and the link. Then `message_context` for each and write a short draft
-per person. Say which teammate should send each one. If the user wants more
-or different people, use `find_people` (for example `fit: "strong"`,
-`status: "none"`, `has_signal: true` or `reacted: true`).
+per person. Say which teammate should send each one. Then `follow_ups`: who
+was messaged a week or more ago with no reply recorded, and who sent it;
+suggest a short follow-up or ask how it went. If the user wants more or
+different people, use `find_people` (for example `fit: "strong"`,
+`has_signal: true` or `reacted: true`).
+
+**After a message goes out.** When the user says they sent a message (or got
+a reply, booked a meeting, heard "no", or wants to come back later), ask
+first: "Shall I mark <name> as sent?" Only after a yes, call `set_status`
+with the `person_id`, the status (`sent`, `replied`, `meeting`, `not_fit`,
+or `snoozed` with `snooze_days`), the teammate who did it as `owner`, and
+their words as `note` if they gave any. Tell the user what it `means`. Never
+assume a message was sent because you drafted it.
+
+**One rule for every list.** Statuses are team-wide. Someone marked `sent` is
+not recommended again; after 7 days without a reply they show up in
+`follow_ups`. `replied`, `meeting` and `not_fit` are never recommended
+again; `snoozed` comes back when the snooze ends. When anyone at a company
+was contacted in the last 30 days, the others there rank lower and carry a
+`cooldown` note: say so if you suggest them. To look someone up anyway, pass
+`include_contacted: true` to `find_people`.
 
 **"Write in Claude".** The app copies prompts like "Using Velho Network,
 write a Finnish LinkedIn message to <name> (<id>), approach direct." Call

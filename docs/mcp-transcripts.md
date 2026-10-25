@@ -10,6 +10,107 @@ The data is the invented demo network, so every person is made up and every comp
 
 These answers predate the morning's UX pass. Since then the demo marks large groups such as Kemira as not a target, and This week puts people with a fresh registered change or reaction first. A live `this_week` now returns other people than the weekly review below.
 
+## Two-way status: find, write, "I sent it", ask again
+
+Recorded 25 Oct 2026, about 08:00, with the same setup as below and the
+updated skill (which says: ask before recording a status). One session,
+five turns (`claude -p`, then `--resume`), six tools allowed (`find_people`,
+`message_context`, `set_status`, `this_week`, `follow_ups`, `get_person`).
+About $1.54 in all. Afterwards the status was cleared again, so
+the demo's lists are as before.
+
+**User:** Who are the three strongest people we could reach in food right now?
+
+*Tool:* `find_people({"industries":["food"],"fit":"strong","limit":3})`
+
+**Claude:**
+
+> These are the top three of the 12 strong-fit people in food. None of them has been contacted, and none of their companies is on cooldown.
+>
+> **1. [Anna Hiltunen](http://localhost:3310/people/bf623cb900)**, Tehtaanjohtaja at Leipomo Rosten (bakery, Turku). Score 82.
+> - As factory director she runs production and decides on processes and the tools behind them.
+> - PRH shows a board change at the company, registered 5 Aug 2026.
+> - Two teammates know her: Co-founder since 2022 and you since 2025. **Co-founder should send it.**
+> - We also know two others there: Janne Nevalainen (Tuotantojohtaja) and Hannu Sallinen (Supply Chain Manager).
+>
+> **2. [Katja Sillanpää](http://localhost:3310/people/eaad07a348)**, COO at Finnamyl (starch products, Kokemäki). Score 79.
+> - She runs day-to-day operations, logistics and systems.
+> - PRH shows a board change, registered 28 Aug 2026.
+> - Only you know her, connected Sep 2025. **You should send it.**
+> - We also know Jari Rantasalo (Plant Manager) and Heidi Rajaniemi (Key Account Manager) there.
+>
+> **3. [Lauri Tolonen](http://localhost:3310/people/6846844462)**, Production Director at Viking Malt (malt, Lahti). Score 77.
+> - He leads production.
+> - PRH shows no recent changes at the company.
+> - Board member has known him since 2021 and Co-founder since Apr 2026. **Board member should send it.**
+> - We also know Ville Luoma (HR Director) and Tobias Lundqvist (Leipuri) there.
+>
+> The direct approach is suggested for all three. Hiltunen comes out on top because she has both a recent company change and two teammates who know her. Shall I draft a short Finnish message for each?
+
+**User:** Write a short LinkedIn message to Anna Hiltunen.
+
+*Tool:* `message_context({"person_id":"bf623cb900","type":"direct"})`
+
+**Claude:**
+
+> This one is for **Co-founder** to send from their own LinkedIn. They've known Anna since 2022.
+>
+> > Hei Anna, huomasin, että Leipomo Rostenin hallitukseen kirjattiin elokuussa muutoksia. Teemme Velhossa tekoälyä ja automaatiota tuotannon suunnitteluun ja raportointiin suomalaisille valmistajille. Olisiko sinulla 20 minuuttia ensi viikolla? Kertoisin kahdesta lyhyestä esimerkistä. Ihan ok sanoa ei.
+>
+> (In English: "Hi Anna, I noticed that changes to Leipomo Rosten's board were registered in August. At Velho we build AI and automation for production planning and reporting for Finnish manufacturers. Would you have 20 minutes next week? I'd walk you through two short examples. It's fine to say no.")
+>
+> - **Fact used:** the board change registered in PRH on 5 Aug 2026 ([her profile](http://localhost:3310/people/bf623cb900)). The message says nothing about headcount or revenue.
+> - **Check before sending:** her title comes from old LinkedIn exports. Make sure she's still Tehtaanjohtaja before Co-founder sends it.
+> - **Another opening:** if bringing up the board change feels too forward for someone Co-founder already knows, they could start with their shared history instead, e.g. "Hei Anna, pitkästä aikaa!" ("Hi Anna, it's been a while!").
+>
+> When Co-founder has sent it, tell me and I'll ask whether to mark her as sent.
+
+**User:** Co-founder sent it this morning.
+
+**Claude:**
+
+> Shall I mark Anna Hiltunen as sent, with Co-founder as the sender?
+
+**User:** Yes.
+
+*Tool:* `set_status({"person_id":"bf623cb900","status":"sent","owner":"Co-founder","note":"Co-founder sent it this morning."})`
+
+**Claude:**
+
+> [Anna Hiltunen](http://localhost:3310/people/bf623cb900) is now marked **Sent** by Co-founder, with your note "Co-founder sent it this morning."
+>
+> - **Recommendations:** she won't be suggested again while you wait for her reply.
+> - **Follow-up:** if no reply is recorded by **1 Nov 2026**, she'll appear in the follow-ups list.
+> - **Others at Leipomo Rosten:** the team also knows Janne Nevalainen and Hannu Sallinen there. They'll rank lower for 30 days so the bakery doesn't get several messages at once.
+>
+> Tell me if she replies or you book a meeting, and I'll update her status.
+
+**User:** Who are the three strongest people we could reach in food right now?
+
+*Tool:* `find_people({"industries":["food"],"fit":"strong","limit":3})`
+
+**Claude:**
+
+> Anna Hiltunen is off the list now that she's marked sent. That leaves 11 strong-fit people in food. None of the top three has been contacted or is on cooldown.
+>
+> **1. [Katja Sillanpää](http://localhost:3310/people/eaad07a348)**, COO at Finnamyl (starch products, Kokemäki). Score 79.
+> - She runs day-to-day operations, logistics and systems.
+> - PRH shows a board change, registered 28 Aug 2026.
+> - Only you know her, connected Sep 2025. **You should send it.**
+>
+> **2. [Lauri Tolonen](http://localhost:3310/people/6846844462)**, Production Director at Viking Malt (malt, Lahti). Score 77.
+> - He leads production.
+> - PRH shows no recent changes at the company.
+> - Board member has known him since 2021 and Co-founder since Apr 2026. **Board member should send it.**
+>
+> **3. [Jari Rajalahti](http://localhost:3310/people/aae0c193ee)**, Tuotanto- ja logistiikkajohtaja (production and logistics director) at Nokian Panimo (brewery, Nokia). Score 69. He's new to the top three.
+> - He runs both production and logistics.
+> - PRH shows no recent changes at the company.
+> - Board member has known him since Apr 2024. **Board member should send it.**
+> - We also know three others at the brewery, including Heikki Laaksonen (Logistics Manager).
+>
+> The direct approach is suggested for all three. Board member would send two of them, so they could do Tolonen and Rajalahti in one go. Shall I draft the messages?
+
 ## Weekly review (Finnish)
 
 > Tee meille tämän viikon katsaus: viisi ihmistä, joille kannattaa olla yhteydessä, perustelut ja lyhyet viestiluonnokset.

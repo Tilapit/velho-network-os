@@ -16,6 +16,7 @@ director, owner or founder title at a real company.
 | Connections-board.csv | Mock export for "Board member", 300 rows, 60 people shared with the other two |
 | Connections-small.csv, story/ | The original 57-row story demo, kept for the old tests |
 | not-targets.json | Large groups the demo team marks as "Not a target company" when the demo loads (KONE, Valmet, Wärtsilä, Kemira, …): a team decision, not a fact about the companies |
+| statuses.json | Two of the invented demo team's own records, loaded with the demo: a message sent on 14 Oct with no reply (a follow-up is due) and a meeting on 20 Oct at a company where the team knows others |
 
 Regenerate with `node scripts/generate-mock-connections.mjs` (seeded, same
 output every time; `--check-prh` checks the target companies against PRH).

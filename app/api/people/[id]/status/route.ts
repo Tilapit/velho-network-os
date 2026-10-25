@@ -1,17 +1,14 @@
 import { NextResponse } from "next/server";
 import { loadNetwork } from "@/lib/network.ts";
-import { setStatus, type Status } from "@/lib/state.ts";
+import { recordStatus, STATUS_IDS } from "@/lib/queries.ts";
+import type { Status } from "@/lib/state.ts";
 
-const OK: Status[] = ["none", "to_contact", "sent", "replied", "meeting", "not_fit"];
-
-/** Records what the team did. Nothing is sent to anyone. */
+/** Records what the team did, the same as MCP set_status. Nothing is sent to anyone. */
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const body = (await req.json().catch(() => ({}))) as { status?: Status; by?: string };
-  const net = await loadNetwork();
-  if (!net.byId.has(id)) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (!body.status || !OK.includes(body.status)) return NextResponse.json({ error: "Unknown status" }, { status: 400 });
-  const by = net.owners.find((o) => o.name === body.by)?.name ?? net.owners[0]?.name ?? "You";
-  setStatus(id, body.status, by);
-  return NextResponse.json({ ok: true, status: body.status, by });
+  const body = (await req.json().catch(() => ({}))) as { status?: Status; by?: string; note?: string; snooze_days?: number };
+  if (!body.status || !(STATUS_IDS as readonly string[]).includes(body.status)) return NextResponse.json({ error: "Unknown status" }, { status: 400 });
+  const r = await recordStatus(await loadNetwork(), { person_id: id, status: body.status, owner: body.by, note: body.note, snooze_days: body.snooze_days });
+  if ("error" in r) return NextResponse.json({ error: r.error }, { status: r.error?.startsWith("No person") ? 404 : 400 });
+  return NextResponse.json({ ok: true, ...r });
 }

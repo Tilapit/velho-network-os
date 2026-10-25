@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import type { Analysis } from "@/lib/analysis.ts";
 import { FitTag, Source } from "./ui";
@@ -11,16 +12,22 @@ const STATUSES = [
   { id: "replied", label: "Replied" },
   { id: "meeting", label: "Meeting" },
   { id: "not_fit", label: "Not a fit" },
+  { id: "snoozed", label: "Snooze 90 days" },
 ];
 
 const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const month = (iso: string) => (iso ? `${MON[Number(iso.slice(5, 7)) - 1]} ${iso.slice(0, 4)}` : "date unknown");
+const day = (iso: string) => `${Number(iso.slice(8, 10))} ${MON[Number(iso.slice(5, 7)) - 1]}`;
+const LABEL: Record<string, string> = { to_contact: "To contact", sent: "Sent", replied: "Replied", meeting: "Meeting", not_fit: "Not a fit", snoozed: "Snoozed" };
 
-export type PersonPayload = Analysis & { claude: boolean; savedAngle?: string; owners: { id: string; name: string }[]; prompt: string };
+export type PersonPayload = Analysis & { claude: boolean; savedAngle?: string; owners: { id: string; name: string }[]; prompt: string; meaning: string; statusNote?: string; cooldown?: string };
 
 export function PersonAnalysis({ data, onBack, backLabel = "All", standalone }: { data: PersonPayload; onBack?: () => void; backLabel?: string; standalone?: boolean }) {
+  const router = useRouter();
   const [status, setStatus] = useState(data.status);
   const [statusBy, setStatusBy] = useState(data.statusBy);
+  const [statusAt, setStatusAt] = useState(data.statusAt);
+  const [meaning, setMeaning] = useState(data.meaning);
   const [angle, setAngle] = useState<{ text: string; by: string; error?: string }>(data.savedAngle ? { text: data.savedAngle, by: "claude" } : { text: data.angle.text, by: "template" });
   const [busy, setBusy] = useState(false);
   const [draft, setDraft] = useState<{ text?: string; error?: string; busy?: boolean }>({});
@@ -31,6 +38,8 @@ export function PersonAnalysis({ data, onBack, backLabel = "All", standalone }: 
   useEffect(() => {
     setStatus(data.status);
     setStatusBy(data.statusBy);
+    setStatusAt(data.statusAt);
+    setMeaning(data.meaning);
     setAngle(data.savedAngle ? { text: data.savedAngle, by: "claude" } : { text: data.angle.text, by: "template" });
     setDraft({});
     if (data.claude && !data.savedAngle && data.fit) {
@@ -49,9 +58,14 @@ export function PersonAnalysis({ data, onBack, backLabel = "All", standalone }: 
     setBusy(true);
     const s = next === status ? "none" : next;
     const r = await fetch(`/api/people/${data.id}/status`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ status: s, by }) });
+    const j = await r.json().catch(() => ({}));
     if (r.ok) {
       setStatus(s as Analysis["status"]);
-      setStatusBy(by);
+      setStatusBy(j.by ?? by);
+      setStatusAt(j.at);
+      setMeaning(j.means);
+      // This week and the lists follow the team's statuses.
+      router.refresh();
     }
     setBusy(false);
   }
@@ -128,6 +142,16 @@ export function PersonAnalysis({ data, onBack, backLabel = "All", standalone }: 
         ) : null}
       </div>
 
+      {status !== "none" ? (
+        <p className="small status-line">
+          <b style={{ fontWeight: 600 }}>{LABEL[status] ?? status}</b>
+          {statusAt ? ` ${day(statusAt)}` : ""}
+          {statusBy ? ` by ${statusBy}` : ""}
+          {data.statusNote && status === data.status ? `: "${data.statusNote}"` : ""}. {meaning}
+        </p>
+      ) : null}
+      {data.cooldown ? <p className="small cooldown">{data.cooldown}. For 30 days after a contact, others at the company rank lower.</p> : null}
+
       <h3>Who knows them</h3>
       {data.knownBy.map((k) => (
         <div key={k.owner} style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "baseline", padding: "8px 0", borderTop: "1px solid var(--border)" }}>
@@ -196,7 +220,7 @@ export function PersonAnalysis({ data, onBack, backLabel = "All", standalone }: 
         ))}
       </div>
       <p className="xs faint" style={{ marginTop: 6 }}>
-        {status !== "none" && statusBy ? `Marked by ${statusBy}. ` : ""}A status only records what the team did. Nothing is sent from here.
+        A status only records what the team did, for the whole team: Sent, Replied, Meeting and Not a fit take them off the recommendations; Snooze hides them for 90 days. Nothing is sent from here.
       </p>
       {!standalone ? (
         <p className="small" style={{ marginTop: 12 }}>

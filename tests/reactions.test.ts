@@ -161,7 +161,9 @@ test("this week: five by code, nobody contacted, one per company, senders spread
   assert.equal(new Set(week.map((w) => w.businessId ?? w.company)).size, 5, "one per company");
   const senders = new Map<string, number>();
   for (const w of week) senders.set(w.sender, (senders.get(w.sender) ?? 0) + 1);
-  assert.ok(Math.max(...senders.values()) <= 2, `senders spread: ${[...senders.entries()]}`);
+  // Two each at most, unless the spread gave way to someone with a reason to write now.
+  if (Math.max(...senders.values()) > 2) assert.ok(week.every((w) => w.kind !== "fit"), `senders spread: ${[...senders.entries()]}`);
+  assert.ok(week.every((w) => w.fit === "strong"), "strong fits before possible ones: the demo has more than five");
   assert.ok(week.every((w) => w.why.length > 10 && w.why.length < 140));
   // Everyone has a reason to write now, said as a sentence about the company, not the person.
   assert.ok(week.every((w) => w.kind !== "fit"), `timely first: ${week.map((w) => w.kind)}`);

@@ -6,10 +6,12 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { loadNetwork } from "./network.ts";
 import { GROUPS } from "./industry.ts";
-import { addReactions, appUrl, findPeople, getCompany, getPerson, getRadar, messageContext, peopleForTheme, rankIndustries, thisWeek } from "./queries.ts";
+import { addReactions, appUrl, findPeople, followUps, getCompany, getPerson, getRadar, messageContext, peopleForTheme, rankIndustries, recordStatus, thisWeek } from "./queries.ts";
 import type { SignalType } from "./signals.ts";
 
 const SOURCES = "All data comes from the team's own LinkedIn Connections exports, the Finnish trade register (PRH open data, CC BY 4.0) and the team's own feedback in the app. Nothing is scraped and nothing is sent to anyone.";
+// The one rule every recommendation follows, said the same way in each tool.
+const RULE = "Team-wide statuses decide who is recommended: 'sent' is hidden (a follow-up is due after 7 days without a reply, see follow_ups), 'replied', 'meeting' and 'not_fit' are never recommended again, 'snoozed' is hidden until the snooze ends, and when anyone at a company was contacted in the last 30 days the others there rank lower and carry a 'cooldown' note.";
 const INDUSTRIES = GROUPS.filter((g) => !g.grey).map((g) => `${g.id} (${g.label})`).join(", ");
 
 const json = (data: unknown) => ({ content: [{ type: "text" as const, text: JSON.stringify(data, null, 1) }] });
@@ -21,7 +23,7 @@ function log(tool: string, ids: string[] = []) {
 }
 
 export function buildMcpServer(): McpServer {
-  const server = new McpServer({ name: "velho-network", version: "0.2.0" }, { instructions: `Velho Network: who in the Velho team's LinkedIn networks could need Velho (AI and automation for Finnish SMEs with physical operations), and why. ${SOURCES} Ranking is deterministic code. Link to the 'url' of each item when you mention it.` });
+  const server = new McpServer({ name: "velho-network", version: "0.3.0" }, { instructions: `Velho Network: who in the Velho team's LinkedIn networks could need Velho (AI and automation for Finnish SMEs with physical operations), and why. ${SOURCES} Ranking is deterministic code. Link to the 'url' of each item when you mention it. When the user says they sent a message or heard back, ask whether to record it, then call set_status.` });
 
   server.registerTool(
     "rank_industries",
@@ -43,14 +45,51 @@ export function buildMcpServer(): McpServer {
     "this_week",
     {
       title: "This week",
-      description: `The five people to reach this week, chosen by code (the same as the app's "This week"): people with a registered change or a reaction in the last 30 days first, then the strongest fits; skips anyone already contacted or marked not a fit; one per company, at most two per industry, suggested senders spread across the team. Each has a one-line why, the suggested sender and a url. Use it for the weekly review, then message_context per person. ${SOURCES}`,
+      description: `The five people to reach this week, chosen by code (the same as the app's "This week"): strong fits always before possible ones; within them people with a registered change or a reaction in the last 30 days first; one per company, at most two per industry, suggested senders spread across the team. ${RULE} Each has a one-line why, the suggested sender and a url. Also says how many follow-ups are due: the weekly review is this_week plus follow_ups. ${SOURCES}`,
       inputSchema: {},
       annotations: { readOnlyHint: true },
     },
     async () => {
-      const picks = thisWeek(await loadNetwork());
+      const net = await loadNetwork();
+      const picks = thisWeek(net);
       log("this_week", picks.map((p) => p.id));
-      return json({ people: picks.map(({ prompt, ...p }) => p) });
+      return json({ people: picks.map(({ prompt, ...p }) => p), followUpsDue: followUps(net).total });
+    },
+  );
+
+  server.registerTool(
+    "follow_ups",
+    {
+      title: "Follow-ups due",
+      description: `People marked 'sent' at least 7 days ago with no reply recorded, oldest first, with who sent and when. Not new recommendations: a nudge to follow up, or to record how it went with set_status. Optionally only what one teammate sent. ${SOURCES}`,
+      inputSchema: { owner: z.string().optional().describe("Owner id or name of who sent, e.g. 'You' or 'Co-founder'. Omit for the whole team.") },
+      annotations: { readOnlyHint: true },
+    },
+    async ({ owner }) => {
+      const r = followUps(await loadNetwork(), owner);
+      log("follow_ups", r.people.map((p) => p.id));
+      return json(r);
+    },
+  );
+
+  server.registerTool(
+    "set_status",
+    {
+      title: "Record what the team did",
+      description: `Records a person's status, the same as the app's status buttons, with the time and the teammate: to_contact, sent (a message went out), replied, meeting, not_fit, or snoozed (hidden for snooze_days, default 90). ${RULE} Returns the new status and what it means. Call it only after the user says what happened, and ask before you do; never assume a message was sent. Nothing is sent to anyone.`,
+      inputSchema: {
+        person_id: z.string().describe("Person id from another tool"),
+        status: z.enum(["to_contact", "sent", "replied", "meeting", "not_fit", "snoozed"]),
+        owner: z.string().optional().describe("Who did it: owner id or name, e.g. 'You' or 'Co-founder'. Default: the suggested sender."),
+        note: z.string().max(500).optional().describe("A short note in the user's words, kept in the app"),
+        snooze_days: z.number().int().min(1).max(365).optional().describe("For 'snoozed': how many days. Default 90."),
+      },
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
+    },
+    async (a) => {
+      const r = await recordStatus(await loadNetwork(), a);
+      log("set_status", [a.person_id]);
+      return "error" in r ? { content: [{ type: "text" as const, text: r.error! }], isError: true } : json(r);
     },
   );
 
@@ -58,7 +97,7 @@ export function buildMcpServer(): McpServer {
     "find_people",
     {
       title: "Find people",
-      description: `People in the team's networks with fit (strong/possible), approach, reasons with their source, who knows them and the suggested sender (who connected first), registered changes at their company and status. By default only decision-makers who fit; pass roles or approach to widen. Industries: ${INDUSTRIES}. ${SOURCES}`,
+      description: `People in the team's networks with fit (strong/possible), approach, reasons with their source, who knows them and the suggested sender (who connected first), registered changes at their company and status. By default only decision-makers who fit; pass roles or approach to widen. ${RULE} Pass include_contacted (or a status) to look up people the team already contacted, snoozed or ruled out. Industries: ${INDUSTRIES}. ${SOURCES}`,
       inputSchema: {
         industries: z.array(z.string()).optional().describe("Industry group ids or labels"),
         tol_prefixes: z.array(z.string()).optional().describe("TOL code prefixes, e.g. ['28', '2511']"),
@@ -69,7 +108,8 @@ export function buildMcpServer(): McpServer {
         reacted: z.boolean().optional().describe("Only people who reacted to one of the team's posts in the last 30 days"),
         town: z.string().optional().describe("Company town in PRH, e.g. 'Tampere'"),
         approach: z.enum(["direct", "ask_intro", "skip"]).optional(),
-        status: z.enum(["none", "to_contact", "sent", "replied", "meeting", "not_fit"]).optional(),
+        status: z.enum(["none", "to_contact", "sent", "replied", "meeting", "not_fit", "snoozed"]).optional(),
+        include_contacted: z.boolean().optional().describe("Also people already contacted, snoozed or marked not a fit. Default false: for lookups, not recommendations."),
         limit: z.number().int().min(1).max(100).optional(),
       },
       annotations: { readOnlyHint: true },
@@ -85,7 +125,7 @@ export function buildMcpServer(): McpServer {
     "people_for_theme",
     {
       title: "People for a theme or event",
-      description: `For a theme, event or roundtable: people in the given industries with a per-person approach: 'invite' (decision-maker at a target company), 'ask_intro' (works at a target company but does not decide). You map the theme to industries; the tool does not guess. Industries: ${INDUSTRIES}. ${SOURCES}`,
+      description: `For a theme, event or roundtable: people in the given industries with a per-person approach: 'invite' (decision-maker at a target company), 'ask_intro' (works at a target company but does not decide). You map the theme to industries; the tool does not guess. ${RULE} Industries: ${INDUSTRIES}. ${SOURCES}`,
       inputSchema: {
         theme: z.string().describe("The theme or event, in the user's words"),
         industries: z.array(z.string()).min(1).describe("Industry group ids or labels that fit the theme"),

@@ -6,7 +6,7 @@ import path from "node:path";
 import { dataDir } from "./store.ts";
 import { DEFAULT_PROFILE, type Profile } from "./industry.ts";
 
-export type Status = "none" | "to_contact" | "sent" | "replied" | "meeting" | "not_fit";
+export type Status = "none" | "to_contact" | "sent" | "replied" | "meeting" | "not_fit" | "snoozed";
 
 export const STATUSES: { id: Status; label: string }[] = [
   { id: "to_contact", label: "To contact" },
@@ -14,10 +14,13 @@ export const STATUSES: { id: Status; label: string }[] = [
   { id: "replied", label: "Replied" },
   { id: "meeting", label: "Meeting" },
   { id: "not_fit", label: "Not a fit" },
+  { id: "snoozed", label: "Snoozed" },
 ];
 export const STATUS_LABEL: Record<Status, string> = { none: "No status", ...Object.fromEntries(STATUSES.map((s) => [s.id, s.label])) } as Record<Status, string>;
 
-export type StatusEntry = { status: Status; at: string; by: string; history: { status: Status; at: string; by: string }[] };
+/** `until`: the day a snooze ends (YYYY-MM-DD). `note`: the team's own words, kept only here. */
+export type StatusChange = { status: Status; at: string; by: string; note?: string; until?: string };
+export type StatusEntry = StatusChange & { history: StatusChange[] };
 /** Keyed by the matcher's loose company key, so every spelling of a name follows the pick. */
 export type Override = { name: string; businessId?: string; notFinnish?: boolean; at: string };
 /**
@@ -77,13 +80,13 @@ export function setProfile(p: Profile) {
   });
 }
 
-export function setStatus(contactId: string, status: Status, by: string) {
-  const at = new Date().toISOString();
+export function setStatus(contactId: string, status: Status, by: string, extra: { note?: string; until?: string; at?: string } = {}) {
+  const change: StatusChange = { status, at: extra.at ?? new Date().toISOString(), by, ...(extra.note ? { note: extra.note } : {}), ...(extra.until ? { until: extra.until } : {}) };
   update((s) => {
     const prev = s.status[contactId];
-    const history = [...(prev?.history ?? []), { status, at, by }];
+    const history = [...(prev?.history ?? []), change];
     if (status === "none") delete s.status[contactId];
-    else s.status[contactId] = { status, at, by, history };
+    else s.status[contactId] = { ...change, history };
   });
 }
 

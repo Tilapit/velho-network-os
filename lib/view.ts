@@ -23,6 +23,9 @@ export function drawingData(net: Network) {
     sg: new Set(c.signals.map((x) => x.type)).size,
     ip: !!c.rule,
     nf: c.status?.status === "not_fit",
+    // Out of recommendations (contacted, snoozed, not a fit), and the day a colleague was contacted.
+    hd: c.outreach.hidden,
+    cd: c.outreach.cooldown?.on ?? "",
     rx: postsWithin(c, net.today, RECENT_DAYS),
     co: c.companyId ?? "",
     via: c.knownBy.map((k) => k.ownerName),

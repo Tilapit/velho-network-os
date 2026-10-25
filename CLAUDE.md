@@ -36,7 +36,17 @@ The founders use it from their own Claude through an MCP connector.
   and the "Draft here" message (both labelled Inferred, `lib/claude.ts`),
   and only when a key is set. Through MCP, Claude picks filters and writes
   text.
-- **Nothing is sent from the app.** Status buttons record what the team did.
+- **Nothing is sent from the app.** Status buttons (and MCP `set_status`)
+  record what the team did.
+- **Statuses are one team-wide rule for every recommendation** (This week,
+  find_people, people_for_theme; `applyOutreach` in `lib/network.ts`):
+  - `sent` is hidden; after 7 days without a reply it shows under
+    "Follow-up due", never as a new recommendation.
+  - `replied`, `meeting` and `not_fit` are never recommended again.
+  - `snoozed` is hidden until the snooze ends (90 days by default).
+  - When anyone at a company was contacted in the last 30 days, the others
+    there rank lower and say "Colleague contacted <date>".
+  - Claude records a status only after asking the user.
 - **Privacy.**
   - Only company names and business IDs go to PRH.
   - One person's role and company facts (never the name) go to Claude.
@@ -63,13 +73,15 @@ The founders use it from their own Claude through an MCP connector.
   - knownBy, and the suggested sender (who connected first)
   - fit, approach
   - score weights (`WEIGHTS`)
+  - `outreach`: what the team's statuses mean for recommendations
 - `lib/analysis.ts`: per-person reasons, missing facts and the template
   angle.
-- `lib/queries.ts`: this_week, rank_industries, find_people,
-  people_for_theme, company, radar, message context, reactions. Shared by the
-  UI and MCP.
+- `lib/queries.ts`: this_week, follow_ups, set_status (`recordStatus`),
+  rank_industries, find_people, people_for_theme, company, radar, message
+  context, reactions. Shared by the UI and MCP.
 - `lib/reactions.ts`: parser for LinkedIn's copied reactions list and the
-  name matcher. `lib/demo.ts` seeds the demo's two posts.
+  name matcher. `lib/demo.ts` seeds the demo's two posts, its not-target
+  companies and two status records.
 - `lib/mcp.ts` + `app/api/mcp/route.ts`: MCP server (stateless Streamable
   HTTP). `lib/access.ts` + `middleware.ts`: optional `MCP_TOKEN`; with it,
   pages answer only on localhost.

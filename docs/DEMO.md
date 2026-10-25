@@ -39,24 +39,27 @@ APP_TODAY=2026-10-24 APP_BASE_URL=http://localhost:3310 npx next dev -p 3310 -H 
    "This is everyone the three of us know on LinkedIn: 2,333 people, merged
    by profile URL. Every dot is a person."
    - Read the headers left to right: Your team → People you know, in a
-     cloud per industry → Their industries → the 172 decision-makers who
+     cloud per industry → Their industries → the 169 decision-makers who
      fit.
    - "The five lit lines are This week, the list on the right. The grey
      cloud at the bottom is the 1,746 people outside our industries."
    - Click **Metal and machinery**: only that industry lights up and the
-     panel lists its 34 decision-makers. Click **× Clear**.
+     panel lists its 31 decision-makers. Click **× Clear**.
    - Click **Co-founder** in the owner filter: This week becomes the five
      in Co-founder's network. Then **Whole team**.
 
 2. **This week (30 s).** The panel on the right.
-   - "Five people to reach this week, chosen by code, not by AI, each with
-     a reason to write now: new managing directors at Specim and Biovian,
-     board changes at Satron and Marioff, and Laura Mäkelä, who reacted to
-     Co-founder's post. Nobody we already contacted, and the writing is
-     spread across the three of us. Large groups like KONE or Kemira are
-     marked 'Not a target company', so they stay off the list."
+   - "Five people to reach this week, chosen by code, not by AI, each a
+     strong fit with a reason to write now: new managing directors at
+     Specim, Biovian and Saalasti Biomass, a board change at Satron, and
+     Laura Mäkelä, who reacted to Co-founder's post. Nobody we already
+     contacted. Large groups like KONE or Kemira are marked 'Not a target
+     company', so they stay off the list."
    - Click **Write in Claude** on one: "this copies a prompt for my own
      Claude, which has the connector."
+   - Under the five, **Follow-up due**: "Lasse got a message from me ten
+     days ago and hasn't answered. The list doesn't suggest him again; it
+     reminds me to follow up."
 
 3. **A person (30 s).** Click **Aleksi Sirviö** (first in This week).
    - The path lights up and particles run: Co-founder and Board member →
@@ -84,6 +87,9 @@ APP_TODAY=2026-10-24 APP_BASE_URL=http://localhost:3310 npx next dev -p 3310 -H 
    - Claude calls `this_week` (the same five) and `message_context`, and
      writes short Finnish drafts from the facts only, with the sender for
      each. Click a person link: it opens the same analysis in the app.
+   - Say "I sent the first one." Claude asks whether to mark them as sent,
+     then calls `set_status`; ask again and they are gone. The recorded
+     version is the first section of `docs/mcp-transcripts.md`.
    - "Claude picks the filters and writes. The list and the ranking are
      code."
 

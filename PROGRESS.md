@@ -4,6 +4,96 @@ Branch `overnight`. Brief: `OVERNIGHT_PROMPT.md` (wins on conflict), then
 `NETWORK_DEMO_PROMPT.md`, `MOCK_DATA_PROMPT.md`, `PRODUCTION_MCP_PROMPT.md`
 and `design/`.
 
+## Two quick fixes, then two-way status through MCP (25 Oct)
+
+**Status:** done and committed on `overnight`, not pushed. 48 tests pass
+(6 new in `tests/status.test.ts`) and the typecheck is clean. The browser
+checks pass with no console errors: the 20 earlier ones plus 8 for the
+status UI. No `npm run build` while your dev server runs.
+
+### The two fixes
+
+- **This week: strong before possible.**
+  - Strong fits always come first. A possible fit appears only when fewer
+    than five strong candidates are left, after the hard rules: not
+    contacted or snoozed, one per company.
+  - Within each tier: a fresh registered change or a reaction first, and
+    anyone whose colleague was just contacted last.
+  - Marioff Corporation (0603380-7, part of a large group) is in
+    `data/demo/not-targets.json`.
+  - The team's five are now all strong. Anders Strömberg (new MD 9 Oct)
+    is in, the third "You" sender, because a fresh reason beats the
+    sender spread; the blurb then leaves out "at most two for each
+    sender".
+- **A soft glow in your industries' clouds**, additive and static, under
+  the dots. Nothing else changed. Before/after:
+  `screens/glow-before-after.png`.
+
+### Two-way status
+
+- **One rule for every recommendation**, team-wide (`applyOutreach` in
+  `lib/network.ts`, computed with the model; This week, `find_people`,
+  `people_for_theme`, `this_week`):
+  - `sent` is hidden. After 7 days with no reply recorded it is listed as
+    "Follow-up due": a section and a tool, never a new recommendation.
+  - `replied`, `meeting` and `not_fit` are never recommended again.
+  - `snoozed` is hidden until the snooze ends: 90 days, or `snooze_days`.
+  - Cooldown: when anyone at a company was contacted (sent, replied or
+    meeting) in the last 30 days, the others there rank lower and say
+    "Colleague contacted 20 Oct (Arttu Lehto)".
+  - `find_people` has `include_contacted` (default false) for lookups. An
+    explicit `status` filter also includes them.
+- **MCP:**
+  - `set_status({ person_id, status, owner?, note?, snooze_days? })` is the
+    same code path as the app's buttons (`recordStatus` in
+    `lib/queries.ts`).
+    - It stores the time, the teammate (default: the suggested sender) and
+      the note.
+    - It returns the status and what it means, e.g. "Won't be recommended
+      while waiting for a reply; follow-up due on 1 Nov 2026 if no reply
+      is recorded. The 2 others the team knows at Leipomo Rosten rank
+      lower for 30 days."
+    - Unknown people or teammates are errors.
+  - `follow_ups(owner?)` lists who was sent a message, oldest first.
+    `owner` means who sent.
+  - `this_week` now also returns `followUpsDue`.
+- **Skill.**
+  - After "I sent it", Claude asks "Shall I mark <name> as sent?" and calls
+    `set_status` only after a yes.
+  - The weekly review is `this_week` plus `follow_ups`.
+  - The rule is spelled out, including `include_contacted`.
+- **App.**
+  - "Follow-up due" sits under This week, following the owner filter by
+    who sent.
+  - Person cards carry the cooldown note in amber.
+  - In the industry and Reacted lists, contacted people move to the end,
+    dimmed, with their status.
+  - The person panel says what the status means ("Sent 14 Oct by You.
+    Won't be recommended while waiting for a reply; a follow-up has been
+    due since 21 Oct 2026.") and adds a "Snooze 90 days" button.
+  - After any status change the page refreshes, so This week drops them at
+    once.
+- **Demo.** Two invented records of the demo team are seeded with the demo
+  (`data/demo/statuses.json`):
+  - Lasse Järvinen was sent a message on 14 Oct, with no reply, so his
+    follow-up is due.
+  - Arttu Lehto at TP Silva had a meeting on 20 Oct, so his two
+    colleagues there show the cooldown.
+  - I applied both to your running demo's `data/state.json`. The backup
+    from before is in my scratchpad as `ux/state.before-status.json`.
+- **Transcript** (first section of `docs/mcp-transcripts.md`): recorded
+  with `claude -p` against your 3310 server, five turns, about $1.54.
+  1. Who are the three strongest in food? Claude calls `find_people`.
+  2. Write to Anna Hiltunen: `message_context`, then a Finnish draft.
+  3. "Co-founder sent it this morning." Claude asks: "Shall I mark Anna
+     Hiltunen as sent, with Co-founder as the sender?"
+  4. "Yes." Claude calls `set_status`.
+  5. Asked again, Claude says she is off the list: 11 left instead of 12.
+  I cleared her status afterwards, so your demo is as before.
+- **Decision:** the app also got the Snooze button. It is the same state as
+  MCP's `snoozed`, and without it a snooze set in Claude could not be undone
+  or set from the app.
+
 ## UX pass on the Network page (25 Oct, morning)
 
 Feedback: "looks great, but too much is happening visually and it's not

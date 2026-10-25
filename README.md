@@ -25,7 +25,9 @@ Network does it for the whole team:
 - **Themes.** "We are hosting a logistics roundtable, who should we invite?"
 - **Claude connector.** The same data as an MCP server, used from your own
   Claude. Ranking and filtering stay in code; Claude picks the filters and
-  writes the text.
+  writes the text. It works both ways: tell Claude you sent a message and,
+  after asking, it records the status, so nobody recommends that person
+  again. A week without a reply puts them under "Follow-up due".
 
 Nothing is sent to anyone. Statuses only record what the team did.
 

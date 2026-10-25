@@ -4,10 +4,10 @@ import { analyse, fmtDate, shortName, type Analysis } from "./analysis.ts";
 import { GROUP, GROUPS, groupForTol, industryRule, type GroupId } from "./industry.ts";
 import { matchTerm } from "./roles.ts";
 import { SIGNAL_TYPES, addDays, signalLabel, type CompanySignal, type SignalType } from "./signals.ts";
-import { addReactionRows, STATUS_LABEL, type Reaction, type Status } from "./state.ts";
+import { addReactionRows, setStatus, STATUS_LABEL, type Reaction, type Status } from "./state.ts";
 import { daysBetween, fold, isoDate } from "./normalize.ts";
 import { candidateOf, cleanName, matchReactions, nameKey, postsWithin, readReactions, RECENT_DAYS, type ParsedReaction } from "./reactions.ts";
-import { contactsFor, isOyj, type Contact, type Fit, type Network } from "./network.ts";
+import { COOLDOWN_DAYS, contactsFor, isOyj, loadNetwork, SNOOZE_DAYS, type Contact, type Fit, type Network } from "./network.ts";
 import { ytjUrl } from "./prh.ts";
 
 export const appUrl = (p: string) => `${(process.env.APP_BASE_URL || "http://localhost:3100").replace(/\/$/, "")}${p}`;
@@ -45,6 +45,11 @@ export type PersonSummary = {
   suggestedSender: string;
   signals: string[];
   status: string;
+  /** Sent, waiting for a reply: when a follow-up is due. */
+  followUp?: string;
+  snoozedUntil?: string;
+  /** "Colleague contacted 20 Oct (Arttu Lehto)": others at the company rank lower for 30 days. */
+  cooldown?: string;
   url: string;
   linkedin: string;
 };
@@ -66,9 +71,18 @@ export function summary(net: Network, c: Contact): PersonSummary {
     suggestedSender: c.sender.ownerName,
     signals: [...new Set(c.signals.map((s) => SIGNAL_TYPES[s.type].label))],
     status: STATUS_LABEL[c.status?.status ?? "none"],
+    ...(c.outreach.followUpOn ? { followUp: `${c.outreach.followUpDue ? "Due since" : "Due on"} ${fmtDate(c.outreach.followUpOn)}` } : {}),
+    ...(c.outreach.until && c.outreach.hidden ? { snoozedUntil: c.outreach.until } : {}),
+    ...(c.outreach.cooldown ? { cooldown: cooldownText(c) } : {}),
     url: appUrl(`/people/${c.id}`),
     linkedin: c.url,
   };
+}
+
+/** "Colleague contacted 20 Oct (Arttu Lehto)". */
+export function cooldownText(c: Contact): string {
+  const cd = c.outreach.cooldown;
+  return cd ? `Colleague contacted ${dayMonth(cd.on)} (${cd.name})` : "";
 }
 
 // ---------- industries ----------
@@ -126,6 +140,8 @@ export type PeopleFilter = {
   town?: string;
   approach?: string;
   status?: Status;
+  /** Also people the team already contacted, snoozed or marked not a fit (for lookups). */
+  include_contacted?: boolean;
   limit?: number;
 };
 
@@ -134,6 +150,8 @@ export function findPeople(net: Network, f: PeopleFilter = {}): { total: number;
   const town = f.town ? fold(f.town).toLowerCase() : "";
   let cs = contactsFor(net, ownerId(net, f.known_by));
   cs = cs.filter((c) => {
+    // The one rule for recommendations: contacted, snoozed and not-a-fit people stay out unless asked for.
+    if (c.outreach.hidden && !f.include_contacted && !f.status) return false;
     if (f.fit === "strong" && c.fit !== "strong") return false;
     if (f.fit === "possible" && c.fit !== "possible") return false;
     if ((!f.fit || f.fit === "any") && !c.fit && !f.roles?.length && !f.approach) return false;
@@ -155,7 +173,7 @@ export type ThemePerson = PersonSummary & { themeApproach: "invite" | "ask_intro
 /** The LLM maps a theme to industries; this only filters and orders. */
 export function peopleForTheme(net: Network, args: { theme: string; industries: string[]; roles?: string[]; limit?: number }): { theme: string; industries: string[]; total: number; people: ThemePerson[] } {
   const groups = groupIds(args.industries) ?? [];
-  const cs = net.contacts.filter((c) => groups.includes(c.group) && c.status?.status !== "not_fit" && (!args.roles?.length || c.role.decisionMaker || args.roles.some((r) => matchTerm(c.position, r))));
+  const cs = net.contacts.filter((c) => groups.includes(c.group) && !c.outreach.hidden && (!args.roles?.length || c.role.decisionMaker || args.roles.some((r) => matchTerm(c.position, r))));
   const people = cs
     .map((c) => {
       const inRoles = args.roles?.length ? args.roles.some((r) => matchTerm(c.position, r)) : c.role.decisionMaker;
@@ -164,7 +182,7 @@ export function peopleForTheme(net: Network, args: { theme: string; industries: 
       return { ...summary(net, c), themeApproach, why };
     })
     .filter((p) => p.themeApproach !== "skip")
-    .sort((a, b) => (a.themeApproach === b.themeApproach ? b.score - a.score : a.themeApproach === "invite" ? -1 : 1));
+    .sort((a, b) => (a.themeApproach === b.themeApproach ? Number(!!a.cooldown) - Number(!!b.cooldown) || b.score - a.score : a.themeApproach === "invite" ? -1 : 1));
   return { theme: args.theme, industries: groups.map((g) => GROUP[g].label), total: people.length, people: people.slice(0, Math.min(args.limit ?? 20, 100)) };
 }
 
@@ -172,7 +190,6 @@ export function peopleForTheme(net: Network, args: { theme: string; industries: 
 
 export type WeekPick = PersonSummary & { kind: "signal" | "reaction" | "fit"; why: string; sender: string; prompt: string };
 
-const DONE = new Set(["sent", "replied", "meeting", "not_fit"]);
 const SHORT_MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const dayMonth = (iso: string) => `${Number(iso.slice(8, 10))} ${SHORT_MON[Number(iso.slice(5, 7)) - 1]}`;
 
@@ -205,27 +222,29 @@ export function weekWhy(net: Network, c: Contact): { kind: WeekPick["kind"]; why
 }
 
 /**
- * Five people for this week, chosen by code. People with a registered change
- * or a reaction in the last 30 days come first, then the strongest fits.
- * Skips anyone already contacted or marked not a fit. One per company; while
- * there are enough timely people, at most two per industry and the suggested
- * senders spread across the team. With an owner, only people in that
- * teammate's network.
+ * Five people for this week, chosen by code. Strong fits always come before
+ * possible fits: a possible fit appears only when fewer than five strong ones
+ * are left. Within each, people with a registered change or a reaction in the
+ * last 30 days first, and anyone whose colleague was contacted in the last 30
+ * days last. Contacted, snoozed and not-a-fit people are out (`outreach`). One
+ * per company; while it works, at most two per industry and the suggested
+ * senders spread across the team. With an owner, only that teammate's network.
  */
 export function thisWeek(net: Network, n = 5, owner?: string): WeekPick[] {
   const fresh = (c: Contact) => c.signals.some((s) => daysBetween(s.date, net.today) <= 30);
   const reacted = (c: Contact) => postsWithin(c, net.today, RECENT_DAYS) > 0;
   const timely = (c: Contact) => fresh(c) || reacted(c);
+  const cool = (c: Contact) => !!c.outreach.cooldown;
   const week = (c: Contact) => c.score + (fresh(c) ? 12 : 0) + (reacted(c) ? 10 : 0) + (c.fit === "strong" ? 10 : 0);
   // At an equal score, an Oyj (usually a large group) after the rest.
-  const order = (a: Contact, b: Contact) => week(b) - week(a) || Number(isOyj(a)) - Number(isOyj(b)) || a.name.localeCompare(b.name, "fi");
+  const order = (a: Contact, b: Contact) => Number(a.fit !== "strong") - Number(b.fit !== "strong") || Number(cool(a)) - Number(cool(b)) || week(b) - week(a) || Number(isOyj(a)) - Number(isOyj(b)) || a.name.localeCompare(b.name, "fi");
   const pool = contactsFor(net, ownerId(net, owner))
-    .filter((c) => c.fit && !DONE.has(c.status?.status ?? "none"))
+    .filter((c) => c.fit && !c.outreach.hidden)
     .sort(order);
   const perSender = Math.max(1, Math.ceil(n / Math.max(1, net.owners.length)));
   const picks: Contact[] = [];
-  const take = (pred: (c: Contact) => boolean, strict: boolean) => {
-    const c = pool.find((x) => {
+  const take = (from: Contact[], pred: (c: Contact) => boolean, strict: boolean) => {
+    const c = from.find((x) => {
       if (picks.includes(x) || !pred(x)) return false;
       if (x.companyId && picks.some((p) => p.companyId === x.companyId)) return false;
       if (!strict) return true;
@@ -234,17 +253,91 @@ export function thisWeek(net: Network, n = 5, owner?: string): WeekPick[] {
     if (c) picks.push(c);
     return !!c;
   };
-  // One slot each for a fresh change and a reaction, then the rest of the
-  // timely ones, spread across senders and industries while that works. A
-  // reason to write now comes before the spread; the best fits without one
-  // only fill what is left.
-  take(fresh, true);
-  take(reacted, true);
-  while (picks.length < n && take(timely, true));
-  while (picks.length < n && take(timely, false));
-  while (picks.length < n && take(() => true, true));
-  while (picks.length < n && take(() => true, false));
+  for (const fit of ["strong", "possible"] as const) {
+    const tier = pool.filter((c) => c.fit === fit);
+    // One slot each for a fresh change and a reaction, then the rest of the
+    // timely ones, then the others; anyone whose colleague was just contacted
+    // last. A reason to write now comes before the spread.
+    if (fit === "strong") {
+      take(tier, (c) => fresh(c) && !cool(c), true);
+      take(tier, (c) => reacted(c) && !cool(c), true);
+    }
+    for (const pred of [(c: Contact) => timely(c) && !cool(c), (c: Contact) => !cool(c), () => true]) {
+      while (picks.length < n && take(tier, pred, true));
+      while (picks.length < n && take(tier, pred, false));
+    }
+  }
   return picks.sort(order).map((c) => ({ ...summary(net, c), ...weekWhy(net, c), sender: c.sender.ownerName, prompt: claudePrompt(c) }));
+}
+
+// ---------- status: what the team did ----------
+
+export type FollowUp = PersonSummary & { sentOn: string; sentBy: string; followUpOn: string; daysSinceSent: number };
+
+/**
+ * People marked sent at least 7 days ago with no reply recorded, oldest
+ * first. A nudge for whoever sent, not a new recommendation. With an owner,
+ * only what that teammate sent.
+ */
+export function followUps(net: Network, owner?: string): { today: string; total: number; people: FollowUp[]; note: string } {
+  const id = ownerId(net, owner);
+  const name = id ? net.owners.find((o) => o.id === id)?.name ?? "__none__" : undefined;
+  const people = net.contacts
+    .filter((c) => c.outreach.followUpDue && (!name || c.status?.by === name))
+    .sort((a, b) => a.status!.at.localeCompare(b.status!.at))
+    .map((c) => {
+      const sentOn = c.status!.at.slice(0, 10);
+      return { ...summary(net, c), sentOn, sentBy: c.status!.by, followUpOn: c.outreach.followUpOn!, daysSinceSent: daysBetween(sentOn, net.today) };
+    });
+  return {
+    today: net.today,
+    total: people.length,
+    people,
+    note: "Marked sent at least 7 days ago with no reply recorded. Follow up, or record how it went: replied, meeting, not_fit or snoozed.",
+  };
+}
+
+/** What a status means for recommendations, in one sentence. */
+export function statusMeaning(c: Contact): string {
+  const s = c.status?.status ?? "none";
+  const o = c.outreach;
+  if (s === "sent") return o.followUpDue ? `Won't be recommended while waiting for a reply; a follow-up has been due since ${fmtDate(o.followUpOn!)}.` : `Won't be recommended while waiting for a reply; follow-up due on ${fmtDate(o.followUpOn!)} if no reply is recorded.`;
+  if (s === "replied" || s === "meeting" || s === "not_fit") return "Won't be recommended again.";
+  if (s === "snoozed") return o.hidden ? `Hidden from recommendations until ${fmtDate(o.until!)}.` : `The snooze ended on ${fmtDate(o.until!)}; back in recommendations.`;
+  if (s === "to_contact") return "Marked to contact; stays in recommendations.";
+  return "No status: in recommendations as usual.";
+}
+
+export const STATUS_IDS = ["none", "to_contact", "sent", "replied", "meeting", "not_fit", "snoozed"] as const satisfies readonly Status[];
+
+/**
+ * Records what the team did with a person, as the app's status buttons do,
+ * with the time and the teammate (default: the suggested sender). Snoozes
+ * last 90 days unless `snooze_days` says otherwise. Nothing is sent.
+ */
+export async function recordStatus(net: Network, a: { person_id: string; status: Status; owner?: string; note?: string; snooze_days?: number }) {
+  const c = net.byId.get(a.person_id);
+  if (!c) return { error: `No person with id ${a.person_id}.` };
+  const id = a.owner ? ownerId(net, a.owner) : c.sender.owner;
+  const by = net.owners.find((o) => o.id === id)?.name;
+  if (!by) return { error: `No teammate called "${a.owner}". Teammates: ${net.owners.map((o) => o.name).join(", ")}.` };
+  const until = a.status === "snoozed" ? addDays(net.today, Math.round(a.snooze_days ?? SNOOZE_DAYS)) : undefined;
+  const note = a.note?.trim().slice(0, 500) || undefined;
+  setStatus(c.id, a.status, by, { note, until });
+  const after = (await loadNetwork()).byId.get(c.id) ?? c;
+  const company = summary(net, c).company;
+  const colleagues = a.status === "sent" || a.status === "replied" || a.status === "meeting" ? c.colleagues : 0;
+  return {
+    person: { id: c.id, name: c.name, company, url: appUrl(`/people/${c.id}`) },
+    status: a.status,
+    label: STATUS_LABEL[a.status],
+    by,
+    at: after.status?.at ?? new Date().toISOString(),
+    ...(note ? { note } : {}),
+    ...(until ? { until } : {}),
+    ...(after.outreach.followUpOn ? { followUpOn: after.outreach.followUpOn } : {}),
+    means: statusMeaning(after) + (colleagues ? ` The ${colleagues} other${colleagues > 1 ? "s" : ""} the team knows at ${company} rank lower for ${COOLDOWN_DAYS} days.` : ""),
+  };
 }
 
 export function getPerson(net: Network, id: string): (Analysis & { appUrl: string }) | null {

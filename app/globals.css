@@ -163,6 +163,10 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0
 .prow-open:focus-visible { outline: 2px solid var(--selected); outline-offset: 4px; border-radius: 4px; }
 .prow-open:hover .name { color: var(--selected); }
 .why { color: var(--text-2); margin-top: 2px; }
+.cooldown { color: var(--amber); margin-top: 2px; }
+.follow-ups { margin-top: 22px; }
+.follow-ups h3 { margin: 0 0 2px; }
+.status-line { margin: 10px 0 0; color: var(--text-2); }
 
 /* analysis */
 .reasons { list-style: none; margin: 0; padding: 0; }

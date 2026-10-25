@@ -415,6 +415,15 @@ function drawStatic(ctx: CanvasRenderingContext2D, L: Layout, nodes: DNode[], ow
   });
   strokeEach(ctx, fOut, a("95,130,200", 0.05), 0.8);
 
+  // A soft glow inside your industries' clouds, added up where they are dense; it never moves.
+  ctx.globalCompositeOperation = "lighter";
+  nodes.forEach((n, i) => {
+    if (!vis(n) || !L.target[n.g]) return;
+    const p = L.contact[i];
+    halo(ctx, "70,105,190", p.x, p.y, 5 + p.r * 3.4, (n.f ? 0.3 : 0.2) * dens);
+  });
+  ctx.globalCompositeOperation = "source-over";
+
   // People: muted grey dots. The ones who fit are a shade lighter here and
   // blue only in the decision-makers' column, so nobody shows twice in blue.
   const paint = (color: string, pick: (n: DNode) => boolean, scale = 1) => {

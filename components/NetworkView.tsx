@@ -7,7 +7,7 @@ import { FitTag } from "./ui";
 import { WriteInClaude } from "./WriteInClaude";
 import type { WeekPick } from "@/lib/queries.ts";
 
-export type ViewNode = DNode & { co: string; via: string[]; st: string; sg: number };
+export type ViewNode = DNode & { co: string; via: string[]; st: string; sg: number; hd: boolean; cd: string };
 
 const fmt = (n: number) => n.toLocaleString("en-US");
 const NUM = ["no", "one", "two", "three", "four", "five"];
@@ -19,7 +19,11 @@ const popcount = (k: number) => {
 /** "Transport and logistics" -> "transport and logistics"; "TOL 46" stays. */
 const lower = (s: string) => (/^\p{Lu}\p{Ll}/u.test(s) ? s.charAt(0).toLowerCase() + s.slice(1) : s);
 
-type Week = Pick<WeekPick, "id" | "name" | "title" | "company" | "fit" | "status" | "kind" | "why" | "sender" | "prompt">;
+type Week = Pick<WeekPick, "id" | "name" | "title" | "company" | "fit" | "status" | "kind" | "why" | "sender" | "prompt" | "cooldown">;
+type Due = { id: string; name: string; title: string; company: string; sentOn: string; sentBy: string; followUpOn: string };
+
+const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const day = (iso: string) => `${Number(iso.slice(8, 10))} ${MON[Number(iso.slice(5, 7)) - 1]}`;
 
 export function NetworkView(props: {
   nodes: ViewNode[];
@@ -32,6 +36,9 @@ export function NetworkView(props: {
   /** This week for the whole team, and for each teammate's network. */
   week: Week[];
   weekBy: Week[][];
+  /** Sent a week ago or more with no reply recorded: the team's, and what each teammate sent. */
+  follow: Due[];
+  followBy: Due[][];
 }) {
   const { nodes, groups, owners } = props;
   const [owner, setOwner] = useState(-1);
@@ -49,9 +56,10 @@ export function NetworkView(props: {
   const bit = owner >= 0 ? 1 << owner : 0;
   const vis = useMemo(() => nodes.filter((n) => !bit || n.k & bit), [nodes, bit]);
   const fits = useMemo(() => vis.filter((n) => n.f), [vis]);
-  // Server order: strong, possible, "not a fit" last, then score.
-  const ranked = useMemo(() => fits.filter((n) => !n.nf), [fits]);
-  const reactedList = useMemo(() => vis.filter((n) => n.rx > 0 && !n.nf), [vis]);
+  // Server order: strong, possible, "not a fit" last, then score. People the
+  // team already contacted or snoozed go after the rest of the list.
+  const ranked = useMemo(() => [...fits.filter((n) => !n.nf && !n.hd), ...fits.filter((n) => !n.nf && n.hd)], [fits]);
+  const reactedList = useMemo(() => [...vis.filter((n) => n.rx > 0 && !n.nf && !n.hd), ...vis.filter((n) => n.rx > 0 && !n.nf && n.hd)], [vis]);
   const inIndustry = useMemo(() => (picked === null ? [] : ranked.filter((n) => n.g === picked)), [ranked, picked]);
   // Industries with people in your profile: the ones the drawing has a node for.
   const targets = useMemo(() => new Set(nodes.filter((n) => n.ip && !groups[n.g].grey).map((n) => n.g)), [nodes, groups]);
@@ -59,9 +67,10 @@ export function NetworkView(props: {
   // The code keeps each sender to this many while it can; the blurb says so only when it held.
   const perSender = Math.max(1, Math.ceil(5 / Math.max(1, owners.length)));
   const balanced = owners.length > 1 && week.every((w) => week.filter((x) => x.sender === w.sender).length <= perSender);
+  const follow = owner >= 0 ? props.followBy[owner] ?? [] : props.follow;
   const list = picked !== null ? inIndustry : reacted ? reactedList : null;
   // The drawing labels and lights the top of the list on the right.
-  const listIds = useMemo(() => (list ? list.filter((n) => n.f).slice(0, 5).map((n) => n.id) : week.map((w) => w.id)), [list, week]);
+  const listIds = useMemo(() => (list ? list.filter((n) => n.f && !n.hd).slice(0, 5).map((n) => n.id) : week.map((w) => w.id)), [list, week]);
 
   /** When the panel sits below the drawing, bring it into view. */
   function reveal() {
@@ -155,7 +164,7 @@ export function NetworkView(props: {
   );
 
   const row = (n: ViewNode) => (
-    <button key={n.id} type="button" className={`prow${n.nf ? " dim" : ""}`} onClick={() => choose(n.id)} onMouseEnter={() => setFocus(n.id)} onMouseLeave={() => setFocus(null)} onFocus={() => setFocus(n.id)} onBlur={() => setFocus(null)}>
+    <button key={n.id} type="button" className={`prow${n.nf || n.hd ? " dim" : ""}`} onClick={() => choose(n.id)} onMouseEnter={() => setFocus(n.id)} onMouseLeave={() => setFocus(null)} onFocus={() => setFocus(n.id)} onBlur={() => setFocus(null)}>
       <span className="top-line">
         <span className="name">{n.n}</span>
         <FitTag fit={n.f === 2 ? "strong" : n.f === 1 ? "possible" : null} status={n.st} />
@@ -169,6 +178,7 @@ export function NetworkView(props: {
         {n.sg ? ` · ${n.sg > 1 ? `${n.sg} registered changes` : "registered change"}` : ""}
         {n.rx ? " · reacted to a post" : ""}
       </span>
+      {n.cd && !n.hd ? <span className="small cooldown">Colleague contacted {day(n.cd)}</span> : null}
     </button>
   );
 
@@ -309,6 +319,7 @@ export function NetworkView(props: {
                     {w.title || "No title"} · {w.company}
                   </span>
                   <span className={`small why ${w.kind}`}>{w.why}</span>
+                  {w.cooldown ? <span className="small cooldown">{w.cooldown}</span> : null}
                 </button>
                 <span className="row small" style={{ justifyContent: "space-between", gap: 8, marginTop: 4 }}>
                   <span className="muted">Suggested sender: {w.sender}</span>
@@ -317,6 +328,30 @@ export function NetworkView(props: {
               </div>
             ))}
             {!week.length ? <p className="small muted">Nobody left to reach: everyone who fits has a status.</p> : <p className="xs faint">Write in Claude copies a prompt for your own Claude, which writes the message. Nothing is sent from this app.</p>}
+            {follow.length ? (
+              <div className="follow-ups">
+                <h3>
+                  Follow-up due · {follow.length}
+                </h3>
+                <p className="xs faint" style={{ marginBottom: 8 }}>
+                  Sent a week ago or more, no reply recorded. Not new recommendations: follow up, or record how it went.
+                </p>
+                {follow.map((f) => (
+                  <button key={f.id} type="button" className="prow" onClick={() => choose(f.id)} onMouseEnter={() => setFocus(f.id)} onMouseLeave={() => setFocus(null)}>
+                    <span className="top-line">
+                      <span className="name">{f.name}</span>
+                      <span className="pill amber">Follow-up due</span>
+                    </span>
+                    <span className="small muted">
+                      {f.title || "No title"} · {f.company}
+                    </span>
+                    <span className="small" style={{ color: "var(--text-2)" }}>
+                      Sent {day(f.sentOn)} by {f.sentBy}; due since {day(f.followUpOn)}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            ) : null}
             <p className="small" style={{ marginTop: 8 }}>
               <Link href="/people" className="link">
                 Show all {fits.length} decision-makers who fit →
