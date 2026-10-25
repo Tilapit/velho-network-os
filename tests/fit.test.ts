@@ -259,3 +259,26 @@ test("reactions: no label needed; the post is named after its author and day", a
   const r = addReactions(net, { post: "", postDate: "2026-10-20", author: "you", text: "Aino Aalto\nAino Aalto\n· 1st\nOperations Director at Esimerkki Konepaja", save: false });
   assert.equal(r.post, "Your post, 20 Oct 2026");
 });
+
+test("reactions: names ruled out only by '1st' are their own group, and a wrong 'Copied from' is flagged", async () => {
+  const { addReactions } = await import("../lib/queries.ts");
+  // Four invented people only Janne knows, one only You knows.
+  const jText = HEAD + [row("Aaro", "Aalto", "Esimerkki Konepaja Oy", "COO"), row("Bea", "Berg", "Esimerkki Konepaja Oy", "CFO"), row("Cai", "Car", "Testi Metalli Oy", "CEO"), row("Dan", "Dahl", "Uusi Tehdas Oy", "COO")].join("\n") + "\n";
+  const yText = HEAD + row("Eva", "Eklund", "Hiljainen Valimo Oy", "Quality Engineer") + "\n";
+  const n = buildNetwork({ networks: [{ owner: owner("you", "You"), text: yText }, { owner: owner("janne", "Janne"), text: jText }], resolved: new Map(Object.entries(companies)), state, profile: DEFAULT_PROFILE, signals: null, today: "2026-10-24" });
+  const paste = ["Aaro Aalto", "Bea Berg", "Cai Car", "Dan Dahl", "Eva Eklund"].map((x) => `${x}\n${x}\n· 1st\nSomething at Somewhere`).join("\n") + "\nNobody Known\nNobody Known\n· 2nd\nStudent";
+  // Copied from Janne's LinkedIn, but matched as if from You's: four of six are ruled out by "1st".
+  const wrong = addReactions(n, { post: "", author: "you", copiedBy: "you", text: paste, save: false });
+  assert.equal(wrong.copiedBy, "You");
+  assert.deepEqual(wrong.degreeMismatch.map((u) => u.name).sort(), ["Aaro Aalto", "Bea Berg", "Cai Car", "Dan Dahl"]);
+  assert.deepEqual(wrong.unmatched.map((u) => u.name), ["Nobody Known"], "only names no one has are 'Not in your networks'");
+  assert.equal(wrong.copiedByWarning?.suggest?.name, "Janne");
+  assert.match(wrong.copiedByWarning!.text, /^4 of 6 names \(67%\)/);
+  // As copied from Janne: they match, Eva is ruled out ("1st" for Janne, but only You knows her), no warning.
+  const right = addReactions(n, { post: "", author: "you", copiedBy: "janne", text: paste, save: false });
+  assert.equal(right.matched.length, 4);
+  assert.deepEqual(right.degreeMismatch.map((u) => u.name), ["Eva Eklund"]);
+  assert.equal(right.copiedByWarning, undefined, "one of six is under a fifth");
+  // Without "Copied from", it is the post's owner.
+  assert.equal(addReactions(n, { post: "", author: "janne", text: paste, save: false }).copiedBy, "Janne");
+});

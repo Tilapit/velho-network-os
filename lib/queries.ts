@@ -677,6 +677,9 @@ export type ReactionInput = {
  * matches (as inferred) and the picks. Names in review are stored only once
  * someone picks; names with no match are returned once and never stored.
  */
+/** More than this share of names ruled out by the degree marker alone: "Copied from" is probably wrong. */
+export const COPIED_BY_WARN = 0.2;
+
 export function addReactions(net: Network, input: ReactionInput) {
   const own = (x?: string) => {
     const id = x ? ownerId(net, x) : undefined;
@@ -694,6 +697,28 @@ export function addReactions(net: Network, input: ReactionInput) {
     return true;
   });
   const res = matchReactions(net, entries, { viewer });
+  // Rejected only by the degree marker: when that is more than a fifth of the
+  // names, "Copied from" is probably wrong. Suggest the teammate whose
+  // network the markers fit best.
+  const offByDegree = res.unmatched.filter((u) => u.kind === "degree");
+  const name = (id?: string) => net.owners.find((o) => o.id === id)?.name;
+  let copiedByWarning: { share: number; text: string; suggest?: { id: string; name: string } } | undefined;
+  if (viewer && entries.length && offByDegree.length / entries.length > COPIED_BY_WARN) {
+    const fits = net.owners
+      .filter((o) => o.id !== viewer)
+      .map((o) => {
+        const r = matchReactions(net, offByDegree.map((u) => u.entry), { viewer: o.id });
+        return { o, n: r.matched.length + r.review.length };
+      })
+      .sort((a, b) => b.n - a.n)[0];
+    const suggest = fits?.n ? { id: fits.o.id, name: fits.o.name } : undefined;
+    const share = Math.round((100 * offByDegree.length) / entries.length);
+    copiedByWarning = {
+      share,
+      suggest,
+      text: `${offByDegree.length} of ${entries.length} names (${share}%) are people your networks know, but LinkedIn's "1st"/"2nd" says otherwise if the list was copied from ${name(viewer)}'s LinkedIn.${suggest ? ` It fits ${suggest.name}'s network better: set "Copied from" to ${suggest.name} and match again.` : ` Check "Copied from".`}`,
+    };
+  }
   // A pick must be someone with that name: a pick never moves a reaction to another person.
   const ignoredPicks: { name: string; person_id: string; why: string }[] = [];
   const picks = (input.picks ?? []).filter((p) => {
@@ -730,10 +755,14 @@ export function addReactions(net: Network, input: ReactionInput) {
     saved,
     matched: rows.map((r) => ({ name: r.name, how: r.how, person: person(r.contactId) })),
     review: res.review.filter((r) => !picked.has(nameKey(r.entry.name))).map((r) => ({ name: r.entry.name, headline: r.entry.headline, degree: r.entry.degree, candidates: r.candidates.map((c) => ({ ...c, url: appUrl(`/people/${c.id}`) })) })),
-    unmatched: res.unmatched.map((u) => ({ name: u.entry.name, why: u.why })),
+    copiedBy: name(viewer),
+    unmatched: res.unmatched.filter((u) => u.kind === "none").map((u) => ({ name: u.entry.name, why: u.why })),
+    // Same name as someone in the networks, but the degree marker against "Copied from" says otherwise. Not stored.
+    degreeMismatch: offByDegree.map((u) => ({ name: u.entry.name, degree: u.entry.degree })),
+    ...(copiedByWarning ? { copiedByWarning } : {}),
     // Lines of the paste read as nobody: shown once, so a missed person can be spotted. Not stored.
     unread: read.unread.slice(0, 50),
     ...(ignoredPicks.length ? { ignoredPicks } : {}),
-    note: "Names in 'unmatched' are not stored. Names in 'review' are stored only after someone picks the right person. 'unread' lists lines read as nobody; check them for a missed person.",
+    note: "Names in 'unmatched' and 'degreeMismatch' are not stored. 'degreeMismatch' are names someone in the networks has, ruled out only by LinkedIn's degree marker against copiedBy; with copiedByWarning, ask who copied the list and match again. Names in 'review' are stored only after someone picks the right person. 'unread' lists lines read as nobody; check them for a missed person.",
   };
 }

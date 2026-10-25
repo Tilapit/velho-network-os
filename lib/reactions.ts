@@ -161,7 +161,8 @@ export function readReactions(text: string): { entries: ParsedReaction[]; unread
 export type Candidate = { id: string; name: string; title: string; company: string; knownBy: string[] };
 export type Matched = { entry: ParsedReaction; contactId: string; how: "name" | "name_company" | "name_degree" };
 export type Review = { entry: ParsedReaction; candidates: Candidate[] };
-export type Unmatched = { entry: ParsedReaction; why: string };
+/** none: no one of this name in the networks. degree: someone is, but the degree marker says it is someone else. */
+export type Unmatched = { entry: ParsedReaction; why: string; kind: "none" | "degree" };
 export type MatchResult = { matched: Matched[]; review: Review[]; unmatched: Unmatched[] };
 
 const companyNames = (c: Contact) => [c.company, c.match?.company?.name, c.match?.company ? shortName(c.match.company.name) : undefined].filter((x): x is string => !!x);
@@ -198,14 +199,14 @@ export function matchReactions(net: Network, entries: ParsedReaction[], opts: { 
     let cands = index.get(nameKey(entry.name)) ?? [];
     let how: Matched["how"] = "name";
     if (!cands.length) {
-      res.unmatched.push({ entry, why: "Not in the team's networks" });
+      res.unmatched.push({ entry, why: "Not in the team's networks", kind: "none" });
       continue;
     }
     if (opts.viewer && entry.degree) {
       const knows = (c: Contact) => c.knownBy.some((k) => k.owner === opts.viewer);
       const kept = cands.filter((c) => (entry.degree === "1st" ? knows(c) : !knows(c)));
       if (!kept.length) {
-        res.unmatched.push({ entry, why: "Same name as someone in your networks, but the degree marker says it is someone else" });
+        res.unmatched.push({ entry, why: "Same name as someone in your networks, but the degree marker says it is someone else", kind: "degree" });
         continue;
       }
       if (kept.length < cands.length) how = "name_degree";

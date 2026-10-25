@@ -12,6 +12,10 @@ type Result = {
   matched: { name: string; how?: string; person: Person }[];
   review: { name: string; headline?: string; degree?: string; candidates: (Person & { knownBy: string[] })[] }[];
   unmatched: { name: string; why: string }[];
+  /** Same name as someone in the networks, ruled out only by the degree marker against "Copied from". */
+  degreeMismatch: { name: string; degree?: string }[];
+  copiedBy?: string;
+  copiedByWarning?: { share: number; text: string; suggest?: { id: string; name: string } };
   unread: string[];
 };
 type Post = { post: string; postDate?: string; author?: string; people: number };
@@ -25,22 +29,26 @@ export function ReactionsPanel({ owners, posts, today, owner }: { owners: { id: 
   const router = useRouter();
   const [post, setPost] = useState("");
   const [date, setDate] = useState(today);
-  // Whose post: the teammate the Network page was filtered to, else the first one.
-  const [author, setAuthor] = useState(owners.some((o) => o.id === owner) ? owner! : owners[0]?.id ?? "");
-  // The "· 1st" markers are relative to whoever copied the list; usually the author.
+  // Whose post: the teammate the Network page was filtered to (said next to it), else the first one.
+  const fromFilter = owners.some((o) => o.id === owner);
+  const [author, setAuthor] = useState(fromFilter ? owner! : owners[0]?.id ?? "");
+  // The "· 1st" markers are relative to whoever copied the list. It follows the
+  // post's owner until someone picks another teammate here, never the filter.
   const [copiedBy, setCopiedBy] = useState<string | null>(null);
+  const viewer = copiedBy ?? author;
+  const nameOf = (id: string) => owners.find((o) => o.id === id)?.name ?? id;
   const [text, setText] = useState("");
   const [result, setResult] = useState<Result | null>(null);
   const [picks, setPicks] = useState<Record<number, string>>({});
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
 
-  async function send(save: boolean) {
+  async function send(save: boolean, as?: string) {
     setBusy(true);
     setMsg("");
     // Picks are kept per review entry: two entries can share a name.
     const chosen = (result?.review ?? []).flatMap((r, i) => (picks[i] && picks[i] !== "none" ? [{ name: r.name, person_id: picks[i] }] : []));
-    const r = await fetch("/api/reactions", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ post, postDate: date, author, copiedBy: copiedBy ?? author, text, picks: save ? chosen : [], save }) });
+    const r = await fetch("/api/reactions", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ post, postDate: date, author, copiedBy: as ?? viewer, text, picks: save ? chosen : [], save }) });
     const j = await r.json().catch(() => ({}));
     setBusy(false);
     if (!r.ok) return setMsg(j.error ?? "Failed");
@@ -79,18 +87,14 @@ export function ReactionsPanel({ owners, posts, today, owner }: { owners: { id: 
           </label>
           <div className="row small" style={{ alignItems: "end", gap: 10 }}>
             <label className="field">
-              <span>Whose post</span>
-              <select value={author} onChange={(e) => setAuthor(e.target.value)}>
-                {owners.map((o) => (
-                  <option key={o.id} value={o.id}>
-                    {o.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="field" title="LinkedIn's '· 1st' and '· 2nd' are relative to whoever copied the list">
-              <span>Copied from</span>
-              <select value={copiedBy ?? author} onChange={(e) => setCopiedBy(e.target.value)}>
+              <span>Whose post{fromFilter && author === owner ? " (from the Network page)" : ""}</span>
+              <select
+                value={author}
+                onChange={(e) => {
+                  setAuthor(e.target.value);
+                  setCopiedBy(null);
+                }}
+              >
                 {owners.map((o) => (
                   <option key={o.id} value={o.id}>
                     {o.name}
@@ -106,6 +110,21 @@ export function ReactionsPanel({ owners, posts, today, owner }: { owners: { id: 
               <span>Label (optional)</span>
               <input value={post} onChange={(e) => setPost(e.target.value)} placeholder="e.g. AI in production planning" />
             </label>
+          </div>
+          <div className="copied-from">
+            <label className="row" style={{ gap: 8 }}>
+              <b>Copied from</b>
+              <select value={viewer} onChange={(e) => setCopiedBy(e.target.value === author ? null : e.target.value)}>
+                {owners.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.name}&apos;s LinkedIn
+                  </option>
+                ))}
+              </select>
+            </label>
+            <span className="small muted">
+              LinkedIn&apos;s &quot;· 1st&quot; and &quot;· 2nd&quot; are relative to whoever copied the list. {copiedBy ? `Not the post's owner (${nameOf(author)}): check this is right.` : `The post's owner, ${nameOf(author)}, unless you change it.`}
+            </span>
           </div>
           <div className="row">
             <button className="btn primary" disabled={busy || !text.trim()}>
@@ -168,6 +187,33 @@ export function ReactionsPanel({ owners, posts, today, owner }: { owners: { id: 
                   </label>
                 </fieldset>
               ))}
+            </div>
+          ) : null}
+          {result.copiedByWarning ? (
+            <div className="warn" role="alert">
+              <p className="small">{result.copiedByWarning.text}</p>
+              {result.copiedByWarning.suggest ? (
+                <button
+                  type="button"
+                  className="btn small"
+                  disabled={busy}
+                  onClick={() => {
+                    const id = result.copiedByWarning!.suggest!.id;
+                    setCopiedBy(id === author ? null : id);
+                    send(false, id);
+                  }}
+                >
+                  Match again as copied from {result.copiedByWarning.suggest.name}
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+          {result.degreeMismatch.length ? (
+            <div>
+              <h3>Same name as someone in your networks, but LinkedIn&apos;s &apos;1st&apos; says otherwise: check &apos;Copied from&apos; ({result.degreeMismatch.length})</h3>
+              <p className="small muted">
+                Read as copied from {result.copiedBy}&apos;s LinkedIn. Not stored: {result.degreeMismatch.map((u) => `${u.name}${u.degree ? ` (${u.degree})` : ""}`).join(", ")}.
+              </p>
             </div>
           ) : null}
           {result.unmatched.length ? (

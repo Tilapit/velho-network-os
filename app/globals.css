@@ -243,3 +243,9 @@ details.advanced h3 { margin: 24px 0 10px; }
 a.chip { text-decoration: none; }
 a.chip:hover { color: var(--text); border-color: var(--accent-dim); }
 a.chip.on { background: var(--accent-bg); color: var(--selected); border-color: transparent; }
+
+/* Reactions: who copied the list decides how "1st" is read, so it stands out. */
+.copied-from { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 10px 12px; border: 1px solid var(--accent-dim); border-radius: 10px; background: var(--accent-bg); }
+.copied-from select { min-width: 180px; }
+.warn { padding: 10px 12px; border-radius: 10px; background: var(--amber-bg); color: var(--amber); display: grid; gap: 8px; justify-items: start; }
+.warn p { margin: 0; }
