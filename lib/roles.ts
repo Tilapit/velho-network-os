@@ -30,7 +30,7 @@ const hasJohtaja = (x: string) => x.split(" ").some((w) => w.endsWith("johtaja")
 
 function level(x: string): Level {
   if (has(x, / (vice president|vp|svp|evp) /)) return "director";
-  if (has(x, / (ceo|coo|cfo|cto|cio|cdo|cmo|chro|cpo|toimitusjohtaja|varatoimitusjohtaja|vd|managing director|general manager|president|founder|co founder|cofounder|(?<!(product|process|service|business|system|data|content) )owner|omistaja|yrittaja|operatiivinen johtaja|operativ direktor|deputy ceo) /)) return "exec";
+  if (has(x, / (ceo|coo|cfo|cto|cio|cdo|cmo|chro|cpo|toimitusjohtaja|varatoimitusjohtaja|vd|managing director|general manager|president|founder|co founder|cofounder|(?<!(product|process|service|business|system|data|content) )owner(?! relations)|omistaja|yrittaja|operatiivinen johtaja|operativ direktor|deputy ceo) /)) return "exec";
   if (has(x, / chief [a-z ]*officer /)) return "exec";
   if (has(x, / (board member|board professional|hallituksen jasen|hallituksen puheenjohtaja|chairman|chair of the board|styrelseledamot|styrelseordforande) /)) return "board";
   if (has(x, / (director|[a-z]*direktor|head of|head) /) || hasJohtaja(x)) {
@@ -43,7 +43,7 @@ function level(x: string): Level {
 }
 
 const AREAS: [Area, RegExp][] = [
-  ["ceo", / (ceo|toimitusjohtaja|varatoimitusjohtaja|vd|managing director|general manager|president|founder|co founder|cofounder|(?<!(product|process|service|business|system|data|content) )owner|omistaja|yrittaja|deputy ceo) /],
+  ["ceo", / (ceo|toimitusjohtaja|varatoimitusjohtaja|vd|managing director|general manager|president|founder|co founder|cofounder|(?<!(product|process|service|business|system|data|content) )owner(?! relations)|omistaja|yrittaja|deputy ceo) /],
   ["operations", / (coo|operations|operational|operatiivinen|operativ|supply chain|toimitusketju[a-z]*|logistics|logistiikka[a-z]*|drift[a-z]*|kunnossapito[a-z]*|maintenance) /],
   ["production", / (production|tuotanto[a-z]*|tuotannon[a-z]*|produktion[a-z]*|manufacturing|valmistus[a-z]*|plant|tehdas[a-z]*|tehtaan[a-z]*|factory|works) /],
   ["finance", / (cfo|finance|financial|talous[a-z]*|ekonomi[a-z]*|controller|kirjanpit[a-z]*|accounting) /],

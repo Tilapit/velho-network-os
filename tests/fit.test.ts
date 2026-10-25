@@ -38,6 +38,8 @@ test("titles: students, trainees, board years and event roles never decide", () 
     assert.equal(r.decisionMaker, false, t);
     assert.ok(r.notDecider, `${t} says why`);
   }
+  // "Owner Relations" is a function, not an owner.
+  assert.equal(analyseTitle("Pricing and Owner Relations Analyst", DEFAULT_PROFILE.roles).decisionMaker, false);
   for (const t of ["International Sales Director", "Head of Operations", "Tuotantojohtaja", "COO"]) assert.equal(analyseTitle(t, DEFAULT_PROFILE.roles).decisionMaker, true, t);
 });
 
