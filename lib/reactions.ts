@@ -24,6 +24,8 @@ const NOISE = /^(status is \w+|verified|premium|linkedin member|open to work|hir
 const DEGREE = /^(?:[·•∙⋅|-]\s*)?(1st|2nd|3rd\+?)(?:\s+degree(?:\s+connection)?)?$/i;
 const INLINE_DEGREE = /^(.*?)\s*[·•∙⋅]\s*(1st|2nd|3rd\+?)(?:\s+degree(?:\s+connection)?)?$/i;
 const VIEW = /^view\s+(.+?)['’]s?\s+(?:profile|graphic link)$/i;
+// "3,731 followers" under a name means the line above it is a company page, not a person.
+const FOLLOWERS = /^\d[\d,. ]*\s*[km]?\s+(followers?|seuraajaa|följare)$/i;
 
 /**
  * "Dr. Aino Kallio, CSCP (she/her) 🌱" -> "Aino Kallio". LinkedIn names carry
@@ -36,7 +38,7 @@ export function cleanName(s: string): string {
     .split(",")[0]
     .split(/\s[|–—]\s|\s-\s/)[0]
     .replace(/\([^)]*\)|\[[^\]]*\]/g, " ")
-    .replace(/[\p{Extended_Pictographic}\u{FE0F}\u{200D}\u{1F3FB}-\u{1F3FF}]/gu, " ")
+    .replace(/[\p{Extended_Pictographic}\u{FE0F}\u{200D}\u{1F3FB}-\u{1F3FF}\u{1F1E6}-\u{1F1FF}]/gu, " ")
     .replace(/^(dr|mr|mrs|ms|prof|ing)\.?\s+/i, "")
     .replace(/\s+/g, " ")
     .trim();
@@ -61,7 +63,7 @@ function looseName(s: string): boolean {
   return w.length >= 2 && w.length <= 6 && w.every((x) => /^[\p{L}'’.-]+$/u.test(x));
 }
 
-type Tok = { kind: "name" | "view" | "degree" | "noise" | "text"; value: string; degree?: Degree };
+type Tok = { kind: "name" | "view" | "degree" | "noise" | "text" | "followers"; value: string; degree?: Degree };
 
 function tokens(text: string): Tok[] {
   const out: Tok[] = [];
@@ -70,7 +72,8 @@ function tokens(text: string): Tok[] {
     if (!line) continue;
     const deg = (d: string) => (d.toLowerCase().startsWith("1") ? "1st" : d.toLowerCase().startsWith("2") ? "2nd" : "3rd") as Degree;
     let m: RegExpMatchArray | null;
-    if ((m = line.match(VIEW))) out.push({ kind: "view", value: m[1] });
+    if (FOLLOWERS.test(line)) out.push({ kind: "followers", value: line });
+    else if ((m = line.match(VIEW))) out.push({ kind: "view", value: m[1] });
     else if ((m = line.match(DEGREE))) out.push({ kind: "degree", value: line, degree: deg(m[1]) });
     else if (REACTION_WORDS.test(line) || BUTTONS.test(line) || NOISE.test(line)) out.push({ kind: "noise", value: line });
     else if ((m = line.match(INLINE_DEGREE)) && looksLikeName(m[1])) {
@@ -92,8 +95,18 @@ export function parseReactions(text: string): ParsedReaction[] {
 }
 
 /** The same, plus the lines that were read as nobody (shown once, so a missed person is visible). */
-export function readReactions(text: string): { entries: ParsedReaction[]; unread: string[] } {
-  const t = tokens(text).filter((x) => x.kind !== "noise");
+export function readReactions(text: string): { entries: ParsedReaction[]; unread: string[]; companyPages: string[] } {
+  // A company page reacts too: its name, then "N followers". Both lines go; it is counted, never matched.
+  const all = tokens(text).filter((x) => x.kind !== "noise");
+  const companyPages: string[] = [];
+  const t = all.filter((x, i) => {
+    if (x.kind === "followers") return false;
+    if (all[i + 1]?.kind === "followers") {
+      companyPages.push(x.value);
+      return false;
+    }
+    return true;
+  });
   const unread: string[] = [];
   const same = (a: string, b: string) => nameKey(a) === nameKey(b);
   const out: ParsedReaction[] = [];
@@ -153,7 +166,7 @@ export function readReactions(text: string): { entries: ParsedReaction[]; unread
     seen.add(k);
     return true;
   });
-  return { entries, unread };
+  return { entries, unread, companyPages };
 }
 
 // ---------- matching ----------

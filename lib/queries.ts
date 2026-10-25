@@ -688,7 +688,7 @@ export function addReactions(net: Network, input: ReactionInput) {
   const authorId = own(input.author);
   const viewer = own(input.copiedBy) ?? authorId;
   const seen = new Set<string>();
-  const read = input.text ? readReactions(input.text) : { entries: [], unread: [] };
+  const read = input.text ? readReactions(input.text) : { entries: [], unread: [], companyPages: [] };
   const all: ParsedReaction[] = [...(input.entries ?? []), ...read.entries, ...(input.names ?? []).map((n) => ({ name: cleanName(n) }))];
   const entries = all.filter((e) => {
     const k = `${nameKey(e.name)}|${e.headline ?? ""}`;
@@ -762,6 +762,8 @@ export function addReactions(net: Network, input: ReactionInput) {
     ...(copiedByWarning ? { copiedByWarning } : {}),
     // Lines of the paste read as nobody: shown once, so a missed person can be spotted. Not stored.
     unread: read.unread.slice(0, 50),
+    // Company pages that reacted ("Ultrahack", "3,731 followers"): skipped, never matched to a person.
+    companyPages: read.companyPages.length,
     ...(ignoredPicks.length ? { ignoredPicks } : {}),
     note: "Names in 'unmatched' and 'degreeMismatch' are not stored. 'degreeMismatch' are names someone in the networks has, ruled out only by LinkedIn's degree marker against copiedBy; with copiedByWarning, ask who copied the list and match again. Names in 'review' are stored only after someone picks the right person. 'unread' lists lines read as nobody; check them for a missed person.",
   };

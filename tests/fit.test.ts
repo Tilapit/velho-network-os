@@ -282,3 +282,36 @@ test("reactions: names ruled out only by '1st' are their own group, and a wrong 
   // Without "Copied from", it is the post's owner.
   assert.equal(addReactions(n, { post: "", author: "janne", text: paste, save: false }).copiedBy, "Janne");
 });
+
+test("reactions end to end: LinkedIn's current copy format, saved, then seen on the person, This week and Posts", async () => {
+  const { addReactions, thisWeek } = await import("../lib/queries.ts");
+  const { listPosts } = await import("../lib/state.ts");
+  const { postsWithin, RECENT_DAYS, readReactions } = await import("../lib/reactions.ts");
+  const paste = fs.readFileSync(path.join(import.meta.dirname, "fixtures", "reactions-linkedin-2026.txt"), "utf8");
+  // The parser: "Name • 1st" on one line, company pages, the header, ", PhD", "(maiden name)", a flag emoji.
+  const read = readReactions(paste);
+  assert.deepEqual(read.entries.map((e) => `${e.name} ${e.degree}`), ["Aino Kallio 1st", "Bertil Berg 2nd", "Cecilia Nordström 1st", "Daniel Dahl 3rd", "Eeva Esimerkki 1st", "Frans Fiktiivinen 1st", "Greta Grön 2nd"]);
+  assert.deepEqual(read.companyPages, ["Ultrahack", "Esimerkki Säätiö"]);
+  assert.deepEqual(read.unread, []);
+  // Their invented companies, as PRH would answer (offline: from the cache).
+  const { writeCache, hash, searchText, CACHE_VERSION } = await import("../lib/prh.ts");
+  for (const [name, id, tol] of [["Esimerkki Konepaja Oy", "1000001-1", "28150"], ["Testi Metalli Oy", "1000002-2", "25620"], ["Uusi Tehdas Oy", "1000003-3", "25620"], ["Hiljainen Valimo Oy", "1000005-5", "24510"]])
+    writeCache("ytj", hash(searchText(name)), { query: searchText(name), fetchedAt: "2026-10-24T00:00:00Z", totalResults: 1, v: CACHE_VERSION, companies: [co(id, name, tol, { registers: { employer: true, employerSince: "2001-01-01", vat: true } })] });
+  // Janne knows four of them; a teammate knows Bertil (2nd for Janne). Invented people.
+  const j = importNetwork("Janne", HEAD + [row("Aino", "Kallio", "Esimerkki Konepaja Oy", "Tuotantojohtaja"), row("Cecilia", "Nordström", "Testi Metalli Oy", "Head of Operations"), row("Eeva", "Esimerkki", "Esimerkki Konepaja Oy", "Operations Director"), row("Frans", "Fiktiivinen", "Uusi Tehdas Oy", "CFO")].join("\n") + "\n");
+  importNetwork("Kaveri", HEAD + row("Bertil", "Berg", "Hiljainen Valimo Oy", "CEO") + "\n");
+  const net = await loadNetwork();
+  const r = addReactions(net, { post: "", postDate: "2026-10-22", author: j.id, copiedBy: j.id, text: paste, save: true });
+  assert.equal(r.saved, 5, "four 1st connections of Janne's and Bertil");
+  assert.equal(r.companyPages, 2);
+  assert.deepEqual(r.unmatched.map((u) => u.name).sort(), ["Daniel Dahl", "Greta Grön"]);
+  assert.equal(r.degreeMismatch.length, 0);
+  // After saving: the post is listed, and the people carry the reaction.
+  const after = await loadNetwork();
+  assert.ok(listPosts().some((p) => p.post === "Janne's post, 22 Oct 2026" && p.people === 5));
+  const aino = after.contacts.find((c) => c.name === "Aino Kallio")!;
+  assert.equal(aino.reactions.length, 1);
+  assert.ok(postsWithin(aino, after.today, RECENT_DAYS) > 0, "Reacted recently on the Network page");
+  assert.ok(aino.parts.some((p) => p.label === "Reacted"), "in the score");
+  assert.ok(thisWeek(after).some((w) => w.kind === "reaction"), "a reaction reaches This week");
+});

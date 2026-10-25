@@ -14,6 +14,7 @@ type Result = {
   unmatched: { name: string; why: string }[];
   /** Same name as someone in the networks, ruled out only by the degree marker against "Copied from". */
   degreeMismatch: { name: string; degree?: string }[];
+  companyPages: number;
   copiedBy?: string;
   copiedByWarning?: { share: number; text: string; suggest?: { id: string; name: string } };
   unread: string[];
@@ -58,7 +59,8 @@ export function ReactionsPanel({ owners, posts, today, owner }: { owners: { id: 
       return;
     }
     // Saved: the unmatched names were shown once and are gone now.
-    setMsg(`Saved ${j.matched.length} reaction${j.matched.length === 1 ? "" : "s"} to "${j.post}"${j.saved < j.matched.length ? ` (${j.matched.length - j.saved} were already there)` : ""}. They count in the ranking now.`);
+    // One line: what was stored and what was left out.
+    setMsg(`${j.saved} stored${j.saved < j.matched.length ? ` (${j.matched.length - j.saved} were already there)` : ""} · ${j.unmatched.length} not in your networks${j.degreeMismatch?.length ? ` · ${j.degreeMismatch.length} ruled out by "1st"` : ""} · ${j.companyPages ?? 0} company page${j.companyPages === 1 ? "" : "s"} skipped. Saved to "${j.post}"; they count in the ranking now.`);
     setResult(null);
     setText("");
     setPost("");
@@ -136,7 +138,7 @@ export function ReactionsPanel({ owners, posts, today, owner }: { owners: { id: 
       ) : (
         <div className="card stack">
           <div className="small muted">
-            &quot;{result.post}&quot;, {day(result.postDate)}: {result.read} people read from the paste.
+            &quot;{result.post}&quot;, {day(result.postDate)}: {result.read} people read from the paste{result.companyPages ? `, ${result.companyPages} company page${result.companyPages === 1 ? "" : "s"} skipped` : ""}. Copied from {result.copiedBy}&apos;s LinkedIn.
           </div>
           <div>
             <h3 style={{ marginTop: 0 }}>Will be stored ({result.matched.length})</h3>
