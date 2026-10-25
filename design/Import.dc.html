@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Velho Network, networks</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0b0d10}
+a{color:#e8eaed}a:hover{color:#8db4ff}
+button{font-family:inherit}
+</style>
+</helmet>
+<div style="font-family: 'Geist', system-ui, sans-serif; background: #0b0d10; color: #e8eaed; min-height: 100vh; font-size: 15px; line-height: 1.45; display: flex; flex-direction: column">
+
+  <header style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 32px; border-bottom: 1px solid #1d2128">
+    <div style="display: flex; align-items: center; gap: 12px">
+      <svg width="28" height="28" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="#e8eaed"></rect><circle cx="9" cy="16" r="2.6" fill="#0b0d10"></circle><circle cx="16" cy="9" r="2.6" fill="#0b0d10"></circle><circle cx="16" cy="23" r="2.6" fill="#0b0d10"></circle><circle cx="23.5" cy="16" r="3.2" fill="#3d7bff"></circle><path d="M9 16 L16 9 L23.5 16 L16 23 Z" stroke="#0b0d10" stroke-width="1.4" fill="none"></path></svg>
+      <span style="font-weight: 600; font-size: 17px">Velho Network</span>
+    </div>
+    <nav aria-label="Main" style="display: flex; gap: 4px; flex-wrap: wrap">
+      <span aria-current="page" style="height: 36px; display: inline-flex; align-items: center; padding: 0 14px; border-radius: 6px; background: #181c22; font-size: 14px">Networks</span>
+      <a href="Main.dc.html" style="height: 36px; display: inline-flex; align-items: center; padding: 0 14px; border-radius: 6px; text-decoration: none; font-size: 14px; color: #8b929c">Who could need Velho</a>
+      <a href="Ask.dc.html" style="height: 36px; display: inline-flex; align-items: center; padding: 0 14px; border-radius: 6px; text-decoration: none; font-size: 14px; color: #8b929c">Ask</a>
+      <a href="Outreach.dc.html" style="height: 36px; display: inline-flex; align-items: center; padding: 0 14px; border-radius: 6px; text-decoration: none; font-size: 14px; color: #8b929c">Outreach</a>
+    </nav>
+  </header>
+
+  <main style="flex: 1; display: flex; flex-wrap: wrap; gap: 40px; padding: 36px 32px; box-sizing: border-box; max-width: 1320px; width: 100%; margin: 0 auto">
+
+    <section aria-label="Bring in networks" style="flex: 1 1 440px; min-width: 0; max-width: 540px">
+      <h1 style="margin: 0; font-size: 30px; font-weight: 600; letter-spacing: -0.02em">Bring in your team's networks</h1>
+      <p style="margin: 10px 0 20px; color: #8b929c; font-size: 16px">Each person adds their own LinkedIn connections. Velho Network merges them, so you see who the team knows and who should reach out.</p>
+
+      <sc-if value="{{idle}}" hint-placeholder-val="{{ true }}">
+        <ul style="list-style: none; margin: 0; padding: 0">
+          <sc-for list="{{nets}}" as="n" hint-placeholder-count="2">
+            <li style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; margin-bottom: 8px; background: #12151a; border: 1px solid #1d2128; border-radius: 8px">
+              <span style="display: flex; flex-direction: column; min-width: 0">
+                <span style="font-weight: 600">{{n.who}}</span>
+                <span style="{{n.subStyle}}">{{n.sub}}</span>
+              </span>
+              <sc-if value="{{n.empty}}" hint-placeholder-val="{{ true }}">
+                <button type="button" onClick="{{n.load}}" style="height: 40px; padding: 0 14px; border: 1px dashed #3a414c; border-radius: 6px; background: transparent; color: #e8eaed; font-size: 14px; cursor: pointer; flex-shrink: 0">Drop file · or use sample</button>
+              </sc-if>
+              <sc-if value="{{n.loaded}}" hint-placeholder-val="{{ false }}">
+                <span style="flex-shrink: 0; font-size: 12px; background: #12301c; color: #8fe0a6; border-radius: 999px; padding: 3px 10px">Added</span>
+              </sc-if>
+            </li>
+          </sc-for>
+          <li style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border: 1px dashed #232831; border-radius: 8px; color: #8b929c; font-size: 14px">
+            <span>+ Add a teammate</span>
+            <span style="font-size: 13px">sales lead, board member, advisor</span>
+          </li>
+        </ul>
+
+        <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-top: 18px">
+          <button type="button" onClick="{{start}}" aria-disabled="{{cantStart}}" style="{{startStyle}}">Analyse {{netWord}}</button>
+          <span style="font-size: 13px; color: #8b929c">{{readyNote}}</span>
+        </div>
+
+        <details style="margin-top: 22px; color: #c3c8cf; font-size: 14px">
+          <summary style="cursor: pointer; color: #8db4ff">How each person gets their file (2 minutes)</summary>
+          <ol style="margin: 10px 0 0; padding-left: 20px; line-height: 1.7">
+            <li>On LinkedIn: Settings, then Data privacy.</li>
+            <li>Get a copy of your data, tick only Connections.</li>
+            <li>LinkedIn emails a zip, usually within minutes.</li>
+            <li>Drop Connections.csv from the zip here.</li>
+          </ol>
+        </details>
+        <p style="margin: 14px 0 0; font-size: 13px; color: #8b929c">Files stay on this machine. Only company names go to the trade register (PRH). Each person can delete their file any time.</p>
+      </sc-if>
+
+      <sc-if value="{{running}}" hint-placeholder-val="{{ false }}">
+        <ol style="margin: 0; padding: 0; list-style: none">
+          <sc-for list="{{stages}}" as="sg" hint-placeholder-count="4">
+            <li style="{{sg.style}}">
+              <span style="{{sg.markStyle}}">{{sg.mark}}</span>
+              <span style="display: flex; flex-direction: column; gap: 2px; min-width: 0">
+                <span style="font-weight: 600">{{sg.title}}</span>
+                <span style="color: #8b929c; font-size: 14px">{{sg.detail}}</span>
+              </span>
+            </li>
+          </sc-for>
+        </ol>
+        <sc-if value="{{done}}" hint-placeholder-val="{{ false }}">
+          <div style="margin-top: 22px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center">
+            <a href="Main.dc.html" style="height: 44px; display: inline-flex; align-items: center; padding: 0 18px; border-radius: 6px; background: #e8eaed; color: #0b0d10; font-size: 15px; font-weight: 600; text-decoration: none">See who could need Velho</a>
+            <button type="button" onClick="{{reset}}" style="height: 44px; padding: 0 16px; border: 0; border-radius: 6px; background: #1d2229; color: #e8eaed; font-size: 14px; cursor: pointer">Start over</button>
+          </div>
+          <p style="margin: 14px 0 0; font-size: 13px; color: #8b929c">{{needLook}} company names need a look. You can fix them later; nothing is guessed.</p>
+        </sc-if>
+      </sc-if>
+    </section>
+
+    <section aria-label="What happens to the files" style="flex: 999 1 560px; min-width: 0">
+      <div style="overflow-x: auto">
+        <div style="position: relative; width: 660px; height: 520px; background: #0e1115; border: 1px solid #1d2128; border-radius: 10px">
+          <sc-for list="{{cols}}" as="c" hint-placeholder-count="4">
+            <div style="{{c.style}}">
+              <div style="{{c.countStyle}}">{{c.count}}</div>
+              <div style="font-size: 13px; color: #8b929c">{{c.label}}</div>
+            </div>
+          </sc-for>
+          <sc-for list="{{lines}}" as="l" hint-placeholder-count="30">
+            <div aria-hidden="true" style="{{l.style}}"></div>
+          </sc-for>
+          <sc-for list="{{dots}}" as="d" hint-placeholder-count="60">
+            <div aria-hidden="true" style="{{d.style}}"></div>
+          </sc-for>
+        </div>
+      </div>
+      <p style="margin: 12px 0 0; font-size: 13px; color: #8b929c">Light grey: your connections. Blue-grey: your co-founder's. White: people you both know.</p>
+    </section>
+  </main>
+
+  <footer style="padding: 10px 32px; border-top: 1px solid #1d2128; font-size: 12px; color: #6f7782">Prototype · sample files hold invented people</footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { stage: 0, you: false, cof: false };
+    this.timers = [];
+  }
+  componentWillUnmount() { this.timers.forEach((t) => clearTimeout(t)); }
+  rng(seed) { let s = seed; return () => { s = (s * 1103515245 + 12345) % 2147483648; return s / 2147483648; }; }
+  line(x1, y1, x2, y2, on) {
+    const dx = x2 - x1, dy = y2 - y1, len = Math.sqrt(dx * dx + dy * dy), deg = Math.atan2(dy, dx) * 180 / Math.PI;
+    return { style: 'position: absolute; left: ' + x1 + 'px; top: ' + y1 + 'px; width: ' + len.toFixed(1) + 'px; height: ' + (on ? 2 : 1) + 'px; transform-origin: 0 50%; transform: rotate(' + deg.toFixed(2) + 'deg); background: ' + (on ? '#3d7bff' : '#1a1f26') + '; transition: background 400ms' };
+  }
+  renderVals() {
+    const s = this.state, st = s.stage;
+    const both = s.you && s.cof;
+    const r = this.rng(11);
+    const dot = (x, y, size, color) => ({ style: 'position: absolute; left: ' + (x - size / 2).toFixed(1) + 'px; top: ' + (y - size / 2).toFixed(1) + 'px; width: ' + size + 'px; height: ' + size + 'px; border-radius: 50%; background: ' + color + '; transition: background 400ms' });
+    const conn = [], comp = [], fit = [], dm = [];
+    for (let i = 0; i < 44; i++) { const o = r(); conn.push({ x: 60 + (r() - 0.5) * 50, y: 90 + i * 9.6, own: o < 0.55 ? 'you' : o < 0.87 ? 'cof' : 'both' }); }
+    for (let i = 0; i < 30; i++) comp.push({ x: 245 + (r() - 0.5) * 50, y: 100 + i * 13.5 });
+    for (let i = 0; i < 18; i++) fit.push({ x: 430 + (r() - 0.5) * 40, y: 120 + i * 20, c: Math.floor(r() * 30) });
+    for (let i = 0; i < 12; i++) dm.push({ x: 595 + (r() - 0.5) * 20, y: 140 + i * 28, f: Math.floor(r() * 18) });
+    const has = (o) => (o === 'you' ? s.you : o === 'cof' ? s.cof : both);
+    const connColor = (c) => {
+      if (!has(c.own) && !(c.own === 'both' && (s.you || s.cof))) return '#1f242b';
+      if (c.own === 'both') return both ? '#ffffff' : s.you ? '#c3c8cf' : '#6b86b8';
+      return c.own === 'you' ? '#c3c8cf' : '#6b86b8';
+    };
+    const lines = [], dots = [];
+    comp.forEach((c, i) => { const a = conn[(i * 3) % 44]; lines.push(this.line(a.x, a.y, c.x, c.y, st >= 2)); });
+    fit.forEach((f) => { const c = comp[f.c]; lines.push(this.line(c.x, c.y, f.x, f.y, st >= 3)); });
+    dm.forEach((d) => { const f = fit[d.f]; lines.push(this.line(f.x, f.y, d.x, d.y, st >= 4)); });
+    conn.forEach((c) => dots.push(dot(c.x, c.y, c.own === 'both' && both ? 9 : 7, connColor(c))));
+    comp.forEach((c) => dots.push(dot(c.x, c.y, 8, st >= 2 ? '#5d6672' : '#2a3039')));
+    fit.forEach((f) => dots.push(dot(f.x, f.y, 9, st >= 3 ? '#8db4ff' : '#2a3039')));
+    dm.forEach((d) => dots.push(dot(d.x, d.y, 12, st >= 4 ? '#e8eaed' : '#2a3039')));
+    const N = both ? { people: '2,104', comp: '1,290', fit: '287', dm: '84', rows: '2,372 rows from 2 files · 268 people both of you know', look: '473', abroad: '341' }
+      : s.you ? { people: '1,512', comp: '934', fit: '212', dm: '61', rows: '1,512 rows from 1 file', look: '366', abroad: '212' }
+      : { people: '860', comp: '541', fit: '138', dm: '39', rows: '860 rows from 1 file', look: '201', abroad: '118' };
+    const loadedPeople = both ? '2,104' : s.you ? '1,512' : s.cof ? '860' : '—';
+    const colDefs = [
+      { x: 30, on: 0, count: loadedPeople, label: 'people' },
+      { x: 210, on: 2, count: N.comp, label: 'Finnish companies' },
+      { x: 395, on: 3, count: N.fit, label: 'in your industries' },
+      { x: 560, on: 4, count: N.dm, label: 'decision-makers' }
+    ];
+    const cols = colDefs.map((c) => {
+      const shown = c.on === 0 ? (s.you || s.cof) : st >= c.on;
+      return { count: shown ? c.count : '—', label: c.label, style: 'position: absolute; left: ' + c.x + 'px; top: 18px', countStyle: 'font-size: 20px; font-weight: 600; color: ' + (shown ? '#e8eaed' : '#3a414c') };
+    });
+    const defs = [
+      { title: 'Read and merge the files', detail: N.rows + ' · ' + N.people + ' people' },
+      { title: 'Match companies in the trade register', detail: N.comp + ' Finnish companies · ' + N.abroad + ' abroad · ' + N.look + ' need a look' },
+      { title: 'Keep companies in your industries', detail: N.fit + ' companies by line of business' },
+      { title: 'Find the decision-makers there', detail: N.dm + ' people whose title matches your roles' }
+    ];
+    const stages = defs.map((d, i) => {
+      const done = st > i + 1, now = st === i + 1;
+      return {
+        title: d.title, detail: done ? d.detail : now ? 'Working…' : 'Waiting',
+        mark: done ? '✓' : String(i + 1),
+        style: 'display: flex; gap: 14px; padding: 12px 0; border-top: 1px solid #1d2128; opacity: ' + (done || now ? 1 : 0.45),
+        markStyle: 'width: 26px; height: 26px; border-radius: 13px; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; ' + (done ? 'background: #3d7bff; color: #fff' : 'background: #1d2229; color: #c3c8cf')
+      };
+    });
+    const cnt = (s.you ? 1 : 0) + (s.cof ? 1 : 0);
+    return {
+      idle: st === 0, running: st > 0, done: st >= 5,
+      nets: [
+        { who: 'You', loaded: s.you, empty: !s.you, sub: s.you ? '1,512 connections · Connections.csv' : 'No file yet', subStyle: 'font-size: 13px; color: ' + (s.you ? '#c3c8cf' : '#6f7782'), load: () => this.setState({ you: true }) },
+        { who: 'Co-founder', loaded: s.cof, empty: !s.cof, sub: s.cof ? '860 connections · Connections.csv' : 'No file yet', subStyle: 'font-size: 13px; color: ' + (s.cof ? '#c3c8cf' : '#6f7782'), load: () => this.setState({ cof: true }) }
+      ],
+      cantStart: cnt === 0,
+      netWord: cnt === 2 ? '2 networks' : 'network',
+      readyNote: cnt === 0 ? 'Add at least one file.' : cnt === 1 ? 'You can add the other later.' : '268 people appear in both.',
+      startStyle: 'height: 44px; padding: 0 18px; border: 0; border-radius: 6px; font-size: 15px; font-weight: 600; ' + (cnt ? 'background: #e8eaed; color: #0b0d10; cursor: pointer' : 'background: #1d2229; color: #6f7782; cursor: not-allowed'),
+      needLook: N.look,
+      stages, cols, lines, dots,
+      start: () => {
+        if (!cnt) return;
+        this.timers.forEach((t) => clearTimeout(t));
+        this.setState({ stage: 1 });
+        this.timers = [2, 3, 4, 5].map((n, k) => setTimeout(() => this.setState({ stage: n }), 900 * (k + 1)));
+      },
+      reset: () => { this.timers.forEach((t) => clearTimeout(t)); this.timers = []; this.setState({ stage: 0, you: false, cof: false }); }
+    };
+  }
+}
+</script>
+</body>
+</html>

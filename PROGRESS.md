@@ -1,6 +1,6 @@
 # Overnight progress
 
-Branch `overnight`. Brief: `OVERNIGHT_PROMPT.md` (wins on conflict), then
+Branch `overnight`. Brief: `docs/prompts/OVERNIGHT_PROMPT.md` (wins on conflict), then
 `NETWORK_DEMO_PROMPT.md`, `MOCK_DATA_PROMPT.md`, `PRODUCTION_MCP_PROMPT.md`
 and `design/`.
 
@@ -535,7 +535,7 @@ person vanished silently, is handled too: they come back once as "Lines
 read as nobody" (also `unread` in MCP), never stored.
 
 
-Brief: `OVERNIGHT_2_PROMPT.md`. Started 00:32. `git tag demo-v1` is on
+Brief: `docs/prompts/OVERNIGHT_2_PROMPT.md`. Started 00:32. `git tag demo-v1` is on
 b935098, the part-1 demo, so a working demo always exists.
 
 | Step | Budget | Status |

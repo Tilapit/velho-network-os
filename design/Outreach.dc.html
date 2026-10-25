@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Velho Network, CRM</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0b0d10}
+a{color:#e8eaed}a:hover{color:#8db4ff}
+button{font-family:inherit}
+textarea{font-family:inherit}
+</style>
+</helmet>
+<div style="font-family: 'Geist', system-ui, sans-serif; background: #0b0d10; color: #e8eaed; min-height: 100vh; font-size: 15px; line-height: 1.45; display: flex; flex-direction: column">
+
+  <header style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 32px; border-bottom: 1px solid #1d2128">
+    <div style="display: flex; align-items: center; gap: 12px">
+      <svg width="28" height="28" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="#e8eaed"></rect><circle cx="9" cy="16" r="2.6" fill="#0b0d10"></circle><circle cx="16" cy="9" r="2.6" fill="#0b0d10"></circle><circle cx="16" cy="23" r="2.6" fill="#0b0d10"></circle><circle cx="23.5" cy="16" r="3.2" fill="#3d7bff"></circle><path d="M9 16 L16 9 L23.5 16 L16 23 Z" stroke="#0b0d10" stroke-width="1.4" fill="none"></path></svg>
+      <span style="font-weight: 600; font-size: 17px">Velho Network</span>
+    </div>
+    <nav aria-label="Main" style="display: flex; gap: 4px; flex-wrap: wrap">
+      <a href="Import.dc.html" style="height: 36px; display: inline-flex; align-items: center; padding: 0 14px; border-radius: 6px; text-decoration: none; font-size: 14px; color: #8b929c">Networks</a>
+      <a href="Main.dc.html" style="height: 36px; display: inline-flex; align-items: center; padding: 0 14px; border-radius: 6px; text-decoration: none; font-size: 14px; color: #8b929c">Who could need Velho</a>
+      <a href="Ask.dc.html" style="height: 36px; display: inline-flex; align-items: center; padding: 0 14px; border-radius: 6px; text-decoration: none; font-size: 14px; color: #8b929c">Ask</a>
+      <span aria-current="page" style="height: 36px; display: inline-flex; align-items: center; padding: 0 14px; border-radius: 6px; background: #181c22; font-size: 14px">CRM</span>
+    </nav>
+  </header>
+
+  <div style="flex: 1; display: flex; flex-wrap: wrap">
+    <section aria-label="People and their CRM status" style="flex: 999 1 600px; min-width: 0; padding: 22px 32px; box-sizing: border-box">
+      <h1 style="margin: 0; font-size: 28px; font-weight: 600; letter-spacing: -0.02em">Into your CRM</h1>
+      <p style="margin: 6px 0 16px; color: #8b929c">People you pick go to your CRM with the analysis and a written message. Your CRM stays the one place for status; this view only reads it back.</p>
+
+      <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: center; justify-content: space-between; background: #12151a; border: 1px solid #1d2128; border-radius: 10px; padding: 12px 16px; margin-bottom: 20px">
+        <div style="display: flex; align-items: center; gap: 10px">
+          <span style="width: 10px; height: 10px; border-radius: 5px; background: #8fe0a6"></span>
+          <span style="font-weight: 600">CRM connected</span>
+          <span style="color: #8b929c; font-size: 14px">· synced {{syncText}}</span>
+        </div>
+        <div style="font-size: 13px; color: #8b929c">Reads: contacts, companies, deal stages, open tasks · Writes: new contacts, companies, tasks, notes</div>
+      </div>
+
+      <sc-for list="{{groups}}" as="g" hint-placeholder-count="2">
+        <div style="margin-bottom: 22px">
+          <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px">
+            <h2 style="margin: 0; font-size: 16px; font-weight: 600">{{g.title}}</h2>
+            <span style="font-size: 13px; color: #8b929c">{{g.note}}</span>
+          </div>
+          <div role="list" style="border: 1px solid #1d2128; border-radius: 10px; overflow: hidden">
+            <sc-for list="{{g.rows}}" as="r" hint-placeholder-count="3">
+              <button type="button" role="listitem" onClick="{{r.pick}}" style="{{r.style}}">
+                <span style="display: flex; flex-direction: column; min-width: 0; flex: 1 1 200px">
+                  <span style="font-weight: 600; color: #e8eaed">{{r.name}}</span>
+                  <span style="font-size: 13px; color: #8b929c">{{r.role}} · {{r.company}}</span>
+                </span>
+                <span style="font-size: 13px; color: #c3c8cf; flex: 0 0 110px">Owner: {{r.owner}}</span>
+                <span style="flex: 0 0 auto; display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end">
+                  <span style="{{r.stageStyle}}">{{r.stage}}</span>
+                  <sc-if value="{{r.hasTask}}" hint-placeholder-val="{{ false }}">
+                    <span style="font-size: 12px; font-weight: 500; color: #e0b46a; background: #2b2314; border-radius: 999px; padding: 2px 9px">{{r.task}}</span>
+                  </sc-if>
+                </span>
+              </button>
+            </sc-for>
+          </div>
+        </div>
+      </sc-for>
+      <p style="margin: 0; font-size: 13px; color: #8b929c">9 people who are already customers in your CRM are left out of the network view.</p>
+    </section>
+
+    <aside aria-label="Details" style="flex: 1 1 420px; max-width: 520px; min-width: 0; box-sizing: border-box; padding: 22px 28px; border-left: 1px solid #1d2128; background: #0e1115">
+      <div style="display: flex; justify-content: space-between; gap: 12px; align-items: baseline">
+        <h2 style="margin: 0; font-size: 22px; font-weight: 600">{{d.name}}</h2>
+        <span style="{{d.stageStyle}}">{{d.stage}}</span>
+      </div>
+      <div style="color: #8b929c">{{d.role}} · {{d.company}}</div>
+
+      <sc-if value="{{d.isReady}}" hint-placeholder-val="{{ true }}">
+        <h3 style="margin: 18px 0 6px; font-size: 15px; font-weight: 600">What goes into your CRM</h3>
+        <dl style="margin: 0; display: grid; grid-template-columns: 96px 1fr; gap: 6px 12px; font-size: 14px">
+          <sc-for list="{{d.mapping}}" as="m" hint-placeholder-count="5">
+            <dt style="color: #8b929c">{{m.k}}</dt>
+            <dd style="margin: 0; color: #e8eaed">{{m.v}}</dd>
+          </sc-for>
+        </dl>
+        <div style="margin-top: 10px; font-size: 13px; color: #8fe0a6">✓ No duplicate in your CRM (checked LinkedIn URL, and name with company)</div>
+      </sc-if>
+
+      <sc-if value="{{d.inCrm}}" hint-placeholder-val="{{ false }}">
+        <h3 style="margin: 18px 0 6px; font-size: 15px; font-weight: 600">In your CRM</h3>
+        <ol style="list-style: none; margin: 0; padding: 0; font-size: 14px">
+          <sc-for list="{{d.history}}" as="h" hint-placeholder-count="2">
+            <li style="display: flex; gap: 10px; padding: 4px 0; border-top: 1px solid #1d2128"><span style="width: 64px; flex-shrink: 0; color: #6f7782">{{h.when}}</span><span style="color: #c3c8cf">{{h.what}}</span></li>
+          </sc-for>
+        </ol>
+      </sc-if>
+
+      <sc-if value="{{d.hasMessage}}" hint-placeholder-val="{{ true }}">
+        <div style="display: flex; justify-content: space-between; align-items: baseline; margin: 18px 0 6px">
+          <label for="msg" style="font-size: 15px; font-weight: 600">{{d.msgLabel}}</label>
+          <span style="font-size: 12px; color: #8b929c">{{d.msgNote}}</span>
+        </div>
+        <textarea id="msg" value="{{d.msg}}" onChange="{{onMsg}}" style="width: 100%; box-sizing: border-box; min-height: 130px; font-size: 15px; line-height: 1.5; padding: 12px 14px; background: #0b0d10; color: #e8eaed; border: 1px solid #2a3039; border-radius: 6px; resize: vertical"></textarea>
+      </sc-if>
+
+      <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 12px">
+        <sc-if value="{{d.isReady}}" hint-placeholder-val="{{ true }}">
+          <button type="button" onClick="{{create}}" style="height: 44px; padding: 0 18px; border: 0; border-radius: 6px; background: #e8eaed; color: #0b0d10; font-size: 15px; font-weight: 600; cursor: pointer">Create in CRM</button>
+          <button type="button" onClick="{{skip}}" style="height: 44px; padding: 0 16px; border: 0; border-radius: 6px; background: #1d2229; color: #e8eaed; font-size: 14px; cursor: pointer">Not now</button>
+        </sc-if>
+        <sc-if value="{{d.canCopy}}" hint-placeholder-val="{{ false }}">
+          <button type="button" onClick="{{copy}}" style="height: 44px; padding: 0 18px; border: 0; border-radius: 6px; background: #e8eaed; color: #0b0d10; font-size: 15px; font-weight: 600; cursor: pointer">{{copyLabel}}</button>
+        </sc-if>
+        <span style="font-size: 14px; color: #8db4ff">Open in CRM ↗</span>
+      </div>
+
+      <p style="margin: 18px 0 0; font-size: 13px; color: #8b929c">Messages are sent by the owner from their own LinkedIn; LinkedIn does not allow automated sending. Stages and tasks come from your CRM, so the team updates them where they already work.</p>
+    </aside>
+  </div>
+
+  <footer style="padding: 10px 32px; border-top: 1px solid #1d2128; font-size: 12px; color: #6f7782">Prototype · invented people and companies · CRM shown generically until we know which one</footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { sel: 'kaisa', created: {}, skipped: {}, edits: {}, copied: null, synced: false };
+  }
+  people() {
+    const Y = 'You', C = 'Co-founder';
+    return [
+      { id: 'kaisa', name: 'Kaisa Rinne', role: 'COO', company: 'Rautio Industrial Oy', owner: C, ready: true, bid: '3141592-6', ind: 'Metal products', town: 'Tampere',
+        why: 'COO at a metal products maker in your industries; your team knows 3 people there',
+        msg: 'Hei Kaisa, olemme Velhossa rakentaneet valmistaville yrityksille automaatiota, jolla tuotannonsuunnittelu ja ERP toimivat yhteen ilman käsin koottuja raportteja. Tuli mieleen, miten Rautiolla tämä hoidetaan nyt. Ehtisitkö 20 minuutin puheluun ensi viikolla?' },
+      { id: 'elina', name: 'Elina Virta', role: 'Head of Operations', company: 'Lahden Kuljetus Oy', owner: Y, ready: true, bid: '2718281-8', ind: 'Road freight', town: 'Lahti',
+        why: 'Head of Operations at a freight company in your industries',
+        msg: 'Hei Elina, olemme Velhossa auttaneet kuljetusyrityksiä automatisoimaan tilausten vastaanoton ja rahtipaperit. Kiinnostaisi kuulla, miten Lahden Kuljetuksella nämä hoituvat nyt. Sopisiko lyhyt puhelu ensi viikolla?' },
+      { id: 'mikko', name: 'Mikko Salo', role: 'CEO', company: 'Nordtek Components Oy', owner: C, stage: 'Contacted', task: 'Follow-up due today',
+        history: [ { when: '15 Oct', what: 'Created from Velho Network, task for Co-founder' }, { when: '15 Oct', what: 'Task done: LinkedIn message sent' }, { when: 'Today', what: 'Follow-up task due (7 days, no reply logged)' } ],
+        msg: 'Hei Mikko, nostan vielä edellistä viestiäni. Jos aihe ei ole teillä nyt ajankohtainen, sekin on hyvä tietää, niin en vaivaa enempää.' },
+      { id: 'jari', name: 'Jari Koskinen', role: 'CFO', company: 'Kaakon Elintärvike Oy', owner: Y, stage: 'Contacted', task: 'Follow-up 2 days late',
+        history: [ { when: '12 Oct', what: 'Created from Velho Network, task for you' }, { when: '13 Oct', what: 'Task done: LinkedIn message sent' }, { when: '22 Oct', what: 'Follow-up task due' } ],
+        msg: 'Hei Jari, palaan vielä viestiini. Jos aihe kuuluu teillä paremmin tuotannon puolelle, kenen kanssa minun kannattaisi jutella?' },
+      { id: 'tuomas', name: 'Tuomas Heikkilä', role: 'Director, Marine Systems', company: 'Meriteollisuus Oy', owner: C, stage: 'Contacted',
+        history: [ { when: '21 Oct', what: 'Created from Velho Network, task for Co-founder' }, { when: '21 Oct', what: 'Task done: LinkedIn message sent' } ] },
+      { id: 'anna', name: 'Anna Mäkelä', role: 'Logistics Manager', company: 'Länsirannikon Tukku Oy', owner: C, stage: 'Replied',
+        history: [ { when: '19 Oct', what: 'LinkedIn message sent' }, { when: 'Yesterday', what: 'Stage set to Replied by Co-founder' }, { when: 'Yesterday', what: 'Note: "decisions are made by our CEO, she can ask him"' } ] },
+      { id: 'petri', name: 'Petri Nieminen', role: 'Toimitusjohtaja', company: 'Rakennus Halla Oy', owner: Y, stage: 'Meeting booked',
+        history: [ { when: '14 Oct', what: 'LinkedIn message sent' }, { when: '21 Oct', what: 'Meeting booked for Thu 29 Oct, 10:00' } ] }
+    ];
+  }
+  stageStyle(stage) {
+    const c = { 'Ready': ['#8db4ff', '#16284a'], 'Created': ['#8fe0a6', '#12301c'], 'Contacted': ['#c3c8cf', '#1d2229'], 'Replied': ['#8fe0a6', '#12301c'], 'Meeting booked': ['#8fe0a6', '#12301c'], 'Not now': ['#8b929c', '#1d2229'] }[stage] || ['#c3c8cf', '#1d2229'];
+    return 'font-size: 12px; font-weight: 500; color: ' + c[0] + '; background: ' + c[1] + '; border-radius: 999px; padding: 2px 9px; white-space: nowrap';
+  }
+  renderVals() {
+    const s = this.state;
+    const ppl = this.people().map((p) => {
+      if (p.ready && s.created[p.id]) return { ...p, ready: false, stage: 'Created', task: 'Task: send message', history: [ { when: 'Now', what: 'Company, contact, task and note created. Owner: ' + p.owner } ] };
+      if (p.ready && s.skipped[p.id]) return { ...p, ready: false, skippedNow: true, stage: 'Not now', history: [ { when: 'Now', what: 'Skipped. Not sent to CRM.' } ] };
+      return { ...p, stage: p.ready ? 'Ready' : p.stage };
+    });
+    const sel = ppl.find((p) => p.id === s.sel) || ppl[0];
+    const row = (p) => ({
+      ...p, hasTask: !!p.task, stageStyle: this.stageStyle(p.stage),
+      pick: () => this.setState({ sel: p.id, copied: null }),
+      style: 'width: 100%; text-align: left; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; padding: 12px 16px; background: ' + (p.id === sel.id ? '#16202f' : '#12151a') + '; border: 0; border-top: 1px solid #1d2128; cursor: pointer; font-size: 15px; color: #e8eaed'
+    });
+    const fromNetwork = ppl.filter((p) => p.ready || s.created[p.id] || s.skipped[p.id]);
+    const inCrm = ppl.filter((p) => !fromNetwork.includes(p));
+    const readyCount = ppl.filter((p) => p.ready).length;
+    const groups = [
+      { title: 'Picked from your network', note: readyCount ? readyCount + ' not in CRM yet' : 'all handled', rows: fromNetwork.map(row) },
+      { title: 'Already in your CRM, from earlier picks', note: 'stages read from CRM', rows: inCrm.map(row) }
+    ];
+    const msg = s.edits[sel.id] ?? sel.msg ?? '';
+    const isReady = !!sel.ready;
+    const followUp = !!sel.task && sel.task.indexOf('Follow-up') === 0;
+    const justCreated = sel.stage === 'Created';
+    return {
+      syncText: '2 min ago',
+      groups,
+      d: {
+        ...sel,
+        stageStyle: this.stageStyle(sel.stage),
+        isReady,
+        inCrm: !isReady,
+        hasMessage: isReady || followUp || justCreated,
+        canCopy: followUp || justCreated,
+        msg,
+        msgLabel: followUp ? 'Follow-up message' : 'LinkedIn message',
+        msgNote: isReady ? 'goes into the task' : 'from the CRM task',
+        mapping: isReady ? [
+          { k: 'Company', v: sel.company + ' · ' + sel.bid + ' · ' + sel.ind + ', ' + sel.town },
+          { k: 'Contact', v: sel.name + ', ' + sel.role + ' · LinkedIn profile URL' },
+          { k: 'Owner', v: sel.owner + ' (suggested sender)' },
+          { k: 'Task', v: 'Send LinkedIn message · due today · message below' },
+          { k: 'Note', v: 'Why: ' + sel.why + '. Sources: LinkedIn, PRH.' }
+        ] : []
+      },
+      onMsg: (e) => this.setState({ edits: { ...s.edits, [sel.id]: e.target.value } }),
+      create: () => this.setState({ created: { ...s.created, [sel.id]: true } }),
+      skip: () => this.setState({ skipped: { ...s.skipped, [sel.id]: true } }),
+      copy: () => { try { navigator.clipboard.writeText(msg); } catch (e) {} this.setState({ copied: sel.id }); },
+      copyLabel: s.copied === sel.id ? 'Copied' : 'Copy message'
+    };
+  }
+}
+</script>
+</body>
+</html>

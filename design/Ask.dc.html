@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Velho Network, ask</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0b0d10}
+a{color:#e8eaed}a:hover{color:#8db4ff}
+button{font-family:inherit}
+</style>
+</helmet>
+<div style="font-family: 'Geist', system-ui, sans-serif; background: #0b0d10; color: #e8eaed; min-height: 100vh; font-size: 15px; line-height: 1.45; display: flex; flex-direction: column">
+
+  <header style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 32px; border-bottom: 1px solid #1d2128">
+    <div style="display: flex; align-items: center; gap: 12px">
+      <svg width="28" height="28" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="#e8eaed"></rect><circle cx="9" cy="16" r="2.6" fill="#0b0d10"></circle><circle cx="16" cy="9" r="2.6" fill="#0b0d10"></circle><circle cx="16" cy="23" r="2.6" fill="#0b0d10"></circle><circle cx="23.5" cy="16" r="3.2" fill="#3d7bff"></circle><path d="M9 16 L16 9 L23.5 16 L16 23 Z" stroke="#0b0d10" stroke-width="1.4" fill="none"></path></svg>
+      <span style="font-weight: 600; font-size: 17px">Velho Network</span>
+    </div>
+    <nav aria-label="Main" style="display: flex; gap: 4px; flex-wrap: wrap">
+      <a href="Import.dc.html" style="height: 36px; display: inline-flex; align-items: center; padding: 0 14px; border-radius: 6px; text-decoration: none; font-size: 14px; color: #8b929c">Networks</a>
+      <a href="Main.dc.html" style="height: 36px; display: inline-flex; align-items: center; padding: 0 14px; border-radius: 6px; text-decoration: none; font-size: 14px; color: #8b929c">Who could need Velho</a>
+      <span aria-current="page" style="height: 36px; display: inline-flex; align-items: center; padding: 0 14px; border-radius: 6px; background: #181c22; font-size: 14px">Ask</span>
+      <a href="Outreach.dc.html" style="height: 36px; display: inline-flex; align-items: center; padding: 0 14px; border-radius: 6px; text-decoration: none; font-size: 14px; color: #8b929c">CRM</a>
+    </nav>
+  </header>
+
+  <div style="flex: 1; display: flex; flex-wrap: wrap">
+
+    <section aria-label="By industry" style="flex: 1 1 560px; min-width: 0; padding: 22px 32px; box-sizing: border-box">
+      <h1 style="margin: 0; font-size: 26px; font-weight: 600; letter-spacing: -0.02em">Where your way in is strongest</h1>
+      <p style="margin: 6px 0 16px; color: #8b929c">Industries ranked by decision-makers your team knows. Score is code: strong fits, people known by two of you, and recent changes in the trade register.</p>
+      <div style="overflow-x: auto">
+        <table style="width: 100%; min-width: 560px; border-collapse: collapse; font-size: 14px">
+          <thead>
+            <tr style="color: #8b929c; text-align: left">
+              <th style="padding: 8px 10px; font-weight: 500">Industry</th>
+              <th style="padding: 8px 10px; font-weight: 500; text-align: right">Decision-makers</th>
+              <th style="padding: 8px 10px; font-weight: 500; text-align: right">Strong</th>
+              <th style="padding: 8px 10px; font-weight: 500; text-align: right">Known by both</th>
+              <th style="padding: 8px 10px; font-weight: 500; text-align: right">Changes</th>
+              <th style="padding: 8px 10px; font-weight: 500; width: 120px">Score</th>
+            </tr>
+          </thead>
+          <tbody>
+            <sc-for list="{{inds}}" as="i" hint-placeholder-count="7">
+              <tr onClick="{{i.pick}}" style="{{i.style}}">
+                <td style="padding: 10px; font-weight: 600">{{i.name}}<div style="font-weight: 400; font-size: 12px; color: #6f7782">{{i.tol}}</div></td>
+                <td style="padding: 10px; text-align: right; font-variant-numeric: tabular-nums">{{i.dm}}</td>
+                <td style="padding: 10px; text-align: right; font-variant-numeric: tabular-nums">{{i.strong}}</td>
+                <td style="padding: 10px; text-align: right; font-variant-numeric: tabular-nums">{{i.both}}</td>
+                <td style="padding: 10px; text-align: right; font-variant-numeric: tabular-nums">{{i.sig}}</td>
+                <td style="padding: 10px"><div style="height: 8px; background: #1d2229; border-radius: 4px"><div style="{{i.bar}}"></div></div></td>
+              </tr>
+            </sc-for>
+          </tbody>
+        </table>
+      </div>
+      <div style="margin-top: 14px; background: #12151a; border: 1px solid #1d2128; border-radius: 8px; padding: 12px 14px">
+        <div style="font-weight: 600">{{selInd.name}}: top people</div>
+        <div style="font-size: 14px; color: #c3c8cf; margin-top: 4px">{{selInd.top}}</div>
+      </div>
+    </section>
+
+    <aside aria-label="Ask your network" style="flex: 1 1 520px; max-width: 620px; min-width: 0; box-sizing: border-box; padding: 22px 28px; border-left: 1px solid #1d2128; background: #0e1115; display: flex; flex-direction: column">
+      <h2 style="margin: 0; font-size: 20px; font-weight: 600">Ask your network</h2>
+      <p style="margin: 4px 0 12px; color: #8b929c; font-size: 14px">Works here and in your own Claude through the Velho Network connector, on your Claude subscription.</p>
+
+      <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px">
+        <sc-for list="{{chips}}" as="c" hint-placeholder-count="3">
+          <button type="button" onClick="{{c.pick}}" style="{{c.style}}">{{c.label}}</button>
+        </sc-for>
+      </div>
+
+      <div style="background: #0b0d10; border: 1px solid #2a3039; border-radius: 8px; padding: 12px 14px; font-size: 15px">{{q.text}}</div>
+      <div style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 12px; color: #6f7782; margin: 8px 2px 0">→ {{q.tool}}</div>
+
+      <div style="margin-top: 14px">
+        <p style="margin: 0 0 10px">{{q.summary}}</p>
+        <sc-if value="{{q.hasPeople}}" hint-placeholder-val="{{ true }}">
+          <ul style="list-style: none; margin: 0; padding: 0">
+            <sc-for list="{{q.people}}" as="p" hint-placeholder-count="5">
+              <li style="padding: 10px 0; border-top: 1px solid #1d2128">
+                <div style="display: flex; justify-content: space-between; gap: 10px; align-items: baseline">
+                  <span><span style="font-weight: 600">{{p.name}}</span> <span style="color: #8b929c; font-size: 13px">· {{p.role}}, {{p.company}}</span></span>
+                  <span style="{{p.tagStyle}}">{{p.tag}}</span>
+                </div>
+                <div style="font-size: 13px; color: #c3c8cf; margin-top: 2px">{{p.why}} · via {{p.via}}</div>
+                <button type="button" onClick="{{p.toggle}}" style="margin-top: 4px; background: none; border: 0; padding: 0; height: 28px; color: #8db4ff; font-size: 13px; cursor: pointer">{{p.draftLabel}}</button>
+                <sc-if value="{{p.open}}" hint-placeholder-val="{{ false }}">
+                  <div style="margin-top: 4px; background: #14181d; border: 1px solid #1d2128; border-radius: 6px; padding: 10px 12px; font-size: 14px">{{p.draft}}</div>
+                </sc-if>
+              </li>
+            </sc-for>
+          </ul>
+        </sc-if>
+        <sc-if value="{{q.hasBullets}}" hint-placeholder-val="{{ false }}">
+          <ul style="margin: 0; padding-left: 18px; color: #c3c8cf">
+            <sc-for list="{{q.bullets}}" as="b" hint-placeholder-count="3">
+              <li style="padding: 3px 0">{{b}}</li>
+            </sc-for>
+          </ul>
+        </sc-if>
+      </div>
+      <p style="margin: 16px 0 0; font-size: 12px; color: #6f7782">The list and order come from code; the AI picks the filters and writes the text. Nothing is sent.</p>
+    </aside>
+  </div>
+
+  <footer style="padding: 10px 32px; border-top: 1px solid #1d2128; font-size: 12px; color: #6f7782">Prototype · invented people and companies</footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { q: 'event', ind: 0, open: {} };
+  }
+  renderVals() {
+    const s = this.state;
+    const industries = [
+      { name: 'Metal and machinery', tol: 'TOL 24–30', dm: 22, strong: 15, both: 6, sig: 5, score: 92, top: 'Kaisa Rinne (COO, Rautio Industrial) · Mikko Salo (CEO, Nordtek Components) · Ville Ahonen (Production Director, Kotkan Konepaja)' },
+      { name: 'Logistics and transport', tol: 'TOL 49–53', dm: 14, strong: 9, both: 4, sig: 3, score: 78, top: 'Elina Virta (Head of Operations, Lahden Kuljetus) · Riikka Aalto (COO, Pohjanmaan Rahti) · Markus Lindholm (Logistics Director, Satamakaari)' },
+      { name: 'Plastics and chemicals', tol: 'TOL 20–22', dm: 9, strong: 6, both: 3, sig: 2, score: 64, top: 'Sanna Lehtinen (Tuotantojohtaja, Pohjolan Muovi) · two more' },
+      { name: 'Maritime', tol: 'TOL 30.1, 33.15', dm: 8, strong: 5, both: 2, sig: 1, score: 55, top: 'Tuomas Heikkilä (Director, Meriteollisuus) · two more' },
+      { name: 'Food production', tol: 'TOL 10–11', dm: 11, strong: 4, both: 2, sig: 2, score: 49, top: 'Jari Koskinen (CFO, Kaakon Elintarvike) · three more' },
+      { name: 'Wholesale', tol: 'TOL 46', dm: 10, strong: 3, both: 1, sig: 1, score: 37, top: 'Anna Mäkelä (Logistics Manager, Länsirannikon Tukku) · two more' },
+      { name: 'Construction (lower priority)', tol: 'TOL 41–43', dm: 10, strong: 2, both: 1, sig: 0, score: 24, top: 'Petri Nieminen (Toimitusjohtaja, Rakennus Halla) · one more' }
+    ];
+    const inds = industries.map((it, i) => ({
+      ...it,
+      pick: () => this.setState({ ind: i }),
+      bar: 'height: 8px; border-radius: 4px; background: ' + (i === s.ind ? '#8db4ff' : '#3d7bff') + '; width: ' + it.score + '%',
+      style: 'cursor: pointer; border-top: 1px solid #1d2128; background: ' + (i === s.ind ? '#16202f' : 'transparent')
+    }));
+    const Y = 'you', C = 'your co-founder', B = 'both of you';
+    const invite = (first) => 'Hei ' + first + ', järjestämme marraskuussa Helsingissä pienen pyöreän pöydän keskustelun logistiikan operatiivisille johtajille: miten tilausten käsittelyä ja rahtipapereita on saatu automatisoitua. Mukana on noin kahdeksan ihmistä. Haluaisitko tulla?';
+    const intro = (first, co) => 'Hei ' + first + ', järjestämme marraskuussa logistiikka-alan pyöreän pöydän keskustelun. Kuka ' + co + ' vastaa logistiikan kehittämisestä? Kutsuisin hänet mielelläni mukaan.';
+    const Qs = {
+      event: {
+        label: 'Logistics roundtable invites',
+        text: 'Järjestän marraskuussa logistiikka-alan pyöreän pöydän keskustelun. Kenet verkostosta kannattaa kutsua?',
+        tool: 'people_for_theme(theme: "logistics roundtable", industries: TOL 49–53, roles: operations, logistics, CEO)',
+        summary: 'Verkostossanne on 14 logistiikan päättäjää. Nämä neljä sopivat kutsuttaviksi parhaiten. Kaksi muuta työskentelee kohdeyrityksissä mutta ei päätä, joten heiltä kannattaa kysyä oikeaa henkilöä.',
+        people: [
+          { id: 'e', name: 'Elina Virta', role: 'Head of Operations', company: 'Lahden Kuljetus Oy', why: 'Johtaa operatiivista toimintaa', via: Y, tag: 'Invite', draft: invite('Elina') },
+          { id: 'r', name: 'Riikka Aalto', role: 'COO', company: 'Pohjanmaan Rahti Oy', why: 'Uusi toimitusjohtaja kaupparekisterissä 29.9.', via: B, tag: 'Invite', draft: invite('Riikka') },
+          { id: 'm', name: 'Markus Lindholm', role: 'Logistics Director', company: 'Satamakaari Oy', why: 'Vastaa logistiikasta, satama-alue', via: C, tag: 'Invite', draft: invite('Markus') },
+          { id: 'h', name: 'Henrik Sjöberg', role: 'Head of Supply Chain', company: 'Kvarken Logistics Ab', why: 'Toimitusketjun johtaja', via: C, tag: 'Invite', draft: invite('Henrik') },
+          { id: 'a', name: 'Anna Mäkelä', role: 'Logistics Manager', company: 'Länsirannikon Tukku Oy', why: 'Ei päättäjä, mutta tuntee yrityksen', via: C, tag: 'Ask for intro', draft: intro('Anna', 'teillä') },
+          { id: 'o', name: 'Olli Kettunen', role: 'Transport Planner', company: 'Itä-Suomen Kuljetus Oy', why: 'Ei päättäjä, yritys sopii profiiliin', via: Y, tag: 'Ask for intro', draft: intro('Olli', 'teillä') }
+        ]
+      },
+      rank: {
+        label: 'Rank industries',
+        text: 'Millä toimialalla meillä on vahvin pääsy päättäjiin?',
+        tool: 'rank_industries(owner: team)',
+        summary: 'Metalli- ja konepajateollisuus on selvästi vahvin. Logistiikka on toisena: ihmisiä on vähemmän, mutta kolmessa yrityksessä on tuore muutos.',
+        bullets: [ 'Metalli ja kone: 15 vahvaa osumaa, 6 teidän molempien tuntemaa, 5 tuoretta muutosta', 'Logistiikka: 9 vahvaa, 4 molempien tuntemaa, 3 muutosta', 'Muovi ja kemia: 6 vahvaa, mutta vain 2 muutosta', 'Rakentaminen on matalalla prioriteetilla profiilissanne, siksi viimeisenä' ]
+      },
+      who: {
+        label: 'Who should lead manufacturing?',
+        text: 'Kumpi meistä tuntee enemmän valmistavan teollisuuden päättäjiä?',
+        tool: 'find_people(industries: TOL 10–33, fit: strong) grouped by known_by',
+        summary: 'Co-founderisi tuntee enemmän, ja pidempään.',
+        bullets: [ 'Co-founder: 21 vahvaa osumaa, keskimäärin tuntenut 4 vuotta', 'Sinä: 17 vahvaa osumaa, keskimäärin 2 vuotta', 'Molemmat: 8 henkilöä. Heille viestin kannattaa lähteä siltä, joka on tuntenut pidempään' ]
+      }
+    };
+    const cur = Qs[s.q];
+    const tagStyle = (t) => 'flex-shrink: 0; font-size: 12px; font-weight: 500; border-radius: 999px; padding: 2px 9px; ' + (t === 'Invite' ? 'background: #16284a; color: #8db4ff' : 'background: #2b2314; color: #e0b46a');
+    return {
+      inds,
+      selInd: industries[s.ind],
+      chips: Object.keys(Qs).map((k) => ({ label: Qs[k].label, pick: () => this.setState({ q: k, open: {} }), style: 'height: 32px; padding: 0 12px; border-radius: 999px; font-size: 13px; cursor: pointer; border: 1px solid ' + (s.q === k ? '#8db4ff' : '#2a3039') + '; background: ' + (s.q === k ? '#16284a' : 'transparent') + '; color: ' + (s.q === k ? '#e8eaed' : '#c3c8cf') })),
+      q: {
+        ...cur,
+        hasPeople: !!cur.people,
+        hasBullets: !!cur.bullets,
+        people: (cur.people || []).map((p) => ({ ...p, tagStyle: tagStyle(p.tag), open: !!s.open[p.id], draftLabel: s.open[p.id] ? 'Hide message' : (p.tag === 'Invite' ? 'Write invitation' : 'Write intro request'), toggle: () => this.setState({ open: { ...s.open, [p.id]: !s.open[p.id] } }) })),
+        bullets: cur.bullets || []
+      }
+    };
+  }
+}
+</script>
+</body>
+</html>

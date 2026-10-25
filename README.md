@@ -91,7 +91,7 @@ when showing the app to judges; the demo in `data/` is invented.
 
 ```sh
 # once, inside this repo (needs access to the private repo)
-gh repo clone <owner>/velho-network-data data-real
+gh repo clone Tilapit/velho-network-data data-real
 
 # run on the real data
 DATA_DIR=data-real npm run dev

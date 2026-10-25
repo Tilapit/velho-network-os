@@ -1,0 +1,338 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Velho Network</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0b0d10}
+a{color:#e8eaed}a:hover{color:#8db4ff}
+button{font-family:inherit}
+</style>
+</helmet>
+<div style="font-family: 'Geist', system-ui, sans-serif; background: #0b0d10; color: #e8eaed; min-height: 100vh; font-size: 15px; line-height: 1.45; display: flex; flex-direction: column">
+
+  <header style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 32px; border-bottom: 1px solid #1d2128">
+    <div style="display: flex; align-items: center; gap: 12px">
+      <svg width="28" height="28" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="#e8eaed"></rect><circle cx="9" cy="16" r="2.6" fill="#0b0d10"></circle><circle cx="16" cy="9" r="2.6" fill="#0b0d10"></circle><circle cx="16" cy="23" r="2.6" fill="#0b0d10"></circle><circle cx="23.5" cy="16" r="3.2" fill="#3d7bff"></circle><path d="M9 16 L16 9 L23.5 16 L16 23 Z" stroke="#0b0d10" stroke-width="1.4" fill="none"></path></svg>
+      <span style="font-weight: 600; font-size: 17px">Velho Network</span>
+    </div>
+    <nav aria-label="Main" style="display: flex; gap: 4px; flex-wrap: wrap">
+      <a href="Import.dc.html" style="height: 36px; display: inline-flex; align-items: center; padding: 0 14px; border-radius: 6px; text-decoration: none; font-size: 14px; color: #8b929c">Networks</a>
+      <span aria-current="page" style="height: 36px; display: inline-flex; align-items: center; padding: 0 14px; border-radius: 6px; background: #181c22; font-size: 14px">Who could need Velho</span>
+      <a href="Ask.dc.html" style="height: 36px; display: inline-flex; align-items: center; padding: 0 14px; border-radius: 6px; text-decoration: none; font-size: 14px; color: #8b929c">Ask</a>
+      <a href="Outreach.dc.html" style="height: 36px; display: inline-flex; align-items: center; gap: 8px; padding: 0 14px; border-radius: 6px; text-decoration: none; font-size: 14px; color: #8b929c">CRM <span style="font-size: 12px; background: #16284a; color: #8db4ff; border-radius: 999px; padding: 1px 7px">{{outreachCount}}</span></a>
+    </nav>
+  </header>
+
+  <div style="flex: 1; display: flex; flex-wrap: wrap">
+
+    <section aria-label="Your team's network" style="flex: 999 1 640px; min-width: 0; padding: 22px 32px; box-sizing: border-box">
+      <h1 style="margin: 0; font-size: 28px; font-weight: 600; letter-spacing: -0.02em">Who in your team's network could need Velho</h1>
+      <p style="margin: 6px 0 14px; color: #8b929c">Your and your co-founder's LinkedIn connections, matched to Finnish companies and filtered by your profile.</p>
+
+      <div style="display: flex; flex-wrap: wrap; gap: 18px; align-items: center; margin-bottom: 14px">
+        <div role="group" aria-label="Whose network" style="display: flex; gap: 4px; background: #12151a; border: 1px solid #1d2128; border-radius: 8px; padding: 3px">
+          <sc-for list="{{filters}}" as="f" hint-placeholder-count="3">
+            <button type="button" onClick="{{f.pick}}" aria-pressed="{{f.on}}" style="{{f.style}}">{{f.label}}</button>
+          </sc-for>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 13px">
+          <span style="color: #8b929c">Profile:</span>
+          <sc-for list="{{profile}}" as="pf" hint-placeholder-count="5">
+            <span style="background: #14181d; border: 1px solid #232831; border-radius: 999px; padding: 2px 9px; color: #c3c8cf">{{pf}}</span>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="overflow-x: auto">
+        <div style="position: relative; width: 980px; height: 600px; background: #0e1115; border: 1px solid #1d2128; border-radius: 10px">
+          <sc-for list="{{cols}}" as="c" hint-placeholder-count="4">
+            <div style="{{c.style}}">
+              <div style="font-size: 20px; font-weight: 600; color: #e8eaed">{{c.count}}</div>
+              <div style="font-size: 13px; color: #c3c8cf">{{c.label}}</div>
+              <div style="font-size: 12px; color: #6f7782">{{c.rule}}</div>
+            </div>
+          </sc-for>
+          <sc-for list="{{lines}}" as="l" hint-placeholder-count="40">
+            <div aria-hidden="true" style="{{l.style}}"></div>
+          </sc-for>
+          <sc-for list="{{dots}}" as="d" hint-placeholder-count="60">
+            <div aria-hidden="true" title="{{d.title}}" style="{{d.style}}"></div>
+          </sc-for>
+          <sc-for list="{{sources}}" as="s" hint-placeholder-count="3">
+            <div style="{{s.style}}">
+              <span style="{{s.dotStyle}}"></span>
+              <span style="font-size: 14px; color: #c3c8cf; line-height: 1.25">{{s.label}}</span>
+              <span style="font-size: 12px; color: #6f7782">{{s.sub}}</span>
+            </div>
+          </sc-for>
+          <sc-for list="{{outs}}" as="o" hint-placeholder-count="8">
+            <button type="button" onClick="{{o.pick}}" aria-label="{{o.aria}}" style="{{o.style}}">
+              <span style="{{o.dotStyle}}"></span>
+              <span style="display: flex; flex-direction: column; text-align: left; line-height: 1.2">
+                <span style="font-size: 13px; font-weight: 600; color: #e8eaed">{{o.name}}</span>
+                <span style="font-size: 12px; color: #8b929c">{{o.company}}</span>
+              </span>
+            </button>
+          </sc-for>
+        </div>
+      </div>
+      <p style="margin: 10px 0 0; font-size: 13px; color: #8b929c">Each line is a real link: whose connection, the company it matched in the trade register, and the rule it passed. Ringed in white: both of you know them.</p>
+    </section>
+
+    <aside aria-label="Analysis" style="flex: 1 1 400px; max-width: 520px; min-width: 0; box-sizing: border-box; padding: 22px 28px; border-left: 1px solid #1d2128; background: #0e1115">
+      <sc-if value="{{listMode}}" hint-placeholder-val="{{ true }}">
+        <h2 style="margin: 0 0 4px; font-size: 18px; font-weight: 600">{{listTitle}}</h2>
+        <p style="margin: 0 0 14px; color: #8b929c; font-size: 14px">Strong fit: decides on operations, at a company in your industries. Existing customers in your CRM are left out.</p>
+        <sc-for list="{{rows}}" as="r" hint-placeholder-count="8">
+          <button type="button" onClick="{{r.pick}}" style="{{r.style}}">
+            <span style="display: flex; justify-content: space-between; gap: 10px; align-items: baseline">
+              <span style="font-weight: 600; font-size: 15px; color: #e8eaed">{{r.name}}</span>
+              <span style="{{r.tagStyle}}">{{r.tag}}</span>
+            </span>
+            <span style="color: #8b929c; font-size: 13px">{{r.role}} · {{r.company}}</span>
+            <span style="font-size: 13px; color: #c3c8cf">Known by {{r.via}}</span>
+          </button>
+        </sc-for>
+      </sc-if>
+
+      <sc-if value="{{detailMode}}" hint-placeholder-val="{{ false }}">
+        <button type="button" onClick="{{back}}" style="background: none; border: 0; color: #8db4ff; font-size: 14px; padding: 0; cursor: pointer; height: 32px">← All</button>
+        <div style="display: flex; justify-content: space-between; gap: 12px; align-items: baseline; margin-top: 4px">
+          <h2 style="margin: 0; font-size: 24px; font-weight: 600">{{p.name}}</h2>
+          <span style="{{p.tagStyle}}">{{p.fitLabel}}</span>
+        </div>
+        <div style="color: #8b929c">{{p.role}} · {{p.company}}</div>
+        <div style="font-size: 13px; color: #6f7782; margin-top: 2px">{{p.facts}} · PRH</div>
+
+        <h3 style="margin: 18px 0 4px; font-size: 15px; font-weight: 600">Who knows them</h3>
+        <sc-for list="{{p.knowers}}" as="k" hint-placeholder-count="2">
+          <div style="display: flex; justify-content: space-between; gap: 10px; align-items: baseline; padding: 8px 0; border-top: 1px solid #1d2128">
+            <span><span style="font-weight: 600">{{k.who}}</span> <span style="color: #8b929c; font-size: 14px">· connected {{k.since}}</span></span>
+            <sc-if value="{{k.best}}" hint-placeholder-val="{{ false }}">
+              <span style="flex-shrink: 0; font-size: 12px; color: #8db4ff; background: #16284a; border-radius: 999px; padding: 2px 9px">Suggested sender</span>
+            </sc-if>
+          </div>
+        </sc-for>
+        <div style="font-size: 13px; color: #8b929c; padding-top: 2px">{{p.senderWhy}}</div>
+
+        <h3 style="margin: 16px 0 2px; font-size: 15px; font-weight: 600">Why Velho could matter to them</h3>
+        <ol style="list-style: none; margin: 0; padding: 0">
+          <sc-for list="{{p.reasons}}" as="x" hint-placeholder-count="3">
+            <li style="display: flex; gap: 12px; justify-content: space-between; align-items: baseline; padding: 8px 0; border-top: 1px solid #1d2128">
+              <span>{{x.t}}</span>
+              <span style="flex-shrink: 0; font-size: 12px; color: #c3c8cf; background: #1d2229; border-radius: 999px; padding: 2px 9px">{{x.s}}</span>
+            </li>
+          </sc-for>
+          <li style="display: flex; gap: 12px; justify-content: space-between; align-items: baseline; padding: 8px 0; border-top: 1px solid #1d2128; color: #c3c8cf">
+            <span>{{p.unknown}}</span>
+            <span style="flex-shrink: 0; font-size: 12px; color: #e0b46a; background: #2b2314; border-radius: 999px; padding: 2px 9px">Missing</span>
+          </li>
+        </ol>
+
+        <div style="margin-top: 12px; border: 1px solid #24406f; background: #0f1724; border-radius: 8px; padding: 10px 14px">
+          <div style="display: flex; justify-content: space-between; gap: 10px; align-items: baseline">
+            <span style="font-weight: 600; font-size: 14px">Possible angle for Velho</span>
+            <span style="font-size: 12px; color: #8db4ff; background: #16284a; border-radius: 999px; padding: 2px 9px">Inferred</span>
+          </div>
+          <p style="margin: 4px 0 0; font-size: 14px">{{p.angle}}</p>
+        </div>
+
+        <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 16px">
+          <sc-if value="{{p.canAdd}}" hint-placeholder-val="{{ true }}">
+            <button type="button" onClick="{{add}}" style="height: 44px; padding: 0 18px; border: 0; border-radius: 6px; background: #e8eaed; color: #0b0d10; font-size: 15px; font-weight: 600; cursor: pointer">Send to CRM</button>
+            <button type="button" onClick="{{notFit}}" style="height: 44px; padding: 0 16px; border: 0; border-radius: 6px; background: #1d2229; color: #e8eaed; font-size: 14px; cursor: pointer">Not a fit</button>
+          </sc-if>
+          <sc-if value="{{p.added}}" hint-placeholder-val="{{ false }}">
+            <span style="background: #12301c; color: #8fe0a6; border-radius: 999px; padding: 4px 12px; font-size: 14px; font-weight: 500">In CRM list · message written, owner {{p.sender}}</span>
+            <a href="Outreach.dc.html" style="font-size: 14px; color: #8db4ff">Open CRM view →</a>
+          </sc-if>
+          <sc-if value="{{p.rejected}}" hint-placeholder-val="{{ false }}">
+            <span style="background: #2a1a1a; color: #e59a9a; border-radius: 999px; padding: 4px 12px; font-size: 14px">Marked not a fit</span>
+            <button type="button" onClick="{{undoNotFit}}" style="background: none; border: 0; color: #8db4ff; font-size: 14px; cursor: pointer; height: 36px">Undo</button>
+          </sc-if>
+        </div>
+      </sc-if>
+    </aside>
+  </div>
+
+  <footer style="padding: 10px 32px; border-top: 1px solid #1d2128; font-size: 12px; color: #6f7782">Prototype · invented people and companies</footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { sel: null, filter: 'all', added: { sanna: true, mikko: true, tuomas: true, jari: true, anna: true, petri: true }, notFit: {} };
+  }
+  people() {
+    const Y = 'You', C = 'Co-founder';
+    return [
+      { id: 'kaisa', name: 'Kaisa Rinne', role: 'COO', company: 'Rautio Industrial Oy', facts: 'Metal products · Tampere · since 1987', strong: true,
+        knownBy: [ { who: Y, since: 'Apr 2026' }, { who: C, since: 'Mar 2021' } ], sender: C, senderWhy: 'Both of you know her. Your co-founder has known her five years longer.',
+        reasons: [ { t: 'COO: owns how production and operations run.', s: 'LinkedIn title' }, { t: 'Metal products manufacturer, in your target industries.', s: 'PRH' }, { t: 'Your team knows 3 people at Rautio.', s: 'Your networks' } ],
+        unknown: 'Headcount and current systems', angle: 'Likely interested in connecting production planning to the ERP and cutting manual reporting.' },
+      { id: 'elina', name: 'Elina Virta', role: 'Head of Operations', company: 'Lahden Kuljetus Oy', facts: 'Road freight · Lahti · since 1994', strong: true,
+        knownBy: [ { who: Y, since: 'Sep 2025' } ], sender: Y, senderWhy: 'Only you know her.',
+        reasons: [ { t: 'Head of Operations: decides how dispatch and routes run.', s: 'LinkedIn title' }, { t: 'Road freight, in your target industries.', s: 'PRH' }, { t: 'Connected since September 2025.', s: 'LinkedIn' } ],
+        unknown: 'Headcount and fleet size', angle: 'Likely interested in automating order intake and delivery documents.' },
+      { id: 'mikko', name: 'Mikko Salo', role: 'CEO', company: 'Nordtek Components Oy', facts: 'Precision components · Vaasa · since 2003', strong: true,
+        knownBy: [ { who: C, since: 'Jun 2018' } ], sender: C, senderWhy: 'Only your co-founder knows him.',
+        reasons: [ { t: 'CEO: final say on buying outside help.', s: 'LinkedIn title' }, { t: 'Precision components maker, in your target industries.', s: 'PRH' }, { t: 'Your co-founder also knows their production planner.', s: 'Your networks' } ],
+        unknown: 'Headcount', angle: 'Likely interested in faster quoting and keeping order changes in sync with production.' },
+      { id: 'sanna', name: 'Sanna Lehtinen', role: 'Tuotantojohtaja', company: 'Pohjolan Muovi Oy', facts: 'Plastic products · Kokkola · since 1979', strong: true,
+        knownBy: [ { who: Y, since: 'May 2024' }, { who: C, since: 'Nov 2024' } ], sender: Y, senderWhy: 'Both of you know her. You connected first.',
+        reasons: [ { t: 'Production director: owns the factory floor.', s: 'LinkedIn title' }, { t: 'Plastic products manufacturer, in your target industries.', s: 'PRH' }, { t: 'Both of you are connected to her.', s: 'Your networks' } ],
+        unknown: 'Headcount, and whether they already use a consultancy', angle: 'Likely interested in getting machine and quality data out of spreadsheets into one view.' },
+      { id: 'tuomas', name: 'Tuomas Heikkilä', role: 'Director, Marine Systems', company: 'Meriteollisuus Oy', facts: 'Marine equipment · Turku · since 1998', strong: true,
+        knownBy: [ { who: C, since: 'Feb 2020' } ], sender: C, senderWhy: 'Only your co-founder knows him.',
+        reasons: [ { t: 'Business unit director: decides within his unit.', s: 'LinkedIn title' }, { t: 'Marine equipment manufacturer, in your target industries.', s: 'PRH' }, { t: 'Your team knows 4 people there, one in IT.', s: 'Your networks' } ],
+        unknown: 'Headcount and size of his unit', angle: 'Likely interested in tracking project hours and materials without manual collection.' },
+      { id: 'jari', name: 'Jari Koskinen', role: 'CFO', company: 'Kaakon Elintärvike Oy', facts: 'Food production · Kotka · since 2008', strong: false,
+        knownBy: [ { who: Y, since: 'Aug 2019' } ], sender: Y, senderWhy: 'Only you know him.',
+        reasons: [ { t: 'CFO: approves spend, may not own operations.', s: 'LinkedIn title' }, { t: 'Food production, in your target industries.', s: 'PRH' }, { t: 'Connected in 2019, possibly a cooler contact.', s: 'LinkedIn' } ],
+        unknown: 'Headcount, and who runs operations', angle: 'Likely interested in automating month-end reporting, or in introducing you to operations.' },
+      { id: 'anna', name: 'Anna Mäkelä', role: 'Logistics Manager', company: 'Länsirannikon Tukku Oy', facts: 'Wholesale · Pori · since 1991', strong: false,
+        knownBy: [ { who: C, since: 'Mar 2026' } ], sender: C, senderWhy: 'Only your co-founder knows her.',
+        reasons: [ { t: 'Logistics Manager: knows the problems, may not sign.', s: 'LinkedIn title' }, { t: 'Wholesale, in your target industries.', s: 'PRH' }, { t: 'Connected since March 2026.', s: 'LinkedIn' } ],
+        unknown: 'Headcount, and who she reports to', angle: 'Likely interested in inventory forecasting. Better as an inside view than as the buyer.' },
+      { id: 'petri', name: 'Petri Nieminen', role: 'Toimitusjohtaja', company: 'Rakennus Halla Oy', facts: 'Construction · Oulu · since 2011', strong: false,
+        knownBy: [ { who: Y, since: 'Jun 2026' } ], sender: Y, senderWhy: 'Only you know him.',
+        reasons: [ { t: 'CEO: final say.', s: 'LinkedIn title' }, { t: 'Construction is in your profile, at lower priority.', s: 'PRH + profile' }, { t: 'Connected since June 2026.', s: 'LinkedIn' } ],
+        unknown: 'Headcount', angle: 'Possibly interested in automating site reports and subcontractor paperwork.' }
+    ];
+  }
+  rng(seed) { let s = seed; return () => { s = (s * 1103515245 + 12345) % 2147483648; return s / 2147483648; }; }
+  line(x1, y1, x2, y2, kind) {
+    const dx = x2 - x1, dy = y2 - y1, len = Math.sqrt(dx * dx + dy * dy), deg = Math.atan2(dy, dx) * 180 / Math.PI;
+    const look = { faint: 'height: 1px; background: #1a1f26', lit: 'height: 2px; background: #3d7bff', litDim: 'height: 1px; background: #24406f', sel: 'height: 3px; background: #8db4ff' }[kind];
+    return { style: 'position: absolute; left: ' + x1 + 'px; top: ' + y1 + 'px; width: ' + len.toFixed(1) + 'px; transform-origin: 0 50%; transform: rotate(' + deg.toFixed(2) + 'deg); ' + look };
+  }
+  tagStyle(p, st) {
+    const base = 'flex-shrink: 0; font-size: 12px; font-weight: 500; border-radius: 999px; padding: 2px 9px; ';
+    if (st === 'added') return base + 'background: #12301c; color: #8fe0a6';
+    if (st === 'bad') return base + 'background: #2a1a1a; color: #e59a9a';
+    return base + (p.strong ? 'background: #16284a; color: #8db4ff' : 'background: #1d2229; color: #c3c8cf');
+  }
+  renderVals() {
+    const s = this.state;
+    const ppl = this.people();
+    const F = s.filter;
+    const whoF = F === 'you' ? 'You' : F === 'cof' ? 'Co-founder' : null;
+    const visible = (p) => !whoF || p.knownBy.some((k) => k.who === whoF);
+    const r = this.rng(7);
+    const SRC = [
+      { key: 'You', x: 60, y: 170, label: 'Your connections', sub: '1,512' },
+      { key: 'Co-founder', x: 60, y: 300, label: "Co-founder's connections", sub: '860' },
+      { key: 'PRH', x: 60, y: 450, label: 'Trade register (PRH)', sub: 'open data' }
+    ];
+    const companies = [], fit = [], dms = [];
+    for (let i = 0; i < 40; i++) { const o = r(); companies.push({ x: 290 + (r() - 0.5) * 60, y: 110 + i * 12 + (r() - 0.5) * 5, own: o < 0.5 ? ['You'] : o < 0.85 ? ['Co-founder'] : ['You', 'Co-founder'] }); }
+    for (let i = 0; i < 28; i++) fit.push({ x: 500 + (r() - 0.5) * 50, y: 116 + i * 17 + (r() - 0.5) * 5, co: Math.floor(r() * 40) });
+    for (let i = 0; i < 24; i++) dms.push({ x: 700 + (r() - 0.5) * 16, y: 118 + i * 20, f: Math.floor(r() * 28) });
+    const litCo = [3, 8, 12, 17, 21, 26, 31, 36], litFit = [2, 6, 9, 13, 16, 19, 23, 26], litDm = [1, 4, 7, 10, 13, 16, 19, 22];
+    litFit.forEach((fi, k) => { fit[fi].co = litCo[k]; });
+    litDm.forEach((di, k) => { dms[di].f = litFit[k]; });
+    litCo.forEach((ci, k) => { companies[ci].own = ppl[k].knownBy.map((x) => x.who); });
+    const selIdx = ppl.findIndex((p) => p.id === s.sel);
+    const kindFor = (k) => (k < 0 ? 'faint' : !visible(ppl[k]) ? 'faint' : selIdx < 0 ? 'lit' : k === selIdx ? 'sel' : 'litDim');
+    const lines = [];
+    companies.forEach((c, i) => {
+      const k = litCo.indexOf(i);
+      c.own.forEach((o) => {
+        if (whoF && o !== whoF) return;
+        const src = SRC[o === 'You' ? 0 : 1];
+        lines.push(this.line(src.x, src.y, c.x, c.y, kindFor(k)));
+      });
+      lines.push(this.line(SRC[2].x, SRC[2].y, c.x, c.y, k >= 0 && selIdx === k ? 'sel' : 'faint'));
+    });
+    fit.forEach((f, i) => { const c = companies[f.co]; lines.push(this.line(c.x, c.y, f.x, f.y, kindFor(litFit.indexOf(i)))); });
+    dms.forEach((d, i) => { const f = fit[d.f]; lines.push(this.line(f.x, f.y, d.x, d.y, kindFor(litDm.indexOf(i)))); });
+    const dot = (x, y, size, color, extra) => 'position: absolute; left: ' + (x - size / 2).toFixed(1) + 'px; top: ' + (y - size / 2).toFixed(1) + 'px; width: ' + size + 'px; height: ' + size + 'px; border-radius: 50%; background: ' + color + '; ' + (extra || '');
+    const on = (k) => k >= 0 && visible(ppl[k]) && (selIdx < 0 || selIdx === k);
+    const colorFor = (k, base) => (on(k) ? '#3d7bff' : k >= 0 && visible(ppl[k]) ? '#24406f' : base);
+    const dots = [];
+    companies.forEach((c, i) => {
+      const k = litCo.indexOf(i);
+      const hidden = whoF && c.own.indexOf(whoF) < 0;
+      dots.push({ title: k >= 0 ? ppl[k].company : 'Finnish company', style: dot(c.x, c.y, on(k) ? 11 : 8, colorFor(k, hidden ? '#1a1f26' : '#2a3039')) });
+    });
+    fit.forEach((f, i) => { const k = litFit.indexOf(i); dots.push({ title: k >= 0 ? ppl[k].company + ' fits your industries' : 'Company in your industries', style: dot(f.x, f.y, on(k) ? 11 : 8, colorFor(k, '#2a3039')) }); });
+    dms.forEach((d, i) => { if (litDm.indexOf(i) < 0) dots.push({ title: 'Decision-maker', style: dot(d.x, d.y, 8, '#2a3039') }); });
+    const counts = { all: ['2,104 people', '1,290', '287', '84'], you: ['1,512 people', '934', '212', '61'], cof: ['860 people', '541', '138', '39'] }[F];
+    const cols = [
+      { count: counts[0], label: 'in your networks', rule: '268 known by both', x: 30 },
+      { count: counts[1], label: 'Finnish companies', rule: 'matched by name in PRH', x: 250 },
+      { count: counts[2], label: 'in your industries', rule: 'PRH line of business', x: 460 },
+      { count: counts[3], label: 'decision-makers there', rule: 'title matches your roles', x: 680 }
+    ].map((c) => ({ ...c, style: 'position: absolute; left: ' + c.x + 'px; top: 18px' }));
+    const sources = SRC.map((x) => {
+      const dim = whoF && x.key !== 'PRH' && x.key !== whoF;
+      return { label: x.label, sub: x.sub, style: 'position: absolute; left: ' + (x.x - 7) + 'px; top: ' + (x.y - 7) + 'px; display: flex; flex-direction: column; gap: 4px; width: 130px; opacity: ' + (dim ? 0.3 : 1),
+        dotStyle: 'width: 14px; height: 14px; border-radius: 7px; background: #e8eaed' };
+    });
+    const outs = ppl.map((p, k) => {
+      const d = dms[litDm[k]];
+      const vis = visible(p), lit = vis && (selIdx < 0 || selIdx === k);
+      const both = p.knownBy.length > 1;
+      return {
+        name: p.name, company: p.company, aria: 'Why ' + p.name,
+        pick: () => this.setState({ sel: p.id }),
+        style: 'position: absolute; left: ' + (d.x - 8) + 'px; top: ' + (d.y - 20) + 'px; display: flex; align-items: center; gap: 10px; height: 40px; padding: 0 8px 0 0; background: none; border: 0; cursor: pointer; opacity: ' + (lit ? 1 : vis ? 0.45 : 0.15),
+        dotStyle: 'width: 16px; height: 16px; border-radius: 50%; flex-shrink: 0; background: ' + (s.added[p.id] ? '#8fe0a6' : s.notFit[p.id] ? '#5a3a3a' : '#3d7bff') + '; box-shadow: 0 0 0 2px #0e1115, 0 0 0 ' + (both ? '4px #e8eaed' : '3px ' + (selIdx === k ? '#8db4ff' : '#24406f'))
+      };
+    });
+    const vis = ppl.filter(visible);
+    const rows = vis.map((p) => {
+      const st = s.added[p.id] ? 'added' : s.notFit[p.id] ? 'bad' : null;
+      return {
+        ...p,
+        via: p.knownBy.map((k) => k.who === 'You' ? 'you' : 'your co-founder').join(' and '),
+        pick: () => this.setState({ sel: p.id }),
+        tag: st === 'added' ? 'In CRM' : st === 'bad' ? 'Not a fit' : p.strong ? 'Strong fit' : 'Possible fit',
+        tagStyle: this.tagStyle(p, st),
+        style: 'width: 100%; text-align: left; display: flex; flex-direction: column; gap: 2px; padding: 11px 14px; margin-bottom: 8px; background: #14181d; border: 1px solid #1d2128; border-radius: 8px; cursor: pointer; color: #e8eaed; font-size: 15px' + (st === 'bad' ? '; opacity: 0.5' : '')
+      };
+    });
+    const sel = selIdx >= 0 ? ppl[selIdx] : ppl[0];
+    const filters = [ ['all', 'Whole team'], ['you', 'You'], ['cof', 'Co-founder'] ].map(([k, label]) => ({
+      label, on: F === k ? 'true' : 'false',
+      pick: () => this.setState({ filter: k }),
+      style: 'height: 32px; padding: 0 12px; border: 0; border-radius: 6px; font-size: 14px; cursor: pointer; ' + (F === k ? 'background: #e8eaed; color: #0b0d10; font-weight: 600' : 'background: transparent; color: #c3c8cf')
+    }));
+    return {
+      filters,
+      profile: ['Manufacturing', 'Logistics', 'Food', 'Wholesale', 'Construction (lower)'],
+      cols, lines, dots, sources, outs, rows,
+      listTitle: 'Strongest ' + vis.length + ' of ' + counts[3],
+      outreachCount: String(Object.keys(s.added).filter((k) => s.added[k]).length),
+      listMode: selIdx < 0,
+      detailMode: selIdx >= 0,
+      p: {
+        ...sel,
+        fitLabel: sel.strong ? 'Strong fit' : 'Possible fit',
+        tagStyle: this.tagStyle(sel, null),
+        knowers: sel.knownBy.map((k) => ({ who: k.who, since: k.since, best: k.who === sel.sender })),
+        canAdd: !s.added[sel.id] && !s.notFit[sel.id],
+        added: !!s.added[sel.id],
+        rejected: !!s.notFit[sel.id],
+        sender: sel.sender === 'You' ? 'you' : 'your co-founder'
+      },
+      back: () => this.setState({ sel: null }),
+      add: () => this.setState({ added: { ...s.added, [sel.id]: true } }),
+      notFit: () => this.setState({ notFit: { ...s.notFit, [sel.id]: true } }),
+      undoNotFit: () => this.setState({ notFit: { ...s.notFit, [sel.id]: false } })
+    };
+  }
+}
+</script>
+</body>
+</html>
