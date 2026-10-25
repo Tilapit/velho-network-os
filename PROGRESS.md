@@ -4,6 +4,74 @@ Branch `overnight`. Brief: `OVERNIGHT_PROMPT.md` (wins on conflict), then
 `NETWORK_DEMO_PROMPT.md`, `MOCK_DATA_PROMPT.md`, `PRODUCTION_MCP_PROMPT.md`
 and `design/`.
 
+## LinkedIn Member Data Portability API, real test prepared (25 Oct)
+
+**Status:** built, tested offline with hand-made fixtures, committed, not
+pushed. I did not call LinkedIn and never read, printed or logged the token.
+You run the dry run and the import yourself.
+
+- **Docs first** (learn.microsoft.com, Member Snapshot API and Snapshot
+  Domains):
+  - `GET https://api.linkedin.com/rest/memberSnapshotData?q=criteria&domain=CONNECTIONS`,
+    with `Linkedin-Version: 202312`. It is the only version the endpoint
+    takes; others fail with 426.
+  - `start` counts pages. Keep paging until "No data found for this
+    memberId"; `total` is not reliable.
+  - CONNECTIONS is described as "Name, position, company, and connection
+    date of 1st degree connections". The docs do not promise a profile URL,
+    which is why the coverage report matters.
+  - From one third-party write-up, not LinkedIn: the end of data comes as
+    a 404, and the snapshot can take a while to build after consent.
+- **`DATA_DIR`** already existed (networks, state, PRH cache). It now
+  resolves to an absolute path in one place (`lib/store.ts`, used by
+  `lib/prh.ts`). `data-real/` and `.env*.local` are gitignored. The demo
+  files in `data/demo` are only read.
+- **`lib/linkedin-dma.ts`:**
+  - Fetches CONNECTIONS only, page by page.
+  - Retries 429 and 5xx up to six tries, using Retry-After or a growing
+    pause, with 250 ms between pages.
+  - Stops at once on 401 with a clear message. 403, 426 and "no snapshot
+    yet" have their own messages; none ever holds the token.
+  - Rows map into the Connections.csv model by key name. Emails are
+    dropped before anything is stored. Unknown keys are reported by name
+    only.
+- **CLI `npm run linkedin:sync -- --owner "Friend" [--dry-run]
+  [--no-lookups]`** (`scripts/linkedin-sync.ts`):
+  - It loads `.env.local` itself.
+  - The dry run prints pages, row count and the share of rows with First
+    Name, Last Name, URL (and how many are profile URLs), Company,
+    Position and Connected On (and how many read as dates). It also prints
+    how many emails were dropped and any other keys. No names, no values.
+  - A real import refuses to run without `DATA_DIR`: a real network
+    imported into `data/` would replace your demo networks.
+  - It imports as that teammate, saves a counts-only sync record, then
+    runs the PRH lookups as the app does (only company names go to PRH,
+    cached; Ctrl-C is safe).
+- **Settings → Networks:** a card saying "LinkedIn connected (token
+  expires …)" or "Not connected", the last import's coverage, and the two
+  commands. The CSV upload stays.
+  - The expiry comes from `LINKEDIN_DMA_TOKEN_EXPIRES=YYYY-MM-DD`, if you
+    add it. Without the app's client secret there is no way to ask
+    LinkedIn.
+  - Your running 3310 server shows "Not connected". It probably started
+    before the token went into `.env.local`; a restart picks it up.
+- **Tests** (`tests/linkedin-dma.test.ts`, three; fixtures
+  `tests/fixtures/dma-*.json` with invented people) check:
+  - the URLs and the version header;
+  - paging to the end;
+  - 429 with Retry-After and a 5xx retry;
+  - 401 stops, and 500s give up after six tries;
+  - no snapshot yet, and 426;
+  - the mapping, coverage and CSV round trip through the normal parser;
+  - that no email is stored and the token is never in an error or the
+    status.
+- **Found, not fixed:** an uploaded Connections.csv is stored as uploaded,
+  so its Email Address column (when LinkedIn includes it) sits on disk in
+  `data/sources/networks/`. That breaks "no emails are stored". Blanking
+  the column on upload is a small fix, but it touches the provenance row
+  numbers, so I left it for you to decide. The API path never stores
+  emails.
+
 ## Two quick fixes, then two-way status through MCP (25 Oct)
 
 **Status:** done and committed on `overnight`, not pushed. 48 tests pass

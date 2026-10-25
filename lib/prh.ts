@@ -9,12 +9,13 @@ import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 import { fold } from "./normalize.ts";
+import { dataDir } from "./store.ts";
 
 const YTJ = "https://avoindata.prh.fi/opendata-ytj-api/v3";
 const GAP_MS = Number(process.env.PRH_GAP_MS || 250);
 
 export function cacheDir(): string {
-  return path.join(process.env.DATA_DIR || path.join(process.cwd(), "data"), "cache", "prh");
+  return path.join(dataDir(), "cache", "prh");
 }
 
 export const ytjUrl = (businessId: string) => `https://tietopalvelu.ytj.fi/yritys/${businessId}`;

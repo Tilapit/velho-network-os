@@ -18,6 +18,10 @@ Network does it for the whole team:
   across the team. "Write in Claude" copies a prompt for your own Claude.
 - **Reactions.** Paste a post's reactions list from LinkedIn; names are
   matched to the network and count in the ranking.
+- **LinkedIn API (EU).** Instead of a CSV, a teammate in the EEA can fetch
+  their connections with LinkedIn's Member Data Portability API and their
+  own token: `npm run linkedin:sync -- --owner "Name" --dry-run` first, then
+  with `DATA_DIR=data-real` to import next to the demo.
 - **Signal radar.** Companies in your industries where the trade register
   shows a new managing director, new money, a merger or a board change in the
   last 90 days. Warm rows come first: someone in the team knows a person

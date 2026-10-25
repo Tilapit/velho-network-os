@@ -9,6 +9,7 @@ import { DemoButton, UploadForm } from "@/components/FirstRun";
 import { DeleteAll, DeleteOwner, MatchReview, ProfileForm, type Review } from "@/components/SettingsParts";
 import { MatchProgress } from "@/components/MatchProgress";
 import { ReactionsPanel } from "@/components/ReactionsPanel";
+import { dmaStatus } from "@/lib/linkedin-dma.ts";
 
 export const dynamic = "force-dynamic";
 
@@ -51,6 +52,9 @@ export default async function Settings() {
   const s = net.stats;
   const job = matchJob();
   const token = !!mcpToken();
+  // Whether a LinkedIn token is set; the token itself never leaves the server.
+  const dma = dmaStatus();
+  const pct = (n: number, of: number) => `${of ? Math.round((100 * n) / of) : 0}%`;
   return (
     <>
       <MatchProgress initial={{ ...job }} />
@@ -112,6 +116,23 @@ export default async function Settings() {
               <span>A real network replaces the demo networks.</span>
               <DemoButton label={net.demo ? "Reload demo data" : "Load demo data instead"} />
             </div>
+          </div>
+          <div className="card stack" id="linkedin" style={{ marginTop: 12 }}>
+            <div className="row" style={{ justifyContent: "space-between" }}>
+              <b style={{ fontWeight: 600 }}>LinkedIn data portability API (EU)</b>
+              <span className={dma.connected ? "pill green" : "pill"}>{dma.connected ? `LinkedIn connected (${dma.expires ? `token expires ${fmtDate(dma.expires)}` : "token expiry not set"})` : "Not connected"}</span>
+            </div>
+            <p className="small muted">
+              Instead of a CSV, a teammate in the EEA or Switzerland can fetch their own connections with LinkedIn&apos;s Member Data Portability API (CONNECTIONS only), using a token they made in LinkedIn&apos;s OAuth Token Generator. The token goes in <code>.env.local</code> as <code>LINKEDIN_DMA_TOKEN</code> and is never shown, logged or stored by the app.
+              {dma.connected && !dma.expires ? " Add LINKEDIN_DMA_TOKEN_EXPIRES=YYYY-MM-DD, the date the token tool shows, to see here when it runs out." : ""}
+            </p>
+            {dma.lastSync ? (
+              <p className="small">
+                Last import into this data folder: {fmtDate(dma.lastSync.at.slice(0, 10))}, {dma.lastSync.coverage.rows.toLocaleString("en-US")} connections as {dma.lastSync.owner}. Profile URL in {pct(dma.lastSync.coverage.profileUrl, dma.lastSync.coverage.rows)}, company in {pct(dma.lastSync.coverage.company, dma.lastSync.coverage.rows)}, position in {pct(dma.lastSync.coverage.position, dma.lastSync.coverage.rows)}, connected on in {pct(dma.lastSync.coverage.connectedOn, dma.lastSync.coverage.rows)}.
+              </p>
+            ) : null}
+            <pre className="code">{`npm run linkedin:sync -- --owner "Name" --dry-run\nDATA_DIR=data-real npm run linkedin:sync -- --owner "Name"`}</pre>
+            <p className="xs faint">The first line only counts what came back; the second imports into data-real/, next to this demo, and looks the companies up in PRH.</p>
           </div>
         </section>
 

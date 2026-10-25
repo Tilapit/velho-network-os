@@ -1,12 +1,14 @@
 // Where the team's networks live on disk. One LinkedIn Connections.csv per
 // owner in data/sources/networks/, listed in data/sources/owners.json.
 // Everything under data/sources, data/cache and data/state.json is gitignored.
+// DATA_DIR moves all of it (networks, state, PRH cache) elsewhere, e.g.
+// DATA_DIR=data-real for real networks next to the demo.
 import fs from "node:fs";
 import path from "node:path";
 import { parseConnections } from "./ingest.ts";
 import { slug } from "./normalize.ts";
 
-export const dataDir = () => process.env.DATA_DIR || path.join(process.cwd(), "data");
+export const dataDir = () => path.resolve(process.env.DATA_DIR || "data");
 export const sourcesDir = () => path.join(dataDir(), "sources");
 const networksDir = () => path.join(sourcesDir(), "networks");
 const ownersFile = () => path.join(sourcesDir(), "owners.json");

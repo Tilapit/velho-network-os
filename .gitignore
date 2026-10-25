@@ -10,3 +10,7 @@ _archive/
 data/cache/
 data/stress/
 dist/
+
+# Real networks for a test next to the demo (DATA_DIR=data-real), and any local secrets.
+data-real/
+.env*.local

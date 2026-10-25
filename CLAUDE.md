@@ -15,7 +15,8 @@ The founders use it from their own Claude through an MCP connector.
   inferred or missing. The UI shows its source next to it: LinkedIn title,
   PRH, PRH notices, Your network, Your team.
 - **No scraping and no assumed API access.** Data comes from:
-  - each teammate's LinkedIn Connections.csv export
+  - each teammate's LinkedIn Connections.csv export, or the same data from
+    LinkedIn's Member Data Portability API with the member's own token
   - PRH open data (YTJ companies, registered notices)
   - the team's own input
 - **People merge by profile URL only.** A name alone never merges two people.
@@ -57,6 +58,9 @@ The founders use it from their own Claude through an MCP connector.
 ## Code map
 
 - `lib/ingest.ts`: LinkedIn Connections.csv parser with an import report.
+- `lib/linkedin-dma.ts`: LinkedIn Member Snapshot API, CONNECTIONS only:
+  paging, polite retries, rows into the Connections.csv model (emails
+  dropped), field coverage. CLI in `scripts/linkedin-sync.ts`.
 - `lib/store.ts`: one CSV per owner in `data/sources/networks/`, demo load,
   delete per owner and delete all.
 - `lib/prh.ts`: PRH YTJ client (polite queue, disk cache) and the match rules
@@ -111,6 +115,12 @@ The founders use it from their own Claude through an MCP connector.
   - `node scripts/snapshot-demo-data.mjs`: rebuild the demo snapshots
   - `node scripts/make-demo-reactions.mjs`: rebuild the demo's reactions
   - `npm run skill:zip`, `npm run tunnel` (claude.ai, needs `MCP_TOKEN`)
+  - `npm run linkedin:sync -- --owner "Name" [--dry-run]`: one member's
+    connections from LinkedIn's Member Data Portability API (EU DMA,
+    CONNECTIONS only), token in `.env.local` as `LINKEDIN_DMA_TOKEN` (never
+    printed, logged or committed). A real import needs `DATA_DIR`.
+- `DATA_DIR` (default `data/`) moves networks, state and the PRH cache, e.g.
+  `DATA_DIR=data-real` (gitignored) for real networks next to the demo.
 
 ## Design
 
