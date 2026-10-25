@@ -61,8 +61,9 @@ export const fmtDate = (iso?: string) => (iso ? `${Number(iso.slice(8, 10))} ${M
 
 /** "Oy Lunawood Ltd" -> "Lunawood" for running text. */
 export function shortName(n: string): string {
-  let s = n.replace(/^(Oy|Ab)\s+/, "");
-  while (/\s+(Oyj|Oy|Ab|Abp|Ltd|Plc|Ltd\.)$/.test(s)) s = s.replace(/\s+(Oyj|Oy|Ab|Abp|Ltd|Plc|Ltd\.)$/, "");
+  // Any capitals: "OY Bahn Express AB" -> "Bahn Express".
+  let s = n.replace(/^(Oy|Ab)\s+/i, "");
+  while (/\s+(Oyj|Oy|Ab|Abp|Ltd|Plc|Ltd\.)$/i.test(s)) s = s.replace(/\s+(Oyj|Oy|Ab|Abp|Ltd|Plc|Ltd\.)$/i, "");
   return s.replace(/,$/, "").trim() || n;
 }
 

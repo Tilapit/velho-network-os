@@ -51,7 +51,7 @@ export async function writeAngle(a: Analysis): Promise<{ text: string; by: "clau
 
 // ---------- "Draft here" ----------
 
-type DraftContext = { type: string; facts: string[]; mustNotUse: string[]; tone: string[]; examples: string[] };
+type DraftContext = { type: string; facts: string[]; mustNotUse: string[]; tone: string[]; examples: string[]; voice?: string };
 /** The names to keep on this machine: the person's, the sender's and the other teammates'. */
 export type DraftNames = { name: string; sender: string; owners: string[] };
 
@@ -82,6 +82,7 @@ export function draftPrompt(ctx: DraftContext, n: DraftNames): string {
     ...ctx.mustNotUse.map((f) => `- ${mask(f)}`),
     "Tone rules:",
     ...ctx.tone.map((f) => `- ${f}`),
+    ...(ctx.voice ? ["Velho's voice (follow it exactly):", ctx.voice] : []),
     "Examples about made-up companies (for style only, never for facts):",
     ...ctx.examples.map((f) => `- ${f}`),
   ].join("\n");

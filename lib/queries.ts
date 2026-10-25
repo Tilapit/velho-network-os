@@ -9,6 +9,7 @@ import { daysBetween, fold, isoDate } from "./normalize.ts";
 import { candidateOf, cleanName, matchReactions, nameKey, postsWithin, readReactions, RECENT_DAYS, type ParsedReaction } from "./reactions.ts";
 import { COOLDOWN_DAYS, contactsFor, isOyj, loadNetwork, SNOOZE_DAYS, type Contact, type Fit, type Network } from "./network.ts";
 import { ytjUrl } from "./prh.ts";
+import { readVoice, templateMessage, type MessageType } from "./voice.ts";
 
 export const appUrl = (p: string) => `${(process.env.APP_BASE_URL || "http://localhost:3100").replace(/\/$/, "")}${p}`;
 
@@ -597,57 +598,69 @@ export function getRadar(net: Network, f: RadarFilter = {}): { window: { start: 
 
 // ---------- messages ----------
 
+/** The short form of config/velho-voice.md, for clients that read only the list. */
 export const TONE_RULES = [
-  "Write in Finnish unless the person's name, title or company suggests another language; Swedish for Finland-Swedish companies is fine.",
-  "Short: three to five sentences, under 80 words.",
-  "Concrete: name one thing from the facts below, never a generic compliment.",
-  "One clear ask, easy to say yes or no to (a 20-minute call, an intro, an invite).",
-  "No buzzwords (no 'revolutionary', 'game-changing', 'synergy', 'leverage', 'disruptive').",
-  "Never invent facts. Use only the facts listed here. Do not mention headcount, revenue or anything marked missing.",
-  "Never mention that they reacted to or liked a post.",
-  "The message is sent by the suggested sender, from their own LinkedIn or email. This app sends nothing.",
+  "One person writing to someone they know. Casual Finnish (Swedish for a Finland-Swedish company is fine), under 500 characters.",
+  "Open with a greeting and a question about them or their company: 'Hei Olli! Mitä Intergridille kuuluu?'. Only exception: a reaction to our post may be mentioned, they know they did it.",
+  "Then one sentence on Velho, one concrete question about their work, one simple ask (a 20-minute call or coffee).",
+  "Never say where information came from: no kaupparekisteri, PRH, registered notices, new capital, board or MD changes, scores or 'our analysis'. Signals decide who and when, never what the message says.",
+  "Never invent facts. No hype. No 'ihan ok sanoa ei'.",
+  "The suggested sender sends it from their own LinkedIn. This app sends nothing.",
 ];
 
-// Examples use made-up companies on purpose: the message must take its facts
-// from `facts`, never from an example.
-const EXAMPLES: Record<"direct" | "ask_intro" | "event_invite", string[]> = {
-  direct: [
-    "Hei Laura, näin että Esimerkki Konepajalla vaihtui hiljattain toimitusjohtaja. Teemme Velhossa tekoälyä tuotannon suunnitteluun ja tarjouslaskentaan suomalaisille valmistajille. Olisiko sinulla 20 minuuttia ensi viikolla? Kerron kahdesta lyhyestä esimerkistä. Ihan ok sanoa ei.",
-    "Hej Erik, jag såg att Exempel Ab nyligen registrerat en fusion. Vi på Velho hjälper industriföretag att få ut mer av sina system med AI. Har du 20 minuter för ett kort samtal nästa vecka?",
-  ],
-  ask_intro: [
-    "Hei Jussi, pitkästä aikaa! Pieni pyyntö: kuka Esimerkki Oy:llä vastaa tuotannon kehittämisestä? Haluaisin esitellä Velhon tekoälytyötä valmistajille lyhyesti. Jos tiedät oikean ihmisen, esittely olisi iso apu.",
-    "Hei Anna, tiedätkö kuka teillä päättää ERP- ja tuotantodatan kehityksestä? Velho tekee juuri sellaista, ja haluaisin kysyä häneltä 20 minuuttia. Kiitos jo etukäteen!",
-  ],
-  event_invite: [
-    "Hei Matti, järjestämme marraskuussa Helsingissä pienen aamiaispyöreän pöydän logistiikan johtajille: kahdeksan osallistujaa, aiheena tekoäly kuljetussuunnittelussa. Ajattelin, että sinulla olisi tähän paljon annettavaa. Lähetänkö kutsun?",
-    "Hei Tiina, kokoamme tuotantojohtajien pyöreän pöydän tekoälystä valmistavassa teollisuudessa. Ei myyntipuheita, vain kokemusten vaihtoa. Olisitko kiinnostunut?",
-  ],
+// Made-up people and companies on purpose: facts come from `facts`, never from an example.
+const EXAMPLES: Record<MessageType, string[]> = {
+  direct: ["Hei Olli! Mitä Intergridille kuuluu? Olen nykyään mukana Velhossa, jossa rakennamme tekoälyä ja automaatiota yritysten raportointiin ja arjen prosesseihin. Kiinnostaisi kuulla, missä teillä menee eniten aikaa käsityöhön. Ehtisitkö 20 minuutin puheluun tai kahville ensi viikolla?"],
+  ask_intro: ["Hei Jussi! Mitä Esimerkki Konepajalle kuuluu? Olen nykyään mukana Velhossa, jossa rakennamme tekoälyä ja automaatiota yritysten raportointiin ja arjen prosesseihin. Kuka teillä vastaa prosesseista ja raportoinnista? Voisitko esitellä meidät?"],
+  reaction_followup: ["Hei Anna! Kiitos kun reagoit postaukseeni tekoälystä tuotannon suunnittelussa! Olen nykyään mukana Velhossa, jossa rakennamme tekoälyä ja automaatiota yritysten raportointiin ja arjen prosesseihin. Kiinnostaisi kuulla, missä teillä menee eniten aikaa käsityöhön. Ehtisitkö 20 minuutin puheluun tai kahville ensi viikolla?"],
+  follow_up: ["Hei Laura! Palaan vielä aiempaan viestiini. Ehtisitkö jossain vaiheessa 20 minuutin puheluun tai kahville? Hyvää viikkoa!"],
+  event_invite: ["Hei Matti! Mitä Testi Logistiikalle kuuluu? Kokoamme marraskuussa pienen porukan aamiaiselle juttelemaan tekoälystä kuljetussuunnittelussa. Haluaisitko mukaan?"],
 };
 
-export function messageContext(net: Network, args: { person_id: string; type: "direct" | "ask_intro" | "event_invite"; theme?: string }) {
+/** An automatic post label ("Janne's post, 22 Oct 2026") says nothing about the topic. */
+const autoLabel = (p: string) => /^(your|a|.+'s) post, \d/i.test(p);
+
+/** The type that fits this person now: a follow-up when one is due, a reaction to thank for, an intro, or direct. */
+export function messageTypeFor(net: Network, c: Contact): MessageType {
+  if (c.outreach.followUpDue) return "follow_up";
+  if (postsWithin(c, net.today, RECENT_DAYS)) return "reaction_followup";
+  return c.approach === "ask_intro" ? "ask_intro" : "direct";
+}
+
+export function messageContext(net: Network, args: { person_id: string; type?: MessageType; theme?: string }) {
   const c = net.byId.get(args.person_id);
   if (!c) return null;
   const a = analyse(net, c);
+  const type = args.type ?? messageTypeFor(net, c);
+  const firstName = c.name.split(" ")[0];
+  const company = a.company.businessId || a.company.raw ? a.company.name : "";
+  const reaction = [...c.reactions].sort((x, y) => (y.postDate ?? y.at).localeCompare(x.postDate ?? x.at))[0];
+  const ownPost = !!reaction && reaction.author === c.sender.owner;
+  const postTopic = reaction && !autoLabel(reaction.post) ? reaction.post : undefined;
+  // What the message may use. Registered changes, scores and sources are left
+  // out on purpose: they decided who and when, and never appear in the text.
   const facts = [
-    `Name: ${c.name}`,
-    c.position ? `Title (LinkedIn): ${c.position}` : null,
-    `Company: ${a.company.name}${a.company.industry ? `, ${a.company.industry}` : ""}${a.company.town ? `, ${a.company.town}` : ""}${a.company.matchStatus === "inferred" ? " (company match not confirmed)" : ""}`,
-    ...a.reasons.filter((r) => r.kind === "signal").map((r) => `${r.text} (PRH)`),
-    c.colleagues ? `The team knows ${c.colleagues} other people at ${a.company.name}.` : null,
-    `Sender: ${c.sender.ownerName}, connected ${fmtDate(c.sender.connectedOn)}${c.knownBy.length > 1 ? `; also known by ${c.knownBy.slice(1).map((k) => k.ownerName).join(", ")}` : ""}.`,
+    `First name: ${firstName}`,
+    c.position ? `Title: ${c.position}` : null,
+    company ? `Company: ${company}${a.company.industry ? ` (${a.company.industry.toLowerCase()})` : ""}` : null,
+    type === "reaction_followup" && reaction ? `They reacted to ${ownPost ? "the sender's own" : "the team's"} LinkedIn post${postTopic ? ` about "${postTopic}"` : ""}${reaction.postDate ? ` on ${fmtDate(reaction.postDate)}` : ""}. This may be mentioned.` : null,
+    type === "follow_up" && c.status ? `The sender wrote to them on ${fmtDate(c.status.at.slice(0, 10))}; no reply yet.` : null,
+    `Sender: ${c.sender.ownerName}.`,
     args.theme ? `Theme or event: ${args.theme}` : null,
-    "About Velho: a small Finnish AI and software consultancy that helps SMEs with physical operations use AI and automation in planning, quoting, reporting and their existing systems.",
+    "About Velho: AI and automation for Finnish companies' reporting, planning and everyday processes, on top of the systems they already use.",
   ].filter(Boolean) as string[];
   return {
     person: { id: c.id, name: c.name, url: appUrl(`/people/${c.id}`) },
-    type: args.type,
+    type,
     sender: c.sender.ownerName,
     facts,
-    mustNotUse: ["Headcount (missing)", "Revenue (missing)", "Reactions to posts", ...a.missing.map((m) => `${m.label}: ${m.text}`)],
+    mustNotUse: ["Where any fact came from (trade register, PRH, notices, LinkedIn data)", "Registered changes: new managing director, board, share issue, capital, merger", "Scores, fit, 'our analysis'", "Headcount and revenue (unknown)"],
     tone: TONE_RULES,
-    examples: EXAMPLES[args.type],
-    note: "Write the message from these facts only. The server never calls an LLM and never sends anything.",
+    voice: readVoice(),
+    examples: EXAMPLES[type],
+    // The app's own draft in this voice, used when no API key is set.
+    template: templateMessage({ type, firstName, company, area: c.role.area, postTopic, ownPost, theme: args.theme }),
+    note: "Write the message from these facts in the voice of config/velho-voice.md (`voice`). Under 500 characters. The server never calls an LLM and never sends anything.",
   };
 }
 

@@ -38,8 +38,8 @@ machinery" also work).
 
 **Weekly review.** `this_week` gives the five, chosen by code (the same as
 the app's "This week" block). For each: their one-line `why`, the suggested
-sender and the link. Then `message_context` for each and write a short draft
-per person. Say which teammate should send each one. It may give fewer than
+sender and the link. The `why` is for the user, never for the message. Then
+`message_context` for each and write a short draft per person. Say which teammate should send each one. It may give fewer than
 five: no sender gets more than their share. `askForIntro` lists a few people
 at target companies who do not decide but can introduce; mention them
 briefly, with approach `ask_intro`. Then `follow_ups`: who
@@ -97,21 +97,28 @@ screenshot of it, call `add_reactions` with a short `post_label`, the
   are not in the networks and are not stored.
 - Never look anything up on LinkedIn yourself.
 
-## Writing messages (Velho's tone)
+## Writing messages (Velho's voice)
 
-- Call `message_context` first and use only its `facts`. Never invent a fact,
-  a number, a mutual acquaintance or a reason.
-- Finnish by default; Swedish if the company or person clearly is
-  Finland-Swedish and the user agrees; English for international people.
-- Short: three to five sentences, under 80 words. Concrete: one fact from the
-  context, not a compliment.
-- One clear ask that is easy to answer (20 minutes, an intro, an invite).
-  "Ihan ok sanoa ei" is fine.
-- No buzzwords: no "mullistava", "game-changer", "synergia", "disruptive".
-- Never mention that someone reacted to or liked a post. Never mention
-  headcount, revenue or anything listed as missing.
-- The suggested sender sends it from their own LinkedIn or email. You only
-  draft; nothing is sent by you or the server.
+`message_context` returns `voice`, Velho's voice from `config/velho-voice.md`:
+follow it exactly. In short:
+
+- One person writing to someone they know. Casual Finnish (Swedish for a
+  Finland-Swedish company if the user agrees), under 500 characters.
+- Open with a greeting and a question about them or their company: "Hei Olli!
+  Mitä Intergridille kuuluu?". The only exception: a reaction to our post may
+  be mentioned ("Kiitos kun reagoit postaukseeni …!"), because they know.
+- Then one sentence on Velho (AI and automation for reporting, planning and
+  everyday processes, on top of the systems they already use), one concrete
+  question about their work, one simple ask: a 20-minute call or coffee.
+- Never say where anything came from: no kaupparekisteri, PRH, registered
+  notices, new capital, board or managing director changes, scores, fit or
+  "our analysis". Signals decide who and when, never what the message says.
+- Use only `facts`. Never invent a fact. No hype, no "ihan ok sanoa ei".
+- Types: `direct`, `ask_intro` ("Kuka teillä vastaa …? Voisitko esitellä
+  meidät?"), `reaction_followup`, `follow_up` (short, friendly, no guilt),
+  `event_invite`. Omit the type and `message_context` picks the one that fits.
+- The suggested sender sends it from their own LinkedIn. You only draft;
+  nothing is sent by you or the server.
 
 ## Privacy
 

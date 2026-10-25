@@ -315,3 +315,34 @@ test("reactions end to end: LinkedIn's current copy format, saved, then seen on 
   assert.ok(aino.parts.some((p) => p.label === "Reacted"), "in the score");
   assert.ok(thisWeek(after).some((w) => w.kind === "reaction"), "a reaction reaches This week");
 });
+
+test("messages: Velho's voice, no source ever named, the type that fits, under 500 characters", async () => {
+  const { messageContext } = await import("../lib/queries.ts");
+  const { templateMessage, voiceProblems, allative, readVoice } = await import("../lib/voice.ts");
+  assert.match(readVoice(), /Hei Olli! Mitä Intergridille kuuluu\?/);
+  assert.equal(allative("Intergrid"), "Intergridille");
+  assert.equal(allative("Esimerkki Konepaja"), "Esimerkki Konepajalle");
+  const { shortName } = await import("../lib/analysis.ts");
+  assert.equal(allative(shortName("OY Bahn Express AB")), "Bahn Expressille", "legal forms in capitals are dropped");
+  assert.equal(allative("Esimerkki Rahti"), "teille", "gradation (Rahti -> Rahdille) is never guessed");
+  assert.equal(
+    templateMessage({ type: "direct", firstName: "Olli", company: "Intergrid" }),
+    "Hei Olli! Mitä Intergridille kuuluu? Olen nykyään mukana Velhossa, jossa rakennamme tekoälyä ja automaatiota yritysten raportointiin ja arjen prosesseihin. Kiinnostaisi kuulla, missä teillä menee eniten aikaa käsityöhön. Ehtisitkö 20 minuutin puheluun tai kahville ensi viikolla?",
+  );
+  assert.match(templateMessage({ type: "ask_intro", firstName: "Jussi", company: "Testi" }), /Kuka teillä vastaa prosesseista ja raportoinnista\? Voisitko esitellä meidät\?$/);
+  assert.match(templateMessage({ type: "reaction_followup", firstName: "Anna", company: "Testi", postTopic: "tekoälystä", ownPost: true }), /^Hei Anna! Kiitos kun reagoit postaukseeni tekoälystä!/);
+  assert.ok(templateMessage({ type: "follow_up", firstName: "Laura", company: "Testi" }).length < 160);
+  assert.ok(voiceProblems("Hei! Näin kaupparekisteristä että teille kirjattiin uusi toimitusjohtaja.").length > 0);
+  // A company with a fresh registered change: the change chose the person; the message never says it.
+  const signals = { fetchedAt: "2026-10-24T00:00:00Z", start: "2026-07-26", end: "2026-10-24", complete: true, pages: 1, signals: [{ businessId: "1000001-1", company: "Esimerkki Konepaja Oy", tol: "28150", type: "md_change" as const, date: "2026-10-01", recordNumber: "2026/9", entryCodes: ["TOIM"] }] };
+  const n = buildNetwork({ networks: [{ owner: owner("you", "You"), text }], resolved: new Map(Object.entries(companies)), state, profile: DEFAULT_PROFILE, signals, today: "2026-10-24" });
+  const aino = n.contacts.find((c) => c.name === "Aino Aalto")!;
+  for (const type of ["direct", "ask_intro", "reaction_followup", "follow_up", "event_invite"] as const) {
+    const ctx = messageContext(n, { person_id: aino.id, type, theme: "tekoäly tuotannossa" })!;
+    assert.deepEqual(voiceProblems(ctx.template), [], `${type}: ${ctx.template}`);
+    assert.ok(!ctx.facts.some((f) => /PRH|notice|registered|managing director|kaupparekister/i.test(f)), `${type} facts name no source`);
+    assert.ok(ctx.voice.length > 200);
+  }
+  assert.equal(messageContext(n, { person_id: aino.id })!.type, "direct");
+  assert.equal(messageContext(n, { person_id: n.contacts.find((c) => c.name === "Olli Ojala")!.id })!.type, "ask_intro");
+});

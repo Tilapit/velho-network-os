@@ -6,7 +6,7 @@ const ITEMS = [
   { href: "/", label: "Network" },
   { href: "/people", label: "People" },
   { href: "/radar", label: "Signal radar" },
-  { href: "/themes", label: "Themes" },
+  // Themes stays reachable at /themes and through MCP (people_for_theme); not in the menu.
   { href: "/settings", label: "Settings" },
 ];
 

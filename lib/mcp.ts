@@ -6,6 +6,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { loadNetwork } from "./network.ts";
 import { GROUPS } from "./industry.ts";
+import { MESSAGE_TYPES } from "./voice.ts";
 import { addReactions, appUrl, canIntroduce, findPeople, followUps, getCompany, getPerson, getRadar, messageContext, peopleForTheme, rankIndustries, recordStatus, thisWeek } from "./queries.ts";
 import type { SignalType } from "./signals.ts";
 
@@ -204,10 +205,10 @@ export function buildMcpServer(): McpServer {
     "message_context",
     {
       title: "Facts for a message",
-      description: `The only facts a message to this person may use, Velho's tone rules (Finnish by default, short, concrete, one clear ask, no buzzwords, never invent facts) and two examples. You write the message for the user; the server never calls an LLM and never sends anything. The suggested sender sends it themselves.`,
+      description: `The facts a message to this person may use, Velho's voice (config/velho-voice.md, in \`voice\`), an example and the app's own \`template\`. Types: direct (a decision-maker), ask_intro (a colleague who can introduce), reaction_followup (reacted to our post: thank them first), follow_up (sent 7+ days ago, no reply), event_invite. Omit type to get the one that fits now. A message reads like one person writing to someone they know and never says where a fact came from (no trade register, PRH, notices, capital, board changes or scores). You write it; the server never calls an LLM and never sends anything.`,
       inputSchema: {
         person_id: z.string(),
-        type: z.enum(["direct", "ask_intro", "event_invite"]),
+        type: z.enum(MESSAGE_TYPES).optional().describe("Omit for the type that fits this person now"),
         theme: z.string().optional().describe("For event_invite: the event or theme"),
       },
       annotations: { readOnlyHint: true },

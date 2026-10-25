@@ -73,7 +73,7 @@ export function PersonAnalysis({ data, onBack, backLabel = "All", standalone }: 
   async function draftHere() {
     const id = data.id;
     setDraft({ busy: true });
-    const r = await fetch(`/api/people/${id}/draft`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ type: data.approach === "ask_intro" ? "ask_intro" : "direct" }) });
+    const r = await fetch(`/api/people/${id}/draft`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({}) });
     const j = await r.json().catch(() => ({ error: "Failed" }));
     // Another person may be open by now: their panel must not get this draft.
     if (shown.current !== id) return;
@@ -112,16 +112,14 @@ export function PersonAnalysis({ data, onBack, backLabel = "All", standalone }: 
       <div className="next-step">
         <div className="row" style={{ gap: 8 }}>
           <WriteInClaude prompt={data.prompt} className="btn small primary" />
-          {data.claude ? (
-            <button type="button" className="btn small" onClick={draftHere} disabled={draft.busy}>
-              {draft.busy ? "Drafting…" : "Draft here"}
-            </button>
-          ) : null}
+          <button type="button" className="btn small" onClick={draftHere} disabled={draft.busy}>
+            {draft.busy ? "Drafting…" : "Draft here"}
+          </button>
           <span className="small muted">Suggested sender: {senderOwner}</span>
         </div>
         <p className="xs faint" style={{ marginTop: 6 }}>
           Write in Claude copies a prompt to paste into your own Claude, connected to this app (Settings → Connect to Claude); Claude writes the message from the facts below.
-          {data.claude ? " Draft here asks Claude from this app, with the name left out." : ""} Nothing is sent from here: {senderOwner === "You" ? "you send it from your own LinkedIn." : `${senderOwner} sends it from their own LinkedIn.`}
+          {data.claude ? " Draft here asks Claude from this app, with the name left out." : " Draft here writes a template in Velho's voice (no API key set)."} Nothing is sent from here: {senderOwner === "You" ? "you send it from your own LinkedIn." : `${senderOwner} sends it from their own LinkedIn.`}
         </p>
         {draft.text ? (
           <div className="angle">
