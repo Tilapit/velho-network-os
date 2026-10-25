@@ -1,7 +1,7 @@
 // Read and write operations shared by the web app and the MCP server. All
 // ranking and filtering is here, in code; an LLM only picks the arguments.
 import { analyse, fmtDate, shortName, type Analysis } from "./analysis.ts";
-import { GROUP, GROUPS, groupForTol, industryRule, type GroupId } from "./industry.ts";
+import { GROUP, GROUPS, groupForTol, industryRule, requiresEmployer, type GroupId } from "./industry.ts";
 import { matchTerm } from "./roles.ts";
 import { SIGNAL_TYPES, addDays, signalLabel, type CompanySignal, type SignalType } from "./signals.ts";
 import { addReactionRows, setStatus, STATUS_LABEL, type Reaction, type Status } from "./state.ts";
@@ -320,7 +320,7 @@ export type FunnelStep = { label: string; count: number; href: string; rest?: { 
 const isFound = (c: Contact) => !!c.match?.company && !c.match.foreign && (c.match.status === "verified" || c.match.status === "inferred");
 
 /** Which /people?step= list each funnel step links to. */
-export const FUNNEL_STEPS = ["all", "found", "unmatched", "industries", "other", "fits", "intro"] as const;
+export const FUNNEL_STEPS = ["all", "found", "unmatched", "industries", "other", "employer", "small", "fits", "intro"] as const;
 export type FunnelList = (typeof FUNNEL_STEPS)[number];
 
 /** The people behind one funnel step, in rank order. */
@@ -331,13 +331,16 @@ export function funnelPeople(net: Network, step: FunnelList, owner?: string): Co
   if (step === "unmatched") return all.filter((c) => !isFound(c));
   if (step === "industries") return all.filter((c) => isFound(c) && c.rule);
   if (step === "other") return all.filter((c) => isFound(c) && !c.rule);
+  if (step === "employer") return all.filter((c) => isFound(c) && c.rule && !c.tooSmall);
+  if (step === "small") return all.filter((c) => c.tooSmall);
   if (step === "fits") return all.filter((c) => c.fit);
-  return all.filter((c) => isFound(c) && c.rule && !c.fit);
+  return all.filter((c) => isFound(c) && c.rule && !c.tooSmall && !c.fit);
 }
 
 /**
- * People → company found in PRH → in your industries → decision-makers who
- * fit, with what drops out at each step. Counts are people, from code.
+ * People → company found in PRH → in your industries → with employees
+ * registered (while that filter is on) → decision-makers who fit, with what
+ * drops out at each step. Counts are people, from code.
  */
 export function funnel(net: Network, owner?: string): FunnelStep[] {
   const n = (s: FunnelList) => funnelPeople(net, s, owner).length;
@@ -350,6 +353,8 @@ export function funnel(net: Network, owner?: string): FunnelStep[] {
     { label: "people", count: n("all"), href: "/people?step=all" },
     { label: "company found in PRH", count: n("found"), href: "/people?step=found", rest: { count: n("unmatched"), label: `${fmt(n("unmatched"))} not found: no company, no single match or abroad`, href: "/people?step=unmatched" } },
     { label: "in your industries", count: n("industries"), href: "/people?step=industries", rest: { count: n("other"), label: `${fmt(n("other"))} in other industries${notTarget ? ` or not a target (${fmt(notTarget)})` : ""}`, href: "/people?step=other" } },
+    // Only while the Employer Register filter is on (Settings → Profile).
+    ...(requiresEmployer(net.profile) ? [{ label: "with employees registered", count: n("employer"), href: "/people?step=employer", rest: { count: n("small"), label: `${fmt(n("small"))} too small: no employees registered`, href: "/people?step=small" } }] : []),
     { label: "decision-makers who fit", count: n("fits"), href: "/people?step=fits", rest: { count: n("intro"), label: `${fmt(n("intro"))} not decision-makers: can introduce`, href: "/people?step=intro" } },
   ];
   return steps.map((f) => ({ ...f, href: q(f.href), ...(f.rest ? { rest: { ...f.rest, href: q(f.rest.href) } } : {}) }));
@@ -452,7 +457,7 @@ export function getCompany(net: Network, q: { business_id?: string; name?: strin
     businessId: co.businessId,
     namesInNetwork: co.rawNames,
     matchStatus: co.status,
-    prh: co.prh ? { form: co.prh.form, formCode: co.prh.formCode, tol: co.prh.tol, industry: co.prh.industry, town: co.prh.town, registered: co.prh.registrationDate, website: co.prh.website, source: ytjUrl(co.prh.businessId) } : null,
+    prh: co.prh ? { form: co.prh.form, formCode: co.prh.formCode, tol: co.prh.tol, industry: co.prh.industry, town: co.prh.town, registered: co.prh.registrationDate, website: co.prh.website, registers: co.prh.registers ?? null, source: ytjUrl(co.prh.businessId) } : null,
     group: GROUP[co.group].label,
     inProfile: !!co.rule,
     headcount: "Missing: not in PRH open data",

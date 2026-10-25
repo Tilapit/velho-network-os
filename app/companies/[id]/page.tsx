@@ -76,6 +76,19 @@ export default async function Company({ params }: { params: Promise<{ id: string
           <dd>{co.prh.town ? co.prh.town.charAt(0) + co.prh.town.slice(1).toLowerCase() : "—"}</dd>
           <dt>Registered</dt>
           <dd>{co.prh.registered ? fmtDate(co.prh.registered) : "—"}</dd>
+          <dt>Employer Register</dt>
+          <dd>
+            {co.prh.registers ? (
+              <>
+                {co.prh.registers.employer ? `Yes${co.prh.registers.employerSince ? `, since ${fmtDate(co.prh.registers.employerSince)}` : ""}` : "No: no regular employees registered"} <span className="pill">PRH/YTJ</span>
+                <span className="small muted"> · VAT register: {co.prh.registers.vat ? "yes" : "no"}</span>
+              </>
+            ) : (
+              <>
+                <span className="pill missing">Missing</span> <span className="small muted">not looked up yet; fetched from PRH/YTJ with the next lookups</span>
+              </>
+            )}
+          </dd>
           <dt>Headcount</dt>
           <dd>
             <span className="pill missing">Missing</span> <span className="small muted">not in PRH open data</span>

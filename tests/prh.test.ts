@@ -11,7 +11,7 @@ const dir = fs.mkdtempSync(path.join(os.tmpdir(), "vnet-prh-"));
 process.env.DATA_DIR = dir;
 process.env.PRH_GAP_MS = "0";
 
-const { transport, politeGet, searchYtj, matchCompany, PrhError } = await import("../lib/prh.ts");
+const { transport, politeGet, searchYtj, matchCompany, PrhError, registersOf, readCache, writeCache, hash, CACHE_VERSION } = await import("../lib/prh.ts");
 const { startMatching, matchingDone } = await import("../lib/matching.ts");
 
 type Reply = { status: number; body: string; headers?: Record<string, string> } | Error;
@@ -89,4 +89,26 @@ test("the background job counts failures by reason, with example names", async (
   assert.equal(job.failed, 3);
   assert.equal(job.failures["not JSON"].count, 3);
   assert.deepEqual([...job.failures["not JSON"].examples].sort(), ["Esimerkki Kaksi", "Esimerkki Kolme", "Esimerkki Yksi"]);
+});
+
+test("registers: Employer Register from YTJ's registeredEntries; ended or incorrect entries do not count", () => {
+  // The shapes of a live and an ended company, as YTJ answers them.
+  assert.deepEqual(registersOf([{ register: "1", type: "1", registrationDate: "2001-03-19" }, { register: "6", type: "80", registrationDate: "2001-03-01" }, { register: "7", type: "41", registrationDate: "2001-05-01" }]), { employer: true, employerSince: "2001-05-01", vat: true, vatSince: "2001-03-01" });
+  assert.deepEqual(registersOf([{ register: "6", type: "80", registrationDate: "2012-01-01", endDate: "2012-03-31" }, { register: "7", type: "41", registrationDate: "2001-05-01", endDate: "2001-12-31" }]), { employer: false, vat: false });
+  assert.deepEqual(registersOf([{ register: "7", type: "99" }, { register: "6", type: "80", registrationDate: "2020-02-02" }]), { employer: false, vat: true, vatSince: "2020-02-02" });
+  assert.deepEqual(registersOf(null), { employer: false, vat: false });
+});
+
+test("a cache entry from before the registers answers offline and is fetched again online", async () => {
+  const q = "Esimerkki Rekisteri";
+  writeCache("ytj", hash(q), { query: q, fetchedAt: "2026-10-01T00:00:00Z", totalResults: 1, companies: [{ businessId: "1234567-8", name: "Esimerkki Rekisteri Oy", otherNames: [], active: true, situations: [] }] });
+  const calls = answer([ok([{ ...company, names: [{ name: "Esimerkki Rekisteri Oy", type: "1", version: 1 }], registeredEntries: [{ register: "7", type: "42", registrationDate: "2010-01-01" }] }])]);
+  assert.equal((await searchYtj(q, { offline: true }))?.companies[0].registers, undefined);
+  assert.equal(calls(), 0);
+  const fresh = await searchYtj(q);
+  assert.equal(calls(), 1);
+  assert.deepEqual(fresh?.companies[0].registers, { employer: true, employerSince: "2010-01-01", vat: false });
+  assert.equal(readCache<{ v?: number }>("ytj", hash(q))?.v, CACHE_VERSION);
+  await searchYtj(q);
+  assert.equal(calls(), 1, "a current entry is not fetched again");
 });

@@ -86,10 +86,12 @@ test("an association or a foundation in PRH has no decision-makers", () => {
 
 test("funnel: people → found in PRH → in your industries → who fit, with what drops out", () => {
   const f = funnel(net);
-  assert.deepEqual(f.map((s) => s.count), [8, 7, 6, 3]);
-  assert.deepEqual(f.map((s) => s.rest?.count ?? 0), [0, 1, 1, 3]);
+  // No register data on these companies yet: nobody drops out as too small.
+  assert.deepEqual(f.map((s) => s.count), [8, 7, 6, 6, 3]);
+  assert.deepEqual(f.map((s) => s.rest?.count ?? 0), [0, 1, 1, 0, 3]);
   assert.match(f[2].rest!.label, /^1 in other industries/);
-  assert.equal(f[3].rest!.href, "/people?step=intro");
+  assert.equal(f[3].label, "with employees registered");
+  assert.equal(f[4].rest!.href, "/people?step=intro");
   assert.equal(funnelPeople(net, "intro").length, 3);
   assert.ok(funnel(net, "you").every((s) => s.href.includes("owner=you")));
 });
@@ -166,4 +168,39 @@ test("emails: blanked when stored, column and rows kept, so row numbers do not c
   assert.ok(stored.startsWith('Notes:\n"Some emails are missing."\n\n'), "the preamble stays");
   assert.equal(parseConnections(stored).records[0].row, parseConnections(withEmail).records[0].row);
   assert.equal(parseConnections(stored).records[0].company, "Esimerkki, Oy");
+});
+
+test("Employer Register: no employees is never a fit, its own funnel step; with employees and new, early-stage", () => {
+  const emp = (employer: boolean, extra: Partial<PrhCompany> = {}) => ({ registers: { employer, vat: true, ...(employer ? { employerSince: "2001-05-01" } : {}) }, ...extra });
+  const rows = HEAD + [row("Eero", "Esko", "Yksin Oy", "Toimitusjohtaja"), row("Leena", "Lehto", "Iso Konepaja Oy", "Toimitusjohtaja"), row("Matti", "Mäki", "Uusi Valimo Oy", "COO"), row("Nina", "Niemi", "Yksin Oy", "Production Planner")].join("\n") + "\n";
+  const resolved = new Map<string, Resolved>([
+    ["Yksin Oy", res("Yksin Oy", co("3000001-1", "Yksin Oy", "25620", emp(false)))],
+    ["Iso Konepaja Oy", res("Iso Konepaja Oy", co("3000002-2", "Iso Konepaja Oy", "28150", emp(true)))],
+    ["Uusi Valimo Oy", res("Uusi Valimo Oy", co("3000003-3", "Uusi Valimo Oy", "24510", emp(true, { registrationDate: "2025-09-01" })))],
+  ]);
+  const build = (profile = DEFAULT_PROFILE) => buildNetwork({ networks: [{ owner: owner("you", "You"), text: rows }], resolved, state, profile, signals: null, today: "2026-10-24" });
+  const n = build();
+  const p = (first: string, nn = n) => nn.contacts.find((c) => c.name.startsWith(first))!;
+  assert.equal(p("Eero").fit, null);
+  assert.equal(p("Eero").tooSmall, true);
+  assert.equal(p("Eero").approach, "skip");
+  assert.equal(p("Nina").approach, "skip", "nobody to introduce at a one-person company");
+  assert.match(analyse(n, p("Eero")).fitWhy, /Not in the Employer Register \(PRH\/YTJ\)/);
+  assert.equal(p("Leena").fit, "strong");
+  assert.equal(p("Matti").fit, "possible");
+  assert.deepEqual(p("Matti").caps, ["early-stage, likely small"]);
+  const f = funnel(n);
+  assert.deepEqual(f.map((s) => [s.label, s.count, s.rest?.count ?? 0]), [["people", 4, 0], ["company found in PRH", 4, 0], ["in your industries", 4, 0], ["with employees registered", 2, 2], ["decision-makers who fit", 2, 0]]);
+  assert.equal(f[3].rest!.label, "2 too small: no employees registered");
+  assert.equal(f[3].rest!.href, "/people?step=small");
+  // The source pill on the person card.
+  const reason = analyse(n, p("Leena")).reasons.find((r) => r.label === "Employer Register")!;
+  assert.equal(reason.source, "PRH/YTJ");
+  assert.match(reason.text, /^Employer Register: yes, since 1 May 2001\. VAT register: yes\.$/);
+  assert.match(analyse(n, p("Eero")).reasons.find((r) => r.label === "Employer Register")!.text, /^Employer Register: no\./);
+  // Filter off in Settings: back on the list, Possible at most, and no funnel step.
+  const off = build({ ...DEFAULT_PROFILE, requireEmployer: false });
+  assert.equal(p("Eero", off).fit, "possible");
+  assert.ok(p("Eero", off).caps.includes("no employees registered"));
+  assert.ok(!funnel(off).some((s) => s.label === "with employees registered"));
 });

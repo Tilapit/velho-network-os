@@ -21,6 +21,8 @@ export type Resolved = {
   foreign: boolean;
   /** Answered by the demo snapshot because the cache has no answer yet. */
   snapshot?: boolean;
+  /** The company's cache entry predates the register fields (Employer Register, VAT): fetched again when PRH is reachable. */
+  stale?: boolean;
 };
 
 const memo = new Map<string, Resolved>();
@@ -47,7 +49,7 @@ export async function resolveName(raw: string, override?: Override, opts: { demo
   if (override?.notFinnish) return { raw, key, status: "none", candidates: [], note: "You marked this as not a Finnish company", by: "you", foreign: true };
   if (override?.businessId) {
     const c = await getCompany(override.businessId, { offline: true });
-    if (c) return { raw, key, status: "verified", company: c, candidates: [c], note: "You picked this company in PRH", by: "you", foreign: false };
+    if (c) return { raw, key, status: "verified", company: c, candidates: [c], note: "You picked this company in PRH", by: "you", foreign: false, ...(c.registers ? {} : { stale: true }) };
   }
   const hit = memo.get(raw);
   if (hit && hit.status !== "pending") return hit;
@@ -70,10 +72,14 @@ export async function resolveName(raw: string, override?: Override, opts: { demo
     // "Spotify AB" is the Swedish company even if a Finnish subsidiary is close.
     foreign: ((m.status === "none" || m.status === "ambiguous") && looksForeign(raw, key)) || (m.status === "inferred" && (hasForeignForm(raw) || (intl && !/check that this is the finnish/i.test(m.note)))),
     snapshot: !!snap,
+    ...(m.company && !m.company.registers ? { stale: true } : {}),
   };
   if (!snap) memo.set(raw, r);
   return r;
 }
+
+/** A job item that is a business ID, not a company name. */
+export const BY_ID = "businessId:";
 
 export type MatchJob = {
   running: boolean;
@@ -111,7 +117,9 @@ export function startMatching(names: string[]): MatchJob {
   const worker = async () => {
     for (let n = queue.shift(); n !== undefined; n = queue.shift()) {
       try {
-        await matchCompany(n);
+        // "businessId:…" refreshes a company the team picked by hand.
+        if (n.startsWith(BY_ID)) await getCompany(n.slice(BY_ID.length));
+        else await matchCompany(n);
         memo.delete(n);
       } catch (e) {
         job.failed++;

@@ -7,9 +7,9 @@ import { parseConnections } from "./ingest.ts";
 import { daysBetween, profileKey, today } from "./normalize.ts";
 import { ownerText, readOwners, sourcesSignature, type Owner } from "./store.ts";
 import { applyNotTargets, readState, stateSignature, type Reaction, type State, type StatusEntry } from "./state.ts";
-import { matchJob, resolveName, startMatching, type Resolved } from "./matching.ts";
+import { BY_ID, matchJob, resolveName, startMatching, type Resolved } from "./matching.ts";
 import { analyseTitle, isStrongRole, type RoleInfo } from "./roles.ts";
-import { DEFAULT_PROFILE, groupForTol, industryRule, type GroupId, type IndustryRule, type Profile } from "./industry.ts";
+import { DEFAULT_PROFILE, groupForTol, industryRule, requiresEmployer, type GroupId, type IndustryRule, type Profile } from "./industry.ts";
 import { addDays, loadSignals, signalsFile, SIGNAL_TYPES, type CompanySignal, type SignalSet } from "./signals.ts";
 import { looseKey, type MatchStatus, type PrhCompany } from "./prh.ts";
 import { postsWithin, REACTION_DAYS } from "./reactions.ts";
@@ -62,6 +62,8 @@ export type Contact = {
   fit: Fit | null;
   /** What keeps a fit at Possible at most: "company match not confirmed", "early-stage, likely small". */
   caps: string[];
+  /** At a target company that is not in the Employer Register (no regular employees): never a fit while the filter is on. */
+  tooSmall: boolean;
   approach: Approach;
   /** Other people the team knows at the same company. */
   colleagues: number;
@@ -173,11 +175,21 @@ export const EARLY_STAGE_DAYS = 730;
 /** PRH company forms whose people are never decision-makers for Velho: non-profit association (ry), foundations. */
 export const NON_PROFIT_FORMS = new Set(["6", "18", "39"]);
 
-/** What keeps someone at a matched company from being a Strong fit, from PRH facts only. */
+/** In the Employer Register (PRH/YTJ): true, false, or undefined when the cache predates the field. */
+export function employerOf(match: Resolved | null): boolean | undefined {
+  return match?.company && !match.foreign ? match.company.registers?.employer : undefined;
+}
+
+/**
+ * What keeps someone at a matched company from being a Strong fit, from PRH
+ * facts only. "no employees registered" counts only when the Employer
+ * Register filter is off; with it on, those people are not a fit at all.
+ */
 export function fitCaps(match: Resolved | null, now: string): string[] {
   if (!match?.company || match.foreign) return [];
   const caps: string[] = [];
   if (match.status === "inferred") caps.push("company match not confirmed");
+  if (employerOf(match) === false) caps.push("no employees registered");
   const reg = match.company.registrationDate;
   if (reg && daysBetween(reg, now) < EARLY_STAGE_DAYS) caps.push("early-stage, likely small");
   return caps;
@@ -279,7 +291,9 @@ export function buildNetwork(input: BuildInput, signalsByCompany = indexSignals(
     // An association or a foundation is not a company Velho sells to: nobody there decides for it.
     if (match?.company && !match.foreign && NON_PROFIT_FORMS.has(match.company.formCode ?? "")) role = { ...role, decisionMaker: false, decides: "", notDecider: "an association or foundation in PRH" };
     const caps = rule ? fitCaps(match, input.today) : [];
-    const fit = fitFor(role, rule, caps);
+    // Not in the Employer Register: no regular employees, so nobody to sell to and no one to introduce.
+    const tooSmall = !!rule && requiresEmployer(profile) && employerOf(match) === false;
+    const fit = tooSmall ? null : fitFor(role, rule, caps);
     return {
       id,
       name: d.name,
@@ -295,7 +309,8 @@ export function buildNetwork(input: BuildInput, signalsByCompany = indexSignals(
       role,
       fit,
       caps,
-      approach: approachFor(fit, rule),
+      tooSmall,
+      approach: tooSmall ? "skip" : approachFor(fit, rule),
       colleagues: 0,
       signals: companyId ? companies.get(companyId)!.signals : [],
       reactions: state.reactions.filter((r) => r.contactId === id),
@@ -442,12 +457,15 @@ export async function loadNetwork(): Promise<Network> {
 export function ensureMatching(net: Network) {
   if (process.env.PRH_OFFLINE === "1") return matchJob();
   // Snapshot answers (demo only) are refreshed from PRH too when it is reachable.
-  const pending = [...net.names.values()].filter((r) => r.status === "pending" || r.snapshot).map((r) => r.raw);
-  if (!pending.length) return matchJob();
+  // Then names whose cached answer predates the register fields; a company picked by hand by its business ID.
+  const names = [...net.names.values()];
+  const pending = names.filter((r) => r.status === "pending" || r.snapshot).map((r) => r.raw);
+  const stale = names.filter((r) => r.stale && !r.snapshot).map((r) => (r.by === "you" && r.company ? `${BY_ID}${r.company.businessId}` : r.raw));
+  if (!pending.length && !stale.length) return matchJob();
   const weight = new Map<string, number>();
   for (const c of net.contacts) if (c.company) weight.set(c.company, (weight.get(c.company) ?? 0) + (c.role.decisionMaker ? 10 : 1));
-  pending.sort((a, b) => (weight.get(b) ?? 0) - (weight.get(a) ?? 0));
-  return startMatching(pending);
+  const byWeight = (a: string, b: string) => (weight.get(b) ?? 0) - (weight.get(a) ?? 0);
+  return startMatching([...pending.sort(byWeight), ...[...new Set(stale)].sort(byWeight)]);
 }
 
 export function contactsFor(net: Network, owner?: string): Contact[] {

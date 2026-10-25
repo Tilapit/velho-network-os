@@ -1,7 +1,7 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { presetOf, type PresetId, type Profile } from "@/lib/industry.ts";
+import { presetOf, requiresEmployer, type PresetId, type Profile } from "@/lib/industry.ts";
 
 export function DeleteOwner({ id, name }: { id: string; name: string }) {
   const router = useRouter();
@@ -61,14 +61,16 @@ export function ProfileForm({ profile }: { profile: Profile }) {
   const [rows, setRows] = useState(profile.industries);
   const [roles, setRoles] = useState(profile.roles.join(", "));
   const [note, setNote] = useState(profile.note);
+  const [employer, setEmployer] = useState(requiresEmployer(profile));
   const [msg, setMsg] = useState("");
   const active = presetOf({ industries: rows });
   async function save(preset?: PresetId) {
-    const r = await fetch("/api/profile", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(preset ? { preset } : { industries: rows, roles: roles.split(",").map((s) => s.trim()), note }) });
+    const r = await fetch("/api/profile", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(preset ? { preset } : { industries: rows, roles: roles.split(",").map((s) => s.trim()), note, requireEmployer: employer }) });
     const p = (await r.json()) as Profile;
     setRows(p.industries);
     setRoles(p.roles.join(", "));
     setNote(p.note);
+    setEmployer(requiresEmployer(p));
     setMsg(preset === "default" ? "Back to the Velho default." : preset === "broad" ? "Broad profile on: every Finnish company. The list and the drawing use it now." : "Saved. The list and the drawing use it now.");
     router.refresh();
   }
@@ -129,6 +131,12 @@ export function ProfileForm({ profile }: { profile: Profile }) {
       <label className="field">
         <span>Decision-maker titles (comma-separated; Finnish and Swedish forms of production, operations, director and CEO match too; C-level always counts)</span>
         <textarea value={roles} onChange={(e) => setRoles(e.target.value)} />
+      </label>
+      <label className="row small" style={{ gap: 8 }}>
+        <input type="checkbox" checked={employer} onChange={(e) => setEmployer(e.target.checked)} />
+        <span>
+          Hide companies with no employees registered: not in the Employer Register (PRH/YTJ), so most likely one-person companies. Their people are never a fit.
+        </span>
       </label>
       <label className="field">
         <span>Note</span>

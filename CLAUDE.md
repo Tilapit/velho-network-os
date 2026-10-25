@@ -30,7 +30,9 @@ The founders use it from their own Claude through an MCP connector.
   - Several or none means unmatched, until someone picks a company in
     Settings.
 - **Headcount is not in PRH.** It is always shown as Missing and never
-  invented.
+  invented. The size signal is YTJ's register entries: a company not in
+  the Employer Register (register 7) has no regular employees and is never
+  a fit while that filter is on (Settings → Profile, on by default).
 - **Fit caps** (`fitCaps` in `lib/network.ts`): an inferred ("check")
   company match or a company registered under two years ago ("early-stage,
   likely small") is Possible at most. Students, trainees, board years

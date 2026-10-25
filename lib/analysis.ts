@@ -9,7 +9,7 @@ import { ytjUrl } from "./prh.ts";
 import { STATUS_LABEL, type Status } from "./state.ts";
 import type { Approach, Contact, Fit, Network } from "./network.ts";
 
-export type Pill = "LinkedIn title" | "PRH" | "PRH notices" | "Your network" | "LinkedIn" | "Your team" | "Reaction";
+export type Pill = "LinkedIn title" | "PRH" | "PRH/YTJ" | "PRH notices" | "Your network" | "LinkedIn" | "Your team" | "Reaction";
 
 export type Reason = { kind: "role" | "company" | "signal" | "network" | "team" | "reaction"; label: string; text: string; source: Pill; provenance: Provenance; link?: string };
 export type MissingFact = { label: string; text: string };
@@ -126,6 +126,21 @@ export function analyse(net: Network, c: Contact): Analysis {
     });
   }
 
+  // Employer Register and VAT register, from YTJ's register entries.
+  if (prh?.registers) {
+    const r = prh.registers;
+    reasons.push({
+      kind: "company",
+      label: "Employer Register",
+      text: r.employer
+        ? `Employer Register: yes${r.employerSince ? `, since ${fmtDate(r.employerSince)}` : ""}. VAT register: ${r.vat ? "yes" : "no"}.`
+        : `Employer Register: no. No regular employees registered${prh.registrationDate ? `; registered ${fmtDate(prh.registrationDate)}` : ""}. VAT register: ${r.vat ? "yes" : "no"}.`,
+      source: "PRH/YTJ",
+      provenance: c.match!.status === "verified" ? "verified" : "inferred",
+      link: ytjUrl(prh.businessId),
+    });
+  }
+
   // Registered changes in the last 90 days.
   const byType = new Map<string, (typeof c.signals)[number]>();
   for (const s of c.signals) if (!byType.has(s.type) || byType.get(s.type)!.date < s.date) byType.set(s.type, s);
@@ -161,6 +176,7 @@ export function analyse(net: Network, c: Contact): Analysis {
     text: prh?.formCode === "17" ? "Not in PRH open data. It is a public limited company (Oyj, PRH), which is often a large group: check the size." : "Not in PRH open data. Check the size before you reach out.",
   });
   if (!c.position) missing.push({ label: "Title", text: "Empty in the LinkedIn export." });
+  if (prh && !prh.registers) missing.push({ label: "Employer Register", text: "Not looked up yet: it is fetched from PRH/YTJ with the next lookups." });
   if (c.match?.status === "inferred" && !c.match.foreign) missing.push({ label: "Company match", text: `Close name only ("${c.company}"). Confirm it under Settings → PRH matches.` });
   if (!prh && c.company) missing.push({ label: "Company", text: c.match?.foreign ? "Not a Finnish company, so PRH has nothing on it." : c.match?.status === "pending" ? "Not looked up in PRH yet." : `"${c.company}" has no single match in PRH. ${c.match?.note ?? ""}`.trim() });
   if (!c.company) missing.push({ label: "Company", text: "Empty in the LinkedIn export." });
@@ -170,7 +186,9 @@ export function analyse(net: Network, c: Contact): Analysis {
   const excluded = prh && net.profile.excluded?.some((x) => x.businessId === prh.businessId);
   const capped = c.fit === "possible" && c.caps.length && !c.rule?.lowerPriority && isStrongRole(c.role);
   const fitWhy = !c.fit
-    ? excluded
+    ? c.tooSmall
+      ? "Not in the Employer Register (PRH/YTJ): no regular employees, so not a fit. This filter can be turned off in Settings → Profile."
+      : excluded
       ? "The team marked this company as not a target."
       : !c.rule
       ? "Not at a company in your target industries."

@@ -65,7 +65,12 @@ export type Profile = {
   note: string;
   /** Companies the team has marked as not a target (business IDs), e.g. large groups. */
   excluded?: { businessId: string; name: string }[];
+  /** Hide companies not in the Employer Register (no regular employees). On unless set to false. */
+  requireEmployer?: boolean;
 };
+
+/** The Employer Register filter: on by default. */
+export const requiresEmployer = (p: Pick<Profile, "requireEmployer">) => p.requireEmployer !== false;
 
 export const DEFAULT_PROFILE: Profile = {
   industries: [

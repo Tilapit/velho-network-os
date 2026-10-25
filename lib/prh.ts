@@ -37,9 +37,19 @@ export type PrhCompany = {
   active: boolean;
   /** Restructuring, liquidation or bankruptcy codes (SANE, SELTILA, KONK). */
   situations: string[];
+  /**
+   * From YTJ's registeredEntries: in the Employer Register (register 7, a
+   * company with regular employees) and the VAT register (6), with the date
+   * each entry started. Undefined in a cache written before they were kept.
+   */
+  registers?: Registers;
 };
 
-export type PrhSearch = { query: string; fetchedAt: string; totalResults: number; companies: PrhCompany[] };
+export type Registers = { employer: boolean; employerSince?: string; vat: boolean; vatSince?: string };
+
+/** Cache format. 2 keeps registeredEntries; an older search is re-fetched when PRH is reachable. */
+export const CACHE_VERSION = 2;
+export type PrhSearch = { query: string; fetchedAt: string; totalResults: number; companies: PrhCompany[]; v?: number };
 
 // ---------- HTTP with a polite queue and a disk cache ----------
 
@@ -159,6 +169,18 @@ const fi = (d?: Desc[]) => list<Desc>(d).find((x) => x.languageCode === "1")?.de
 /** A field PRH documents as a list; anything else counts as empty, so one odd company never fails a search. */
 const list = <T,>(v: unknown): T[] => (Array.isArray(v) ? v : []);
 
+// REK codes: 6 VAT liability, 7 Employer register. REK_KDI entry types: 7_41
+// and 7_42 are "Registered", 6_80…6_V80 kinds of VAT liability, x_99 an
+// incorrect line. An entry with an end date has ended.
+type Entry = { register?: string; type?: string; registrationDate?: string | null; endDate?: string | null };
+export function registersOf(entries: unknown, today = new Date().toISOString().slice(0, 10)): Registers {
+  const live = list<Entry>(entries).filter((e) => e && (!e.endDate || e.endDate > today) && e.type !== "99");
+  const since = (es: Entry[]) => es.map((e) => e.registrationDate ?? "").filter(Boolean).sort()[0] || undefined;
+  const employer = live.filter((e) => e.register === "7" && (e.type === "41" || e.type === "42"));
+  const vat = live.filter((e) => e.register === "6");
+  return { employer: employer.length > 0, ...(employer.length && since(employer) ? { employerSince: since(employer) } : {}), vat: vat.length > 0, ...(vat.length && since(vat) ? { vatSince: since(vat) } : {}) };
+}
+
 /** Keeps only what the app uses, so the cache stays small. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function compact(c: any): PrhCompany {
@@ -191,6 +213,7 @@ function compact(c: any): PrhCompany {
     // Registered and not ended. A pending registration has no registration date yet.
     active: !c.endDate && !!c.registrationDate && c.status !== "1" && c.status !== "5" && c.tradeRegisterStatus !== "2" && c.tradeRegisterStatus !== "4",
     situations: list<{ type: string; endDate?: string }>(c.companySituations).filter((s) => !s.endDate).map((s) => s.type),
+    registers: registersOf(c.registeredEntries),
   };
 }
 
@@ -198,10 +221,11 @@ function compact(c: any): PrhCompany {
 export async function searchYtj(query: string, opts: { offline?: boolean } = {}): Promise<PrhSearch | null> {
   const key = hash(query);
   const cached = readCache<PrhSearch>("ytj", key);
-  if (cached) return cached;
+  // Offline, an older cache entry still answers; online it is fetched again for the new fields.
+  if (cached && (opts.offline || cached.v === CACHE_VERSION)) return cached;
   if (opts.offline) return null;
   const raw = (await politeGet(`${YTJ}/companies?name=${encodeURIComponent(query)}`)) as { totalResults: number; companies: unknown[] } | null;
-  const result: PrhSearch = { query, fetchedAt: new Date().toISOString(), totalResults: raw?.totalResults ?? 0, companies: list(raw?.companies).filter((c) => c && typeof c === "object").map(compact) };
+  const result: PrhSearch = { query, fetchedAt: new Date().toISOString(), totalResults: raw?.totalResults ?? 0, companies: list(raw?.companies).filter((c) => c && typeof c === "object").map(compact), v: CACHE_VERSION };
   writeCache("ytj", key, result);
   return result;
 }
@@ -297,10 +321,10 @@ export async function getCompany(businessId: string, opts: { offline?: boolean }
   const id = businessId.trim();
   if (!/^\d{7}-\d$/.test(id)) return null;
   const cached = readCache<PrhSearch>("ytj", hash(`businessId:${id}`));
-  if (cached) return cached.companies[0] ?? null;
+  if (cached && (opts.offline || cached.v === CACHE_VERSION)) return cached.companies[0] ?? null;
   if (opts.offline) return null;
   const raw = (await politeGet(`${YTJ}/companies?businessId=${encodeURIComponent(id)}`)) as { totalResults: number; companies: unknown[] } | null;
-  const result: PrhSearch = { query: `businessId:${id}`, fetchedAt: new Date().toISOString(), totalResults: raw?.totalResults ?? 0, companies: list(raw?.companies).filter((c) => c && typeof c === "object").map(compact) };
+  const result: PrhSearch = { query: `businessId:${id}`, fetchedAt: new Date().toISOString(), totalResults: raw?.totalResults ?? 0, companies: list(raw?.companies).filter((c) => c && typeof c === "object").map(compact), v: CACHE_VERSION };
   writeCache("ytj", hash(`businessId:${id}`), result);
   return result.companies[0] ?? null;
 }

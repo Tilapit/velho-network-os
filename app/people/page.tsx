@@ -16,8 +16,10 @@ const STEP_TEXT: Record<FunnelList, { title: string; lede: (n: number) => string
   unmatched: { title: "Company not found in PRH", lede: (n) => `${n.toLocaleString("en-US")} people with no company in LinkedIn, a name with several or no matches in PRH, or a company abroad. Pick the right company under Settings → PRH matches.` },
   industries: { title: "Everyone at a company in your industries", lede: (n) => `${n.toLocaleString("en-US")} people work at a matched company in your target industries. Decision-makers are on the list; the rest can introduce you.` },
   other: { title: "In other industries", lede: (n) => `${n.toLocaleString("en-US")} people at a company found in PRH whose line of business is outside your profile, or that the team marked as not a target.` },
+  employer: { title: "With employees registered", lede: (n) => `${n.toLocaleString("en-US")} people at companies in your industries that are in the Employer Register (PRH/YTJ), or not looked up for it yet.` },
+  small: { title: "Too small: no employees registered", lede: (n) => `${n.toLocaleString("en-US")} people at companies in your industries that are not in the Employer Register (PRH/YTJ): no regular employees, so not a fit. Turn this off in Settings → Profile.` },
   fits: { title: "Decision-makers who fit", lede: (n) => `${n.toLocaleString("en-US")} decision-makers at matched companies in your target industries.` },
-  intro: { title: "Can introduce", lede: (n) => `${n.toLocaleString("en-US")} people at companies in your industries whose title does not decide: students, trainees, specialists and others. They can introduce you to who does.` },
+  intro: { title: "Can introduce", lede: (n) => `${n.toLocaleString("en-US")} people at companies in your industries with employees registered, whose title does not decide: students, trainees, specialists and others. They can introduce you to who does.` },
 };
 
 export const dynamic = "force-dynamic";
