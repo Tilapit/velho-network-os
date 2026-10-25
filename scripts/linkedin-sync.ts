@@ -74,4 +74,13 @@ await matchingDone();
 clearInterval(tick);
 const s = (await loadNetwork()).stats;
 console.log(`\nPRH done: ${s.names.verified} matched, ${s.names.inferred} close (check), ${s.names.ambiguous} with several candidates, ${s.names.none} not in PRH${job.failed ? `, ${job.failed} failed (retried next time)` : ""}.`);
+// Never a bare count: why they failed, and a few company names to try by hand.
+const reasons = Object.entries(job.failures).sort((a, b) => b[1].count - a[1].count);
+if (reasons.length) {
+  console.log("Failed lookups, by reason:");
+  for (const [reason, f] of reasons) console.log(`  ${String(f.count).padStart(5)}  ${reason}`);
+  const examples = reasons.flatMap(([, f]) => f.examples).slice(0, 5);
+  console.log(`  For example: ${examples.join(", ")}`);
+  if (job.lastError) console.log(`  Last error: ${job.lastError}`);
+}
 console.log(`${s.contacts.toLocaleString("en-US")} people, ${s.decisionMakers} decision-makers, ${s.fits} who fit (${s.strong} strong).`);

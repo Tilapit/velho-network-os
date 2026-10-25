@@ -3,7 +3,7 @@
 // and bumps `generation` so the next model load picks the new matches up.
 import fs from "node:fs";
 import path from "node:path";
-import { getCompany, looseKey, matchCompany, stats, type MatchStatus, type PrhCompany } from "./prh.ts";
+import { getCompany, looseKey, matchCompany, PrhError, stats, type MatchStatus, type PrhCompany } from "./prh.ts";
 import { hasForeignForm, knownInternational, looksForeign } from "./industry.ts";
 import type { Override } from "./state.ts";
 import { COLD_SECONDS_PER_NAME } from "./estimate.ts";
@@ -86,12 +86,14 @@ export type MatchJob = {
   seconds?: number;
   generation: number;
   lastError?: string;
+  /** Failed lookups by reason ("HTTP 403", "not JSON", …), with up to five company names each. */
+  failures: Record<string, { count: number; examples: string[] }>;
 };
 
 const G = globalThis as unknown as { __vnMatchJob?: MatchJob };
 
 export function matchJob(): MatchJob {
-  return (G.__vnMatchJob ??= { running: false, total: 0, done: 0, failed: 0, requests: 0, generation: 0 });
+  return (G.__vnMatchJob ??= { running: false, total: 0, done: 0, failed: 0, requests: 0, generation: 0, failures: {} });
 }
 
 /**
@@ -104,7 +106,7 @@ export function startMatching(names: string[]): MatchJob {
   if (job.running || !names.length) return job;
   const t0 = Date.now();
   const r0 = stats.requests;
-  Object.assign(job, { running: true, total: names.length, done: 0, failed: 0, requests: 0, startedAt: new Date().toISOString(), finishedAt: undefined, seconds: undefined, lastError: undefined });
+  Object.assign(job, { running: true, total: names.length, done: 0, failed: 0, requests: 0, startedAt: new Date().toISOString(), finishedAt: undefined, seconds: undefined, lastError: undefined, failures: {} });
   const queue = [...names];
   const worker = async () => {
     for (let n = queue.shift(); n !== undefined; n = queue.shift()) {
@@ -114,6 +116,10 @@ export function startMatching(names: string[]): MatchJob {
       } catch (e) {
         job.failed++;
         job.lastError = e instanceof Error ? e.message : String(e);
+        const reason = e instanceof PrhError ? e.reason : e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+        const f = (job.failures[reason] ??= { count: 0, examples: [] });
+        f.count++;
+        if (f.examples.length < 5) f.examples.push(n);
       }
       job.done++;
       job.requests = stats.requests - r0;

@@ -58,7 +58,7 @@ async function acquire() {
   const now = Date.now();
   const at = Math.max(now, nextStart);
   nextStart = at + GAP_MS;
-  if (at > now) await sleep(at - now);
+  if (at > now) await transport.sleep(at - now);
 }
 
 function release() {
@@ -67,23 +67,68 @@ function release() {
   else active--;
 }
 
+/** A failed PRH request. `reason` is short and groups well in a summary: "HTTP 403", "not JSON", "network (ECONNRESET)". */
+export class PrhError extends Error {
+  reason: string;
+  constructor(reason: string, message: string) {
+    super(message);
+    this.reason = reason;
+  }
+}
+
+type Res = { status: number; ok: boolean; headers: { get(name: string): string | null }; text(): Promise<string> };
+/** What politeGet talks to. Tests swap in a fake fetch and an instant sleep. */
+export const transport = {
+  fetch: (url: string, init: { headers: Record<string, string> }): Promise<Res> => fetch(url, init),
+  sleep,
+};
+
+const TRIES = 5;
+const brief = (body: string) => body.replace(/\s+/g, " ").trim().slice(0, 120);
+const netCode = (e: unknown) => {
+  const c = (e as { cause?: { code?: string } })?.cause?.code ?? (e as { code?: string })?.code;
+  return c || (e instanceof Error ? e.message : String(e));
+};
+
+/**
+ * GET with retries for what is temporary: 408, 429, any 5xx, a network error,
+ * and a 200 whose body is not JSON (a maintenance or gateway page). Other 4xx
+ * fail at once. Every failure is a PrhError with a reason.
+ */
 export async function politeGet(url: string): Promise<unknown> {
   await acquire();
   try {
-    for (let attempt = 0; ; attempt++) {
+    for (let attempt = 1; ; attempt++) {
       stats.requests++;
-      const res = await fetch(url, { headers: { accept: "application/json", "user-agent": "velho-network-os (prototype; contact via repo owner)" } });
-      if (res.status === 429 || res.status === 503) {
-        if (attempt >= 4) throw new Error(`PRH ${res.status} after retries`);
-        stats.retries++;
-        const after = (Number(res.headers.get("retry-after")) || 2 ** attempt * 3) * 1000;
-        nextStart = Math.max(nextStart, Date.now() + after);
-        await sleep(after);
-        continue;
+      let failure: PrhError;
+      let retryAfter: string | null = null;
+      try {
+        const res = await transport.fetch(url, { headers: { accept: "application/json", "user-agent": "velho-network-os (prototype; contact via repo owner)" } });
+        if (res.status === 404) return null;
+        const body = await res.text();
+        if (res.ok) {
+          try {
+            return JSON.parse(body);
+          } catch {
+            failure = new PrhError("not JSON", `PRH answered ${res.status} with a body that is not JSON: ${brief(body)}`);
+          }
+        } else {
+          failure = new PrhError(`HTTP ${res.status}`, `PRH answered ${res.status}: ${brief(body)}`);
+          if (res.status !== 408 && res.status !== 429 && res.status < 500) throw failure;
+          retryAfter = res.headers.get("retry-after");
+        }
+      } catch (e) {
+        if (e instanceof PrhError) throw e;
+        failure = new PrhError(`network (${netCode(e)})`, `Could not reach PRH: ${netCode(e)}`);
       }
-      if (res.status === 404) return null;
-      if (!res.ok) throw new Error(`PRH ${res.status} for ${url}`);
-      return await res.json();
+      if (attempt >= TRIES) {
+        failure.message += ` (after ${attempt} tries)`;
+        throw failure;
+      }
+      stats.retries++;
+      const after = (Number(retryAfter) || 2 ** (attempt - 1) * 3) * 1000;
+      nextStart = Math.max(nextStart, Date.now() + after);
+      await transport.sleep(after);
     }
   } finally {
     release();
@@ -109,14 +154,16 @@ export const hash = (s: string) => crypto.createHash("sha1").update(s.toLowerCas
 // ---------- YTJ company search ----------
 
 type Desc = { languageCode: string; description?: string };
-const en = (d?: Desc[]) => d?.find((x) => x.languageCode === "3")?.description ?? d?.find((x) => x.languageCode === "1")?.description;
-const fi = (d?: Desc[]) => d?.find((x) => x.languageCode === "1")?.description;
+const en = (d?: Desc[]) => list<Desc>(d).find((x) => x.languageCode === "3")?.description ?? list<Desc>(d).find((x) => x.languageCode === "1")?.description;
+const fi = (d?: Desc[]) => list<Desc>(d).find((x) => x.languageCode === "1")?.description;
+/** A field PRH documents as a list; anything else counts as empty, so one odd company never fails a search. */
+const list = <T,>(v: unknown): T[] => (Array.isArray(v) ? v : []);
 
 /** Keeps only what the app uses, so the cache stays small. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function compact(c: any): PrhCompany {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const names: any[] = c.names ?? [];
+  const names: any[] = list(c.names);
   const current = names.filter((n) => n.version === 1 && !n.endDate);
   const official = current.find((n) => n.type === "1") ?? names.find((n) => n.type === "1") ?? names[0];
   const otherNames: PrhCompany["otherNames"] = [];
@@ -126,9 +173,9 @@ function compact(c: any): PrhCompany {
     otherNames.push({ name: n.name, kind });
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const form = (c.companyForms ?? []).find((f: any) => f.version === 1 && !f.endDate) ?? c.companyForms?.[0];
+  const form = list<any>(c.companyForms).find((f) => f.version === 1 && !f.endDate) ?? list<any>(c.companyForms)[0];
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const addr = (c.addresses ?? []).find((a: any) => a.type === 1) ?? c.addresses?.[0];
+  const addr = list<any>(c.addresses).find((a) => a.type === 1) ?? list<any>(c.addresses)[0];
   return {
     businessId: c.businessId?.value,
     name: official?.name ?? "",
@@ -139,11 +186,11 @@ function compact(c: any): PrhCompany {
     industry: en(c.mainBusinessLine?.descriptions),
     industryFi: fi(c.mainBusinessLine?.descriptions),
     registrationDate: c.registrationDate ?? undefined,
-    town: addr?.postOffices?.find((p: { languageCode: string }) => p.languageCode === "1")?.city ?? addr?.postOffices?.[0]?.city,
+    town: list<{ languageCode: string; city?: string }>(addr?.postOffices).find((p) => p.languageCode === "1")?.city ?? list<{ city?: string }>(addr?.postOffices)[0]?.city,
     website: c.website?.url,
     // Registered and not ended. A pending registration has no registration date yet.
     active: !c.endDate && !!c.registrationDate && c.status !== "1" && c.status !== "5" && c.tradeRegisterStatus !== "2" && c.tradeRegisterStatus !== "4",
-    situations: (c.companySituations ?? []).filter((s: { endDate?: string }) => !s.endDate).map((s: { type: string }) => s.type),
+    situations: list<{ type: string; endDate?: string }>(c.companySituations).filter((s) => !s.endDate).map((s) => s.type),
   };
 }
 
@@ -154,7 +201,7 @@ export async function searchYtj(query: string, opts: { offline?: boolean } = {})
   if (cached) return cached;
   if (opts.offline) return null;
   const raw = (await politeGet(`${YTJ}/companies?name=${encodeURIComponent(query)}`)) as { totalResults: number; companies: unknown[] } | null;
-  const result: PrhSearch = { query, fetchedAt: new Date().toISOString(), totalResults: raw?.totalResults ?? 0, companies: (raw?.companies ?? []).map(compact) };
+  const result: PrhSearch = { query, fetchedAt: new Date().toISOString(), totalResults: raw?.totalResults ?? 0, companies: list(raw?.companies).filter((c) => c && typeof c === "object").map(compact) };
   writeCache("ytj", key, result);
   return result;
 }
@@ -253,7 +300,7 @@ export async function getCompany(businessId: string, opts: { offline?: boolean }
   if (cached) return cached.companies[0] ?? null;
   if (opts.offline) return null;
   const raw = (await politeGet(`${YTJ}/companies?businessId=${encodeURIComponent(id)}`)) as { totalResults: number; companies: unknown[] } | null;
-  const result: PrhSearch = { query: `businessId:${id}`, fetchedAt: new Date().toISOString(), totalResults: raw?.totalResults ?? 0, companies: (raw?.companies ?? []).map(compact) };
+  const result: PrhSearch = { query: `businessId:${id}`, fetchedAt: new Date().toISOString(), totalResults: raw?.totalResults ?? 0, companies: list(raw?.companies).filter((c) => c && typeof c === "object").map(compact) };
   writeCache("ytj", hash(`businessId:${id}`), result);
   return result.companies[0] ?? null;
 }
