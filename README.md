@@ -35,6 +35,22 @@ Network does it for the whole team:
 
 Nothing is sent to anyone. Statuses only record what the team did.
 
+## How AI is used, and where it is not
+
+**Finding and ranking people uses no LLM.** It is plain TypeScript with unit tests (`lib/`, `tests/`), so the same data always gives the same list, and every reason can be traced:
+
+1. **Import:** LinkedIn connections (official DMA API or CSV) are parsed and merged across teammates by profile URL.
+2. **Company match:** each company name is looked up in PRH's open YTJ API. Exact normalised name = verified; one close candidate = "check"; several or none = unmatched. Nothing is guessed.
+3. **Filters:** line of business (TOL code) against the target profile; Employer Register (no employees = too small); a not-target list for large groups; decision-maker titles from a keyword list (Finnish, Swedish, English), with student, trainee and association roles excluded.
+4. **Score:** fixed weights: strong fit, people known by two or more teammates, recent PRH registered changes (new managing director and new money weigh 3, merger and board 2, less for older notices), and reactions to the team's posts (+5, +2 per further post). The industry table, This week and the radar all use the same scores.
+5. **Approach:** decision-maker → direct message; colleague at a target company → ask for an intro; not in the network but reacted to a post → connection request.
+
+**Claude is used for language only:**
+- In the team's own Claude, through the MCP server (`/api/mcp`) and the skill (`claude/velho-network/`). Claude turns a Finnish question into tool calls with filters, gets ranked facts back, and writes the answer and the message. It cannot change the ranking.
+- Message drafts use only the facts from `message_context` plus the voice rules in `config/velho-voice.md` (short, Finnish, one ask, never mention registers or invent facts). Without an API key, templates in the same voice are used.
+
+**How it was built:** with Claude Code, from written prompts. They are in `docs/prompts/` (spec, mock data, two overnight builds), and `PROGRESS.md` logs every decision.
+
 ## Run
 
 ```sh
