@@ -1,6 +1,7 @@
 // Compact data for the network drawing: one small object per contact.
-import { GROUPS, ruleLabel } from "./industry.ts";
+import { GROUPS } from "./industry.ts";
 import { contactsFor, type Network } from "./network.ts";
+import { shortName } from "./analysis.ts";
 import { postsWithin, RECENT_DAYS } from "./reactions.ts";
 
 export function drawingData(net: Network) {
@@ -10,13 +11,16 @@ export function drawingData(net: Network) {
     id: c.id,
     n: c.name,
     t: c.position,
-    c: c.match?.company && !c.match.foreign && (c.match.status === "verified" || c.match.status === "inferred") ? c.match.company.name : c.company,
+    c: c.match?.company && !c.match.foreign && (c.match.status === "verified" || c.match.status === "inferred") ? shortName(c.match.company.name) : c.company,
     g: gIndex.get(c.group)!,
     f: (c.fit === "strong" ? 2 : c.fit === "possible" ? 1 : 0) as 0 | 1 | 2,
     dm: c.role.decisionMaker,
     k: c.knownBy.reduce((m, k) => m | (1 << (oIndex.get(k.owner) ?? 0)), 0),
+    // The suggested sender, who connected first.
+    w: oIndex.get(c.sender.owner) ?? 0,
     s: c.score,
     sig: c.signals.length > 0,
+    sg: new Set(c.signals.map((x) => x.type)).size,
     ip: !!c.rule,
     nf: c.status?.status === "not_fit",
     rx: postsWithin(c, net.today, RECENT_DAYS),
@@ -28,7 +32,8 @@ export function drawingData(net: Network) {
     nodes,
     groups: GROUPS.map((g) => ({ id: g.id, label: g.label, short: g.short, grey: !!g.grey })),
     owners: net.owners.map((o) => ({ id: o.id, name: o.name })),
-    chips: net.profile.industries.map((r) => `${ruleLabel(r)}${r.lowerPriority ? " (lower)" : ""}`),
+    // The profile in plain words: "Manufacturing", "Transport and logistics".
+    profile: { main: net.profile.industries.filter((r) => !r.lowerPriority).map((r) => r.label), lower: net.profile.industries.filter((r) => r.lowerPriority).map((r) => r.label) },
     matched: net.contacts.filter((c) => c.companyId && !c.companyId.startsWith("x-")).length,
     noCompany: net.stats.noCompany,
   };

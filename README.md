@@ -11,7 +11,8 @@ Network does it for the whole team:
   and titles are read against your target profile. The result is one picture
   of who the team knows, who decides, and why each person could need Velho:
   a canvas drawing with every contact as a node, flowing from the teammates
-  to industries to the decision-makers who fit.
+  to industries to the decision-makers who fit. At rest only This week's
+  five are lit; click an industry to list its decision-makers.
 - **This week.** Five people to reach, chosen by code: fresh registered
   changes and reactions first, nobody already contacted, senders spread
   across the team. "Write in Claude" copies a prompt for your own Claude.

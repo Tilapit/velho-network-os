@@ -4,7 +4,7 @@ import { matchJob } from "@/lib/matching.ts";
 import { NetworkView } from "@/components/NetworkView";
 import { MatchProgress } from "@/components/MatchProgress";
 import { FirstRun } from "@/components/FirstRun";
-import { thisWeek } from "@/lib/queries.ts";
+import { thisWeek, type WeekPick } from "@/lib/queries.ts";
 
 export const dynamic = "force-dynamic";
 
@@ -14,12 +14,15 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ p
   if (!net.owners.length) return <FirstRun />;
   ensureMatching(net);
   const d = drawingData(net);
-  const week = thisWeek(net).map(({ id, name, title, company, fit, status, kind, why, sender, prompt }) => ({ id, name, title, company, fit, status, kind, why, sender, prompt }));
+  const slim = ({ id, name, title, company, fit, status, kind, why, sender, prompt }: WeekPick) => ({ id, name, title, company, fit, status, kind, why, sender, prompt });
+  // The whole team's five, and each teammate's for the owner filter.
+  const week = thisWeek(net).map(slim);
+  const weekBy = net.owners.map((o) => thisWeek(net, 5, o.id).map(slim));
   const job = matchJob();
   return (
     <>
       <MatchProgress initial={{ ...job }} />
-      <NetworkView {...d} week={week} initial={p && net.byId.has(p) ? p : undefined} />
+      <NetworkView {...d} week={week} weekBy={weekBy} initial={p && net.byId.has(p) ? p : undefined} />
     </>
   );
 }

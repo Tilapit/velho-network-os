@@ -34,33 +34,39 @@ APP_TODAY=2026-10-24 APP_BASE_URL=http://localhost:3310 npx next dev -p 3310 -H 
 
 ## Script
 
-1. **The network (40 s).** Open the Network page and let the pulse run.
+1. **The network (40 s).** Open the Network page. The drawing comes in
+   once and then stays still.
    "This is everyone the three of us know on LinkedIn: 2,333 people, merged
    by profile URL. Every dot is a person."
-   - Point left to right: the three of us → people, in a cloud per industry
-     → industries → the 192 decision-makers who fit.
-   - "Bright blue is a strong fit. White rings: two of us know them. The
-     grey clouds at the bottom are outside our industries."
-   - Hover **Metal and machinery**: its people and links light up.
-   - Click **Co-founder** in the owner filter, then **Whole team**.
+   - Read the headers left to right: Your team → People you know, in a
+     cloud per industry → Their industries → the 172 decision-makers who
+     fit.
+   - "The five lit lines are This week, the list on the right. The grey
+     cloud at the bottom is the 1,746 people outside our industries."
+   - Click **Metal and machinery**: only that industry lights up and the
+     panel lists its 34 decision-makers. Click **× Clear**.
+   - Click **Co-founder** in the owner filter: This week becomes the five
+     in Co-founder's network. Then **Whole team**.
 
 2. **This week (30 s).** The panel on the right.
-   - "Five people to reach this week, chosen by code, not by AI: a new
-     managing director at Specim, a board change at Satron, two people who
-     reacted to our posts, and Tiina Koski at Honkarakenne. Nobody we
-     already contacted, and the writing is spread across the three of us."
+   - "Five people to reach this week, chosen by code, not by AI, each with
+     a reason to write now: new managing directors at Specim and Biovian,
+     board changes at Satron and Marioff, and Laura Mäkelä, who reacted to
+     Co-founder's post. Nobody we already contacted, and the writing is
+     spread across the three of us. Large groups like KONE or Kemira are
+     marked 'Not a target company', so they stay off the list."
    - Click **Write in Claude** on one: "this copies a prompt for my own
      Claude, which has the connector."
 
 3. **A person (30 s).** Click **Aleksi Sirviö** (first in This week).
    - The path lights up and particles run: Co-founder and Board member →
-     him → Electrical and electronics → the decision-makers column.
+     him → Electrical and electronics → his dot among the decision-makers.
    - Panel: who knows him and the suggested sender; reasons, each with its
      source (LinkedIn title, PRH, PRH notices, Your network); what we don't
      know (headcount, always); the Message buttons; the status buttons.
      "Nothing is sent from here."
 
-4. **Reactions (30 s).** Click **← All**, then **Reacted recently · 40**.
+4. **Reactions (30 s).** Click **← This week**, then **Reacted recently · 40**.
    - "40 people reacted to our last two posts. We copy the reactions list on
      LinkedIn and paste it here; nothing is scraped."
    - Settings → **Post reactions**. Paste a reactions list (for example

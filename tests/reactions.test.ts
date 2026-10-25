@@ -163,12 +163,33 @@ test("this week: five by code, nobody contacted, one per company, senders spread
   for (const w of week) senders.set(w.sender, (senders.get(w.sender) ?? 0) + 1);
   assert.ok(Math.max(...senders.values()) <= 2, `senders spread: ${[...senders.entries()]}`);
   assert.ok(week.every((w) => w.why.length > 10 && w.why.length < 140));
+  // Everyone has a reason to write now, said as a sentence about the company, not the person.
+  assert.ok(week.every((w) => w.kind !== "fit"), `timely first: ${week.map((w) => w.kind)}`);
+  for (const w of week.filter((x) => x.kind === "signal")) assert.match(w.why, /^.+ registered (a new managing director|a board change|a share issue or capital increase|a merger|a demerger|a merger or demerger) on \d{1,2} [A-Z][a-z]{2} \(PRH\)\.$/);
   assert.equal(week[0].prompt, claudePrompt(demo.byId.get(week[0].id)!));
   assert.match(week[0].prompt, /^Using Velho Network, write a Finnish LinkedIn message to .+ \([0-9a-f]{10}\), approach (direct|ask_intro)\.$/);
   // Marked as sent: off the list next time.
   setStatus(week[0].id, "sent", "You");
   const next = thisWeek(await loadNetwork());
   assert.ok(!next.some((w) => w.id === week[0].id));
+});
+
+test("demo: large groups are marked not a target; This week per teammate", async () => {
+  const { thisWeek, getRadar } = await import("../lib/queries.ts");
+  const { loadNetwork } = await import("../lib/network.ts");
+  const { seedDemoNotTargets } = await import("../lib/demo.ts");
+  const demo = await loadNetwork();
+  const marked = new Set((demo.profile.excluded ?? []).map((x) => x.businessId));
+  for (const id of ["1927400-1", "0109823-0", "2553019-8", "0128631-1"]) assert.ok(marked.has(id), `${id} marked`);
+  assert.equal(seedDemoNotTargets(), 0, "loading the demo again adds nothing twice");
+  assert.ok(!demo.contacts.some((c) => c.fit && c.companyId && marked.has(c.companyId)), "nobody at a marked company is on the list");
+  assert.ok(!getRadar(demo).rows.some((r) => marked.has(r.businessId)), "nor on the radar");
+  assert.ok(!thisWeek(demo).some((w) => w.businessId && marked.has(w.businessId)));
+  for (const o of demo.owners) {
+    const w = thisWeek(demo, 5, o.id);
+    assert.equal(w.length, 5, `${o.name}: five`);
+    assert.ok(w.every((p) => demo.byId.get(p.id)!.knownBy.some((k) => k.owner === o.id)), `${o.name}'s five are in their network`);
+  }
 });
 
 test("draft here: the request to Claude carries no name", async () => {

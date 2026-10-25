@@ -8,6 +8,8 @@ Three questions asked with Claude Code (`claude -p`) against the local Velho Net
 
 The data is the invented demo network, so every person is made up and every company is real. Links point to the local web app. Recorded 25 Oct 2026, about 00:15–00:25.
 
+These answers predate the morning's UX pass. Since then the demo marks large groups such as Kemira as not a target, and This week puts people with a fresh registered change or reaction first. A live `this_week` now returns other people than the weekly review below.
+
 ## Weekly review (Finnish)
 
 > Tee meille tämän viikon katsaus: viisi ihmistä, joille kannattaa olla yhteydessä, perustelut ja lyhyet viestiluonnokset.

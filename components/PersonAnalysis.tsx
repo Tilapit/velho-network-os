@@ -18,7 +18,7 @@ const month = (iso: string) => (iso ? `${MON[Number(iso.slice(5, 7)) - 1]} ${iso
 
 export type PersonPayload = Analysis & { claude: boolean; savedAngle?: string; owners: { id: string; name: string }[]; prompt: string };
 
-export function PersonAnalysis({ data, onBack, standalone }: { data: PersonPayload; onBack?: () => void; standalone?: boolean }) {
+export function PersonAnalysis({ data, onBack, backLabel = "All", standalone }: { data: PersonPayload; onBack?: () => void; backLabel?: string; standalone?: boolean }) {
   const [status, setStatus] = useState(data.status);
   const [statusBy, setStatusBy] = useState(data.statusBy);
   const [angle, setAngle] = useState<{ text: string; by: string; error?: string }>(data.savedAngle ? { text: data.savedAngle, by: "claude" } : { text: data.angle.text, by: "template" });
@@ -71,7 +71,7 @@ export function PersonAnalysis({ data, onBack, standalone }: { data: PersonPaylo
     <div>
       {onBack ? (
         <button type="button" className="link" onClick={onBack} style={{ height: 32 }}>
-          ← All
+          ← {backLabel}
         </button>
       ) : null}
       <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "baseline", marginTop: 4 }}>
@@ -91,6 +91,40 @@ export function PersonAnalysis({ data, onBack, standalone }: { data: PersonPaylo
               LinkedIn profile
             </a>
           </>
+        ) : null}
+      </div>
+
+      {/* The next step first, so there is something to act on without scrolling. */}
+      <div className="next-step">
+        <div className="row" style={{ gap: 8 }}>
+          <WriteInClaude prompt={data.prompt} className="btn small primary" />
+          {data.claude ? (
+            <button type="button" className="btn small" onClick={draftHere} disabled={draft.busy}>
+              {draft.busy ? "Drafting…" : "Draft here"}
+            </button>
+          ) : null}
+          <span className="small muted">Suggested sender: {senderOwner}</span>
+        </div>
+        <p className="xs faint" style={{ marginTop: 6 }}>
+          Write in Claude copies a prompt to paste into your own Claude, connected to this app (Settings → Connect to Claude); Claude writes the message from the facts below.
+          {data.claude ? " Draft here asks Claude from this app, with the name left out." : ""} Nothing is sent from here: {senderOwner === "You" ? "you send it from your own LinkedIn." : `${senderOwner} sends it from their own LinkedIn.`}
+        </p>
+        {draft.text ? (
+          <div className="angle">
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "baseline" }}>
+              <span style={{ fontWeight: 600, fontSize: 14 }}>Draft</span>
+              <span className="pill inferred">Inferred</span>
+            </div>
+            <textarea value={draft.text} onChange={(e) => setDraft({ text: e.target.value })} rows={6} style={{ marginTop: 6 }} aria-label="Draft message" />
+            <div className="row" style={{ marginTop: 6, gap: 8 }}>
+              <WriteInClaude prompt={draft.text} label="Copy draft" copied="Copied" />
+              <span className="xs muted">Written by Claude from the facts in this panel only. Check it before {senderOwner === "You" ? "you send" : `${senderOwner} sends`} it.</span>
+            </div>
+          </div>
+        ) : draft.error ? (
+          <p className="small" style={{ color: "var(--red)", marginTop: 6 }}>
+            {draft.error}
+          </p>
         ) : null}
       </div>
 
@@ -153,37 +187,6 @@ export function PersonAnalysis({ data, onBack, standalone }: { data: PersonPaylo
           Written from the facts above only{angle.by === "claude" ? " by Claude" : " (template)"}. Check before you use it.{angle.error ? ` ${angle.error}.` : ""}
         </p>
       </div>
-
-      <h3>Message</h3>
-      <div className="row" style={{ gap: 8 }}>
-        <WriteInClaude prompt={data.prompt} className="btn small primary" />
-        {data.claude ? (
-          <button type="button" className="btn small" onClick={draftHere} disabled={draft.busy}>
-            {draft.busy ? "Drafting…" : "Draft here"}
-          </button>
-        ) : null}
-      </div>
-      <p className="xs faint" style={{ marginTop: 6 }}>
-        Write in Claude copies a prompt for your own Claude with the Velho connector: it reads the facts and Velho&apos;s tone rules and writes the message there.
-        {data.claude ? " Draft here asks Claude from this app, with the name left out." : ""} {senderOwner === "You" ? "You send it from your own LinkedIn." : `${senderOwner} sends it from their own LinkedIn.`}
-      </p>
-      {draft.text ? (
-        <div className="angle">
-          <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "baseline" }}>
-            <span style={{ fontWeight: 600, fontSize: 14 }}>Draft</span>
-            <span className="pill inferred">Inferred</span>
-          </div>
-          <textarea value={draft.text} onChange={(e) => setDraft({ text: e.target.value })} rows={6} style={{ marginTop: 6 }} aria-label="Draft message" />
-          <div className="row" style={{ marginTop: 6, gap: 8 }}>
-            <WriteInClaude prompt={draft.text} label="Copy draft" copied="Copied" />
-            <span className="xs muted">Written by Claude from the facts above only. Check it before {senderOwner === "You" ? "you send" : `${senderOwner} sends`} it.</span>
-          </div>
-        </div>
-      ) : draft.error ? (
-        <p className="small" style={{ color: "var(--red)", marginTop: 6 }}>
-          {draft.error}
-        </p>
-      ) : null}
 
       <div role="group" aria-label="Status" style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", marginTop: 16 }}>
         {STATUSES.map((s) => (

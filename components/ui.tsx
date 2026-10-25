@@ -16,8 +16,8 @@ export function Source({ source, provenance }: { source: string; provenance?: Pr
 export function FitTag({ fit, status }: { fit: "strong" | "possible" | null; status?: string }) {
   if (status === "not_fit") return <span className="pill red">Not a fit</span>;
   if (status && status !== "none") return <span className="pill green">{status.replace("_", " ").replace(/^./, (c) => c.toUpperCase())}</span>;
-  if (fit === "strong") return <span className="pill strong">Strong fit</span>;
-  if (fit === "possible") return <span className="pill">Possible fit</span>;
+  if (fit === "strong") return <span className="pill strong" title="Strong fit: decides on operations, production or the whole company, at a company in a main industry of your profile">Strong fit</span>;
+  if (fit === "possible") return <span className="pill" title="Possible fit: a decision-maker title at a company in your profile, but not operations or production, or in a lower-priority industry">Possible fit</span>;
   return null;
 }
 

@@ -43,7 +43,7 @@ export function buildMcpServer(): McpServer {
     "this_week",
     {
       title: "This week",
-      description: `The five people to reach this week, chosen by code (the same as the app's "This week"): strong fits and people with a registered change or a reaction in the last 30 days first; skips anyone already contacted or marked not a fit; one per company, at most two per industry, suggested senders spread across the team. Each has a one-line why, the suggested sender and a url. Use it for the weekly review, then message_context per person. ${SOURCES}`,
+      description: `The five people to reach this week, chosen by code (the same as the app's "This week"): people with a registered change or a reaction in the last 30 days first, then the strongest fits; skips anyone already contacted or marked not a fit; one per company, at most two per industry, suggested senders spread across the team. Each has a one-line why, the suggested sender and a url. Use it for the weekly review, then message_context per person. ${SOURCES}`,
       inputSchema: {},
       annotations: { readOnlyHint: true },
     },

@@ -4,6 +4,199 @@ Branch `overnight`. Brief: `OVERNIGHT_PROMPT.md` (wins on conflict), then
 `NETWORK_DEMO_PROMPT.md`, `MOCK_DATA_PROMPT.md`, `PRODUCTION_MCP_PROMPT.md`
 and `design/`.
 
+## UX pass on the Network page (25 Oct, morning)
+
+Feedback: "looks great, but too much is happening visually and it's not
+obvious how to use it." Brief: calm and self-explanatory, one path (pick a
+person → read why → act). Your dev server on 3310 was running, so no
+`npm run build` (shared `.next`); typecheck, tests and screenshots from
+3310 only. Not pushed.
+
+**Status:** done and committed on `overnight`. `npm test` passes (42
+tests), `npx tsc --noEmit` is clean, and a browser check of the new
+behaviour passes 20 of 20 on 3310 with no console errors.
+
+### What changed
+
+1. **One path, one list.**
+   - One line above the drawing, 16 px: "Start with a name on the right,
+     or click an industry to see its decision-makers." ("below" and "tap"
+     under 1024 px, where the panel sits under the drawing.)
+   - The panel shows one list. At rest it is This week (5). "Strongest 8"
+     is gone; "Show all 172 decision-makers who fit →" goes to /people.
+   - Clicking an industry, or turning on Reacted recently, swaps the list.
+     Each swapped list has a "× Clear" chip. A person opened from a list
+     has a way back that names it ("← Metal and machinery").
+2. **Calm at rest.**
+   - Links at 1.4–5% alpha, in one muted blue-grey. They are drawn with
+     normal blending instead of additive, so dense bundles settle into
+     that colour and never glow.
+   - Muted dots, with no halos and no white rings.
+   - Only This week's five are lit, one line each from whoever writes,
+     and labelled.
+   - The pulse is now one soft pass of 0.9 s (kept: at this brightness it
+     is barely noticeable). Particles run only along a selected person's
+     path. Nothing else moves.
+   - The three grey clouds are one compact cloud, "1,746 others outside
+     your industries". Its tooltip breaks the number down.
+   - Decision-maker dots in the column are 1.8 px; the five in This week
+     are drawn bigger, with names.
+3. **Industries do something.**
+   - Clicking an industry's dot, its name or its table row lists its
+     decision-makers: "Metal and machinery", then "34 decision-makers ·
+     10 strong".
+   - Only that industry stays lit, and its top five are named.
+   - "× Clear" or Escape goes back. Hovering only highlights.
+   - Table rows work with the keyboard. /people takes `?industry=`.
+4. **Fewer controls, plain words.**
+   - One toolbar: the owner filter and a "Reacted recently · 40" chip.
+   - The profile is one line: "Profile: manufacturing, construction,
+     wholesale, transport and logistics · Edit". The lower-priority
+     industries are in its tooltip.
+   - Column headers, 14 px: "Your team", "People your team knows ·
+     2,333", "Their industries", "Decision-makers who fit · 172".
+   - The legend has three items: This week, Decision-maker who fits,
+     Someone you know. Its first item follows the list (Reacted recently,
+     or the picked industry).
+   - The long explanation, with the matching numbers, moved into a "How
+     this works" popover. It closes on a click elsewhere or Escape.
+   - Nothing in the drawing is under 12 px. The phone headers are short
+     forms when the full ones don't fit.
+   - The canvas redraws once the web font has loaded. Before this,
+     labels were measured with the fallback font.
+5. **Large groups out of the top lists.**
+   - The demo seed marks 29 large groups as "Not a target company", the
+     same as the company page's button (`data/demo/not-targets.json`,
+     `seedDemoNotTargets` in `lib/demo.ts`): KONE (and KONE Industrial),
+     Valmet (and Valmet Automation), Wärtsilä, Fortum, UPM, Stora Enso,
+     Nokia, Kesko and Kemira. Similar large groups in the demo network:
+     Neste, Konecranes, Kalmar, Hiab, Ponsse, Metso, Outokumpu, Orion,
+     Atria, HKFoods, Finnair, Posti, YIT, Elisa, Fiskars, Sanoma, Tieto
+     and ABB Oy.
+   - Small listed companies stay: Honkarakenne, Nurminen Logistics,
+     Robit and others.
+   - Amazon Oy is left out: its business ID is old enough that it may not
+     be Amazon.
+   - Result: 192 → 172 decision-makers who fit. Kemira's and Neste's
+     people left This week.
+   - At an equal score, a person at an Oyj now ranks below one at a
+     non-listed company. PRH form code 17 decides. This applies to the
+     people ranking, This week and the radar.
+
+### Decisions
+
+- **Your running demo's `data/state.json`.** I applied the not-a-target
+  list to it with the same function, so the screenshots show it. Before
+  that it had no statuses or profile changes. The original is saved in
+  my scratchpad (`ux/state.before-ux.json`). A fresh "Load demo data"
+  does the same.
+- **Marked companies also leave the Signal radar.** "Not a target" now
+  means off every list. Before, KONE Industrial, ABB, Finnair and Atria
+  were warm rows there.
+- **This week follows the owner filter.** The server computes the team's
+  five and each teammate's five, so the lit paths and the list always
+  match. Under a filter the panel says "in Co-founder's network".
+- **This week puts timely people first** (from the first-time-user check).
+  Anyone with a registered change or a reaction in the last 30 days comes
+  before a fit without one. The spread rules (two per industry, senders
+  spread) now give way to a timely person instead of letting a reasonless
+  fit in. The team's five in the demo are all timely; before, Tiina Koski
+  was in with "COO at Honkarakenne" alone. MCP `this_week` says the same.
+- **Not done:**
+  - The This week labels in the drawing run top to bottom by industry,
+    while the cards run by priority. Making them match would mean
+    crossing the label lines.
+  - The demo video (`media/demo-walkthrough.webm`) still shows the
+    overnight version. Re-recording needs the production build, which
+    can't run while your dev server shares `.next`.
+
+### First-time-user check
+
+Three screenshots at 1440 (at rest, Metal and machinery clicked, a person
+opened) went to a fresh agent that had not seen the app, with three
+questions: what is this, what would you click first, what is confusing.
+
+- **What it understood:** our LinkedIn connections against the trade
+  register, to find decision-makers in our industries who might need
+  Velho, with five to contact this week and who writes.
+- **What it would click first:** the top This week card.
+- **What confused it, and what changed:**
+  1. This week didn't follow its own rule ("fresh changes first"), while
+     a fresh MD change was left out. → Timely people first (above). The
+     panel now names all the rules, including the spread.
+  2. "New MD at Specim" read as if he were the new MD; "Board at Satron"
+     and "Merger or demerger" were unclear. → Reasons are sentences about
+     the company: "Specim, Spectral Imaging registered a new managing
+     director on 13 Oct (PRH)." A merger or a demerger is named from the
+     notice's codes, here and in the person panel.
+  3. Blue dots both in the clouds and in the column: "the same people
+     twice?" → The clouds are grey for everyone; the people who fit are
+     blue only in their column. A picked industry lights its whole cloud
+     alike. "Names only five of 34" → the list line says the first five
+     are named in the drawing. Tangled lines → one line per This week
+     person, from whoever writes.
+  4. "People you know" is the team, but "You" is also a teammate, and
+     1,500 + 860 + 300 ≠ 2,333. → "People your team knows · 2,333". The
+     popover says "2,660 connections are 2,333 people".
+  5. "Current role: Missing … (You)" next to the shown title. → "Title
+     today. The title is as it was in your LinkedIn export; it may have
+     changed since."
+  6. Strong fit not explained; "Ordered by code" doesn't say how. → Fit
+     pills have tooltips. The list says "Strong fits first, then by
+     score".
+  7. The coloured dots on the cards weren't in the legend. → Removed; the
+     sentence says what happened.
+  8. The Reacted chip's green dot looked switched on. → A hollow dot when
+     off and green when on, with a tooltip saying what it does.
+  9. Faint counts and cut-off company names. → Counts in a lighter grey,
+     a wider label lane, and company names without "Oy", "Oyj" or "Ltd".
+- **After its clicks:**
+  - The picked industry's label got darker than the others when a person
+    opened, and the lit line ran through it like a strikethrough. → All
+    industry names are now drawn on top of the lines; the one in focus is
+    on a dark backing.
+  - "Registered change" turned out to be two changes. → Rows say "2
+    registered changes".
+  - In the person panel, nothing to act on without scrolling. → "Write in
+    Claude" and who writes now come right under the name, with one line
+    on what it does (copies a prompt; nothing is sent).
+  - Industry rows lacked who writes. → Rows say "You write · 2 of you
+    know them · …".
+- **After the fixes,** a second fresh agent (Sonnet) looked at the new
+  screenshots.
+  - **What it got right:** what the page is (our LinkedIn contacts,
+    grouped by industry, narrowed to 172 decision-makers who fit, with
+    five to contact this week), and it would start with the top This week
+    card "because his card gives a concrete reason".
+  - **What was left, and what changed:**
+    1. "Fit for what?" → The profile line now defines it: "Profile:
+       decision-makers in manufacturing, …".
+    2. "You write" read like a past fact. → "Suggested sender: You", and
+       "Sender:" in the industry rows. The connector is explained where
+       Write in Claude is ("connected to this app, Settings → Connect to
+       Claude"), and This week ends with "Nothing is sent from this app."
+    3. Still: a fresher MD change (Anders Strömberg, 9 Oct) is missing
+       from This week. That is the brief's "balance senders across owners":
+       You already have two. → The blurb now says it: "at most two for
+       each sender". It says this only when the five actually satisfy it.
+       "Picked by code" is now "picked by fixed rules, not AI".
+    4. 1,500 + 860 + 300 ≠ 2,333 was still not visible. → Each teammate's
+       count now reads "1,500 connections", next to "People your team
+       knows · 2,333"; the popover has the arithmetic.
+    5. Three unlabelled dotted columns. → The decision-makers are one
+       band (closer, slightly jittered). Every industry name sits on a
+       dark backing, so lines pass behind it.
+    6. Whether the tabs mean who knows or who writes. → A visible "Whose
+       network" label.
+    7. "× Clear" might sound like deleting. → Kept as you asked, with a
+       tooltip: "Clear the industry and show This week again".
+  - **Left as it is:** "what Velho offers" is not on the page (the users
+    are Velho's founders; the demo script says it out loud).
+
+Screens re-taken from 3310 at 1440 and 390: `screens/network-*.png` (the
+hover state is now `network-industry-*.png`, a clicked industry), and the
+person, people, radar and themes pages.
+
 ## Morning report, part 2 (night of 24–25 Oct)
 
 **Status: all six steps done and committed on `overnight`.** `npm test`

@@ -27,6 +27,14 @@ export const SIGNAL_TYPES: Record<SignalType, { label: string; short: string; we
   board_change: { label: "Board changed", short: "Board", weight: 2, codes: ["HAL"] },
 };
 
+/** A merger notice is a merger (SUL codes) or a demerger (JAK codes); the label says which when the codes do. */
+export function signalLabel(s: Pick<CompanySignal, "type" | "entryCodes">): string {
+  if (s.type !== "merger") return SIGNAL_TYPES[s.type].label;
+  const sul = s.entryCodes.some((c) => c.startsWith("SUL"));
+  const jak = s.entryCodes.some((c) => c.startsWith("JAK"));
+  return sul && !jak ? "Merger" : jak && !sul ? "Demerger" : SIGNAL_TYPES.merger.label;
+}
+
 export type CompanySignal = {
   businessId: string;
   company: string;

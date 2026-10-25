@@ -7,18 +7,39 @@ import { FitTag } from "./ui";
 import { WriteInClaude } from "./WriteInClaude";
 import type { WeekPick } from "@/lib/queries.ts";
 
-export type ViewNode = DNode & { co: string; via: string[]; st: string };
+export type ViewNode = DNode & { co: string; via: string[]; st: string; sg: number };
 
 const fmt = (n: number) => n.toLocaleString("en-US");
+const NUM = ["no", "one", "two", "three", "four", "five"];
+const popcount = (k: number) => {
+  let c = 0;
+  for (; k; k &= k - 1) c++;
+  return c;
+};
+/** "Transport and logistics" -> "transport and logistics"; "TOL 46" stays. */
+const lower = (s: string) => (/^\p{Lu}\p{Ll}/u.test(s) ? s.charAt(0).toLowerCase() + s.slice(1) : s);
 
 type Week = Pick<WeekPick, "id" | "name" | "title" | "company" | "fit" | "status" | "kind" | "why" | "sender" | "prompt">;
 
-export function NetworkView(props: { nodes: ViewNode[]; groups: DGroup[]; owners: DOwner[]; chips: string[]; matched: number; noCompany: number; initial?: string; week: Week[] }) {
-  const { nodes, groups, owners, chips } = props;
+export function NetworkView(props: {
+  nodes: ViewNode[];
+  groups: DGroup[];
+  owners: DOwner[];
+  profile: { main: string[]; lower: string[] };
+  matched: number;
+  noCompany: number;
+  initial?: string;
+  /** This week for the whole team, and for each teammate's network. */
+  week: Week[];
+  weekBy: Week[][];
+}) {
+  const { nodes, groups, owners } = props;
   const [owner, setOwner] = useState(-1);
   const [selected, setSelected] = useState<string | null>(props.initial ?? null);
   const [person, setPerson] = useState<PersonPayload | null>(null);
+  // Hovering an industry only highlights it; clicking it lists its decision-makers.
   const [hoverGroup, setHoverGroup] = useState<number | null>(null);
+  const [picked, setPicked] = useState<number | null>(null);
   const [reacted, setReacted] = useState(false);
   // A person hovered in the panel lights up in the drawing.
   const [focus, setFocus] = useState<string | null>(null);
@@ -30,18 +51,52 @@ export function NetworkView(props: { nodes: ViewNode[]; groups: DGroup[]; owners
   const fits = useMemo(() => vis.filter((n) => n.f), [vis]);
   // Server order: strong, possible, "not a fit" last, then score.
   const ranked = useMemo(() => fits.filter((n) => !n.nf), [fits]);
-  const top = useMemo(() => ranked.slice(0, 8), [ranked]);
-  const topIds = useMemo(() => top.map((n) => n.id), [top]);
   const reactedList = useMemo(() => vis.filter((n) => n.rx > 0 && !n.nf), [vis]);
-  const listed = hoverGroup !== null ? ranked.filter((n) => n.g === hoverGroup) : reacted ? reactedList : top;
-  const main = chips.filter((c) => !c.endsWith("(lower)"));
-  const lower = chips.filter((c) => c.endsWith("(lower)"));
+  const inIndustry = useMemo(() => (picked === null ? [] : ranked.filter((n) => n.g === picked)), [ranked, picked]);
+  // Industries with people in your profile: the ones the drawing has a node for.
+  const targets = useMemo(() => new Set(nodes.filter((n) => n.ip && !groups[n.g].grey).map((n) => n.g)), [nodes, groups]);
+  const week = owner >= 0 ? props.weekBy[owner] ?? [] : props.week;
+  // The code keeps each sender to this many while it can; the blurb says so only when it held.
+  const perSender = Math.max(1, Math.ceil(5 / Math.max(1, owners.length)));
+  const balanced = owners.length > 1 && week.every((w) => week.filter((x) => x.sender === w.sender).length <= perSender);
+  const list = picked !== null ? inIndustry : reacted ? reactedList : null;
+  // The drawing labels and lights the top of the list on the right.
+  const listIds = useMemo(() => (list ? list.filter((n) => n.f).slice(0, 5).map((n) => n.id) : week.map((w) => w.id)), [list, week]);
+
+  /** When the panel sits below the drawing, bring it into view. */
+  function reveal() {
+    if (side.current && window.matchMedia("(max-width: 1023px)").matches) side.current.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 
   function choose(id: string) {
     setSelected(id);
     setFocus(null);
-    // When the panel sits below the drawing, bring it into view.
-    if (side.current && window.matchMedia("(max-width: 1023px)").matches) side.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    reveal();
+  }
+
+  function back() {
+    setSelected(null);
+    const url = new URL(window.location.href);
+    url.searchParams.delete("p");
+    window.history.replaceState(null, "", url);
+  }
+
+  function pick(g: number | null, fromTable = false) {
+    setPicked(g);
+    if (g === null) return;
+    setReacted(false);
+    setFocus(null);
+    back();
+    if (window.matchMedia("(max-width: 1023px)").matches) reveal();
+    else if (fromTable) window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function toggleReacted() {
+    setReacted(!reacted);
+    if (!reacted) {
+      setPicked(null);
+      back();
+    }
   }
 
   useEffect(() => {
@@ -62,17 +117,18 @@ export function NetworkView(props: { nodes: ViewNode[]; groups: DGroup[]; owners
     };
   }, [selected]);
 
-  function back() {
-    setSelected(null);
-    const url = new URL(window.location.href);
-    url.searchParams.delete("p");
-    window.history.replaceState(null, "", url);
-  }
+  // Escape clears a picked industry.
+  useEffect(() => {
+    if (picked === null) return;
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && !selected && setPicked(null);
+    window.addEventListener("keydown", esc);
+    return () => window.removeEventListener("keydown", esc);
+  }, [picked, selected]);
 
   const counts = useMemo(() => {
-    const present = new Set(vis.map((n) => n.g));
+    const present = new Set(vis.filter((n) => targets.has(n.g)).map((n) => n.g));
     return { contacts: vis.length, groups: present.size, fits: fits.length };
-  }, [vis, fits]);
+  }, [vis, fits, targets]);
 
   const industries = useMemo(() => {
     const rows = groups
@@ -82,12 +138,12 @@ export function NetworkView(props: { nodes: ViewNode[]; groups: DGroup[]; owners
         const strong = f.filter((n) => n.f === 2).length;
         const two = f.filter((n) => n.k & (n.k - 1)).length;
         const sig = new Set(cs.filter((n) => n.sig && n.ip).map((n) => n.co)).size;
-        return { i, label: g.label, grey: g.grey, people: cs.length, dms: cs.filter((n) => n.dm).length, strong, possible: f.length - strong, two, sig, score: strong * 3 + (f.length - strong) + two * 2 + sig * 2 };
+        return { i, label: g.label, scored: targets.has(i), people: cs.length, fit: f.length, strong, possible: f.length - strong, two, sig, score: strong * 3 + (f.length - strong) + two * 2 + sig * 2 };
       })
       .filter((r) => r.people);
     const k = sort.key as keyof (typeof rows)[number];
-    return rows.sort((a, b) => (a.grey !== b.grey ? (a.grey ? 1 : -1) : ((a[k] as number) - (b[k] as number)) * sort.dir || b.people - a.people));
-  }, [groups, vis, sort]);
+    return rows.sort((a, b) => (a.scored !== b.scored ? (a.scored ? -1 : 1) : ((a[k] as number) - (b[k] as number)) * sort.dir || b.people - a.people));
+  }, [groups, vis, sort, targets]);
   const maxScore = Math.max(1, ...industries.map((r) => r.score));
   const th = (key: string, label: string, num = true) => (
     <th className={num ? "num" : undefined} aria-sort={sort.key === key ? (sort.dir === 1 ? "ascending" : "descending") : undefined}>
@@ -98,14 +154,39 @@ export function NetworkView(props: { nodes: ViewNode[]; groups: DGroup[]; owners
     </th>
   );
 
+  const row = (n: ViewNode) => (
+    <button key={n.id} type="button" className={`prow${n.nf ? " dim" : ""}`} onClick={() => choose(n.id)} onMouseEnter={() => setFocus(n.id)} onMouseLeave={() => setFocus(null)} onFocus={() => setFocus(n.id)} onBlur={() => setFocus(null)}>
+      <span className="top-line">
+        <span className="name">{n.n}</span>
+        <FitTag fit={n.f === 2 ? "strong" : n.f === 1 ? "possible" : null} status={n.st} />
+      </span>
+      <span className="small muted">
+        {n.t || "No title"} · {n.c}
+      </span>
+      <span className="small" style={{ color: "var(--text-2)" }}>
+        Sender: {n.via[0]}
+        {n.via.length > 1 ? ` · ${n.via.length} of you know them` : ""}
+        {n.sg ? ` · ${n.sg > 1 ? `${n.sg} registered changes` : "registered change"}` : ""}
+        {n.rx ? " · reacted to a post" : ""}
+      </span>
+    </button>
+  );
+
+  const backLabel = picked !== null ? groups[picked].label : reacted ? "Reacted recently" : "This week";
+  const pickedPeople = picked === null ? 0 : vis.filter((n) => n.g === picked).length;
+
   return (
     <div className="netpage">
       <header className="net-head">
         <h1>Who in your team&apos;s network could need Velho</h1>
-        <p className="lede">
-          {owners.map((o) => o.name).join(", ")}: LinkedIn connections matched to Finnish companies in the trade register (PRH) and filtered by your profile. Every line is a real link.
+        <p className="profile-line" title={props.profile.lower.length ? `Lower priority: ${props.profile.lower.map(lower).join(", ")}` : undefined}>
+          Profile: decision-makers in {props.profile.main.map(lower).join(", ")} ·{" "}
+          <Link href="/settings#profile" className="link">
+            Edit
+          </Link>
         </p>
-        <div className="row" style={{ marginBottom: 14 }}>
+        <div className="toolbar">
+          <span className="small muted">Whose network</span>
           <div className="seg" role="group" aria-label="Whose network">
             <button type="button" aria-pressed={owner < 0} onClick={() => setOwner(-1)}>
               Whole team
@@ -116,25 +197,9 @@ export function NetworkView(props: { nodes: ViewNode[]; groups: DGroup[]; owners
               </button>
             ))}
           </div>
-          <div className="row small" style={{ gap: 6 }}>
-            <span className="muted">Profile:</span>
-            {main.map((c) => (
-              <span key={c} className="chip">
-                {c}
-              </span>
-            ))}
-            {lower.length ? (
-              <span className="chip" title={lower.join(", ")}>
-                +{lower.length} lower priority
-              </span>
-            ) : null}
-            <Link href="/settings#profile" className="link small">
-              Edit
-            </Link>
-          </div>
           {reactedList.length || reacted ? (
-            <button type="button" className="btn small toggle" aria-pressed={reacted} onClick={() => setReacted(!reacted)} title="People who reacted to the team's posts in the last 30 days">
-              <i className="lg-reacted" />
+            <button type="button" className="chip-toggle" aria-pressed={reacted} onClick={toggleReacted} title={reacted ? "Showing who reacted to the team's posts in the last 30 days. Click to go back to This week." : "Show who reacted to the team's posts in the last 30 days"}>
+              <i className={reacted ? "lg-reacted" : "lg-off"} />
               Reacted recently · {reactedList.length}
             </button>
           ) : (
@@ -143,106 +208,137 @@ export function NetworkView(props: { nodes: ViewNode[]; groups: DGroup[]; owners
             </Link>
           )}
         </div>
+        <p className="hint">
+          <span className="wide-only">Start with a name on the right, or click an industry to see its decision-makers.</span>
+          <span className="narrow-only">Start with a name below, or tap an industry to see its decision-makers.</span>
+        </p>
       </header>
 
       <section className="net-draw" aria-label="Your team's network">
-        <NetworkDrawing nodes={nodes} groups={groups} owners={owners} owner={owner} topIds={topIds} selected={selected} onSelect={choose} hoverGroup={hoverGroup} onHoverGroup={setHoverGroup} counts={counts} showReacted={reacted} focusId={focus} />
-        <div className="legend">
-          <span><i className="lg-strong" />Strong fit</span>
-          <span><i className="lg-possible" />Possible fit</span>
-          <span><i className="lg-other" />Others in your industries</span>
-          <span><i className="lg-grey" />Outside your industries, not matched or abroad</span>
-          <span><i className="lg-ring" />Known by two or more of you</span>
-          {reacted ? <span><i className="lg-reacted" />Reacted to a post in the last 30 days</span> : null}
+        <NetworkDrawing nodes={nodes} groups={groups} owners={owners} owner={owner} listIds={listIds} selected={selected} onSelect={choose} hoverGroup={hoverGroup} onHoverGroup={setHoverGroup} picked={picked} onPick={(g) => pick(g)} counts={counts} showReacted={reacted} focusId={focus} />
+        <div className="legend-row">
+          <div className="legend">
+            {reacted ? (
+              <span>
+                <i className="lg-reacted" />
+                Reacted recently
+              </span>
+            ) : picked !== null ? (
+              <span>
+                <i className="lg-picked" />
+                {groups[picked].label}
+              </span>
+            ) : (
+              <span>
+                <i className="lg-lit" />
+                This week
+              </span>
+            )}
+            <span>
+              <i className="lg-fit" />
+              Decision-maker who fits
+            </span>
+            <span>
+              <i className="lg-other" />
+              Someone you know
+            </span>
+          </div>
+          <HowItWorks matched={props.matched} total={nodes.length} rows={nodes.reduce((a, n) => a + popcount(n.k), 0)} noCompany={props.noCompany} />
         </div>
-        <p className="small muted" style={{ marginTop: 6 }}>
-          <span className="hover-only">Hover a dot for who it is. Hover or click an industry to light its people. Click anyone for the analysis. </span>
-          <span className="touch-only">Tap a dot for who it is, tap again to open. Tap an industry to light its people. </span>
-          {fmt(props.matched)} of {fmt(nodes.length)} people matched to a Finnish company by name in PRH. {props.noCompany ? `${props.noCompany} have no company in LinkedIn. ` : ""}Nothing is guessed: names with no single match stay unmatched until you pick one in <Link href="/settings#matches">Settings</Link>.
-        </p>
       </section>
 
-      <aside className="side net-side" aria-label="Analysis" ref={side}>
+      <aside className="side net-side" aria-label="Who to reach" ref={side}>
         {person && selected ? (
-          <PersonAnalysis data={person} onBack={back} />
-        ) : (
+          <PersonAnalysis data={person} onBack={back} backLabel={backLabel} />
+        ) : picked !== null ? (
           <>
-            {props.week.length && hoverGroup === null && !reacted ? (
-              <div className="week">
-                <h2>This week</h2>
-                <p className="small muted" style={{ marginBottom: 10 }}>
-                  Five to reach this week, chosen by code: fresh registered changes and reactions first, no one already contacted, senders spread across the team.
-                </p>
-                {props.week.map((w) => (
-                  <div key={w.id} className="prow week-card" onMouseEnter={() => setFocus(w.id)} onMouseLeave={() => setFocus(null)}>
-                    <button type="button" className="prow-open" onClick={() => choose(w.id)}>
-                      <span className="top-line">
-                        <span className="name">{w.name}</span>
-                        <FitTag fit={w.fit} status={w.status === "To contact" ? "to_contact" : undefined} />
-                      </span>
-                      <span className="small muted">
-                        {w.title || "No title"} · {w.company}
-                      </span>
-                      <span className={`small why ${w.kind}`}>{w.why}</span>
-                    </button>
-                    <span className="row small" style={{ justifyContent: "space-between", gap: 8, marginTop: 4 }}>
-                      <span className="muted">{w.sender === "You" ? "You write" : `${w.sender} writes`}</span>
-                      <WriteInClaude prompt={w.prompt} className="link small" />
-                    </span>
-                  </div>
-                ))}
-              </div>
-            ) : null}
-            <h2>{hoverGroup !== null ? `${groups[hoverGroup].label}: ${listed.length} who fit` : reacted ? `Reacted recently: ${reactedList.length}` : `Strongest ${top.length} of ${fits.length}`}</h2>
-            <p className="small muted" style={{ marginBottom: 14 }}>
-              {reacted && hoverGroup === null
-                ? "Reacted to one of the team's posts in the last 30 days, matched by name from the pasted reactions list. Fits first. Ordered by code, not by AI."
-                : "Strong fit: decides on operations, production or the whole company, at a company in your industries. Ordered by code, not by AI."}
-            </p>
-            {listed.slice(0, 12).map((n) => (
-              <button key={n.id} type="button" className={`prow${n.nf ? " dim" : ""}`} onClick={() => choose(n.id)} onMouseEnter={() => setFocus(n.id)} onMouseLeave={() => setFocus(null)} onFocus={() => setFocus(n.id)} onBlur={() => setFocus(null)}>
-                <span className="top-line">
-                  <span className="name">{n.n}</span>
-                  <FitTag fit={n.f === 2 ? "strong" : n.f === 1 ? "possible" : null} status={n.st} />
-                </span>
-                <span className="small muted">
-                  {n.t || "No title"} · {n.c}
-                </span>
-                <span className="small" style={{ color: "var(--text-2)" }}>
-                  Known by {n.via.join(" and ")}
-                  {n.sig ? " · registered change" : ""}
-                  {n.rx ? " · reacted to a post" : ""}
-                </span>
+            <div className="panel-head">
+              <h2>{groups[picked].label}</h2>
+              <button type="button" className="chip-x" onClick={() => pick(null)} title="Clear the industry and show This week again">
+                × Clear
               </button>
-            ))}
-            {selected && !person ? <p className="muted small">Loading…</p> : null}
+            </div>
+            <p className="small muted" style={{ marginBottom: 14 }}>
+              {inIndustry.length
+                ? `${inIndustry.length} decision-maker${inIndustry.length === 1 ? "" : "s"} · ${inIndustry.filter((n) => n.f === 2).length} strong. Strong fits first, then by score; the first five are named in the drawing.`
+                : `None of the ${fmt(pickedPeople)} people here has a decision-maker title that fits.`}
+            </p>
+            {inIndustry.slice(0, 12).map(row)}
+            {inIndustry.length > 12 ? (
+              <p className="small" style={{ marginTop: 8 }}>
+                <Link href={`/people?industry=${groups[picked].id}`} className="link">
+                  Show all {inIndustry.length} →
+                </Link>
+              </p>
+            ) : null}
+          </>
+        ) : reacted ? (
+          <>
+            <div className="panel-head">
+              <h2>Reacted recently</h2>
+              <button type="button" className="chip-x" onClick={toggleReacted} title="Show This week again">
+                × Clear
+              </button>
+            </div>
+            <p className="small muted" style={{ marginBottom: 14 }}>
+              {reactedList.length} reacted to one of the team&apos;s posts in the last 30 days, matched by name from the pasted reactions list. Fits first.
+            </p>
+            {reactedList.slice(0, 12).map(row)}
             <p className="small" style={{ marginTop: 8 }}>
-              {reacted && hoverGroup === null ? (
-                <Link href="/people?reacted=1" className="link">
-                  Show all {reactedList.length} who reacted →
-                </Link>
-              ) : (
-                <Link href="/people" className="link">
-                  Show all {fits.length} →
-                </Link>
-              )}
+              <Link href="/people?reacted=1" className="link">
+                Show all {reactedList.length} who reacted →
+              </Link>
             </p>
           </>
+        ) : (
+          <div className="week">
+            <h2>This week</h2>
+            <p className="small muted" style={{ marginBottom: 12 }}>
+              {owner >= 0
+                ? `Five people in ${owners[owner].name === "You" ? "your" : `${owners[owner].name}'s`} network to reach now, picked by fixed rules, not AI: a fresh registered change or a reaction first, nobody already contacted.`
+                : `Five people to reach now, picked by fixed rules, not AI: a fresh registered change or a reaction first, nobody already contacted${balanced ? `, at most ${NUM[perSender] ?? perSender} for each sender` : ""}.`}
+            </p>
+            {week.map((w) => (
+              <div key={w.id} className="prow week-card" onMouseEnter={() => setFocus(w.id)} onMouseLeave={() => setFocus(null)}>
+                <button type="button" className="prow-open" onClick={() => choose(w.id)}>
+                  <span className="top-line">
+                    <span className="name">{w.name}</span>
+                    <FitTag fit={w.fit} status={w.status === "To contact" ? "to_contact" : undefined} />
+                  </span>
+                  <span className="small muted">
+                    {w.title || "No title"} · {w.company}
+                  </span>
+                  <span className={`small why ${w.kind}`}>{w.why}</span>
+                </button>
+                <span className="row small" style={{ justifyContent: "space-between", gap: 8, marginTop: 4 }}>
+                  <span className="muted">Suggested sender: {w.sender}</span>
+                  <WriteInClaude prompt={w.prompt} className="link small" />
+                </span>
+              </div>
+            ))}
+            {!week.length ? <p className="small muted">Nobody left to reach: everyone who fits has a status.</p> : <p className="xs faint">Write in Claude copies a prompt for your own Claude, which writes the message. Nothing is sent from this app.</p>}
+            <p className="small" style={{ marginTop: 8 }}>
+              <Link href="/people" className="link">
+                Show all {fits.length} decision-makers who fit →
+              </Link>
+            </p>
+          </div>
         )}
+        {selected && !person ? <p className="muted small">Loading…</p> : null}
       </aside>
 
       <section className="net-table section" aria-label="By industry">
         <h2>By industry</h2>
         <p className="small muted" style={{ marginBottom: 10 }}>
-          Score is code: 3 per strong fit, 1 per possible fit, 2 per fit known by two or more of you, 2 per company in your industries with a registered change in the last 90 days.
+          Click a row to list its decision-makers. Score is code: 3 per strong fit, 1 per possible fit, 2 per fit known by two or more of you, 2 per company in your industries with a registered change in the last 90 days.
         </p>
         <div className="table-wrap">
-          <table>
+          <table className="industries">
             <thead>
               <tr>
                 {th("label", "Industry", false)}
                 {th("people", "People")}
-                {th("dms", "Decision-makers")}
+                {th("fit", "Who fit")}
                 {th("strong", "Strong")}
                 {th("two", "Known by 2+")}
                 {th("sig", "Signals")}
@@ -251,15 +347,26 @@ export function NetworkView(props: { nodes: ViewNode[]; groups: DGroup[]; owners
             </thead>
             <tbody>
               {industries.map((r) => (
-                <tr key={r.i} onMouseEnter={() => !r.grey && setHoverGroup(r.i)} onMouseLeave={() => setHoverGroup(null)} style={{ cursor: "default", opacity: r.grey ? 0.6 : 1 }}>
-                  <td>{r.label}</td>
+                <tr key={r.i} className={r.scored ? (picked === r.i ? "pickable picked" : "pickable") : "unscored"} onClick={r.scored ? () => pick(picked === r.i ? null : r.i, true) : undefined} onMouseEnter={() => r.scored && setHoverGroup(r.i)} onMouseLeave={() => setHoverGroup(null)}>
+                  <td>
+                    {r.scored ? (
+                      <button type="button" className="row-link" aria-pressed={picked === r.i} onClick={(e) => {
+                        e.stopPropagation();
+                        pick(picked === r.i ? null : r.i, true);
+                      }}>
+                        {r.label}
+                      </button>
+                    ) : (
+                      r.label
+                    )}
+                  </td>
                   <td className="num">{fmt(r.people)}</td>
-                  <td className="num">{r.dms}</td>
+                  <td className="num">{r.fit}</td>
                   <td className="num">{r.strong}</td>
                   <td className="num">{r.two}</td>
                   <td className="num">{r.sig}</td>
                   <td style={{ minWidth: 120 }}>
-                    {r.grey ? (
+                    {!r.scored ? (
                       <span className="faint xs">not scored</span>
                     ) : (
                       <div className="row" style={{ gap: 8, flexWrap: "nowrap" }}>
@@ -276,6 +383,52 @@ export function NetworkView(props: { nodes: ViewNode[]; groups: DGroup[]; owners
           </table>
         </div>
       </section>
+    </div>
+  );
+}
+
+/** The long explanation, out of the way until asked for. */
+function HowItWorks({ matched, total, rows, noCompany }: { matched: number; total: number; rows: number; noCompany: number }) {
+  const [open, setOpen] = useState(false);
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const away = (e: PointerEvent) => box.current && !box.current.contains(e.target as Node) && setOpen(false);
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("pointerdown", away);
+    document.addEventListener("keydown", esc);
+    return () => {
+      document.removeEventListener("pointerdown", away);
+      document.removeEventListener("keydown", esc);
+    };
+  }, [open]);
+  return (
+    <div className="how" ref={box}>
+      <button type="button" className="link small" aria-expanded={open} aria-controls="how-it-works" onClick={() => setOpen(!open)}>
+        How this works
+      </button>
+      {open ? (
+        <div className="popover" id="how-it-works" role="dialog" aria-label="How this works">
+          <ul>
+            <li>
+              <b>Left to right:</b> your team, the people you know (one dot each, grouped by their company&apos;s industry), the industries, and the decision-makers who fit your profile. Every line is a real LinkedIn connection.
+            </li>
+            <li>
+              <b>Industries</b> come from the trade register (PRH): {fmt(matched)} of {fmt(total)} people are matched to one Finnish company by name. Nothing is guessed: a name with no single match stays unmatched until you pick one in <Link href="/settings#matches">Settings</Link>.
+              {noCompany ? ` ${noCompany} have no company in LinkedIn.` : ""}
+            </li>
+            <li>
+              <b>Fit</b> is code: a decision-maker title at a company in your profile&apos;s industries. Brighter blue is a strong fit: decides on operations, production or the whole company.
+            </li>
+            <li>
+              <b>This week</b> is five people picked by code: fresh registered changes and reactions first, nobody already contacted, senders spread across the team.
+            </li>
+            <li>
+              Someone two of you know is one dot, merged by profile URL: {fmt(rows)} connections are {fmt(total)} people. Hover a dot for who it is; Ctrl or ⌘ + scroll zooms.
+            </li>
+          </ul>
+        </div>
+      ) : null}
     </div>
   );
 }

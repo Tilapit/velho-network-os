@@ -15,6 +15,7 @@ director, owner or founder title at a real company.
 | Connections-cofounder.csv | Mock export for "Co-founder", 860 rows, 270 people shared with Connections.csv by profile URL |
 | Connections-board.csv | Mock export for "Board member", 300 rows, 60 people shared with the other two |
 | Connections-small.csv, story/ | The original 57-row story demo, kept for the old tests |
+| not-targets.json | Large groups the demo team marks as "Not a target company" when the demo loads (KONE, Valmet, Wärtsilä, Kemira, …): a team decision, not a fact about the companies |
 
 Regenerate with `node scripts/generate-mock-connections.mjs` (seeded, same
 output every time; `--check-prh` checks the target companies against PRH).

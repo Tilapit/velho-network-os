@@ -12,7 +12,7 @@ process.env.PRH_OFFLINE = "1";
 
 const { parseConnections } = await import("../lib/ingest.ts");
 const { isoDate } = await import("../lib/normalize.ts");
-const { buildNetwork, mergeNetworks, fitFor, approachFor, signalPoints } = await import("../lib/network.ts");
+const { buildNetwork, mergeNetworks, fitFor, approachFor, signalPoints, isOyj } = await import("../lib/network.ts");
 const { analyseTitle, isStrongRole } = await import("../lib/roles.ts");
 const { groupForTol, industryRule, DEFAULT_PROFILE, looksForeign } = await import("../lib/industry.ts");
 const { decide, strictKey, looseKey } = await import("../lib/prh.ts");
@@ -278,6 +278,30 @@ test("a company marked as not a target takes its people off the list", () => {
   assert.equal(laura.fit, null);
   assert.equal(laura.approach, "skip");
   assert.match(analyse(n2, laura).fitWhy, /not a target/);
+});
+
+test("at an equal score an Oyj ranks after the rest; a company marked as not a target leaves the radar", () => {
+  // Invented people at invented companies, with the same facts but the company form.
+  const rows = csv([
+    "Aino,Aalto,https://www.linkedin.com/in/aino-aalto-9f,,Esimerkki Konepaja Oyj,Operations Director,12 Apr 2019",
+    "Ville,Wirtanen,https://www.linkedin.com/in/ville-wirtanen-9f,,Testi Konepaja Oy,Operations Director,12 Apr 2019",
+  ]);
+  const listed = co("3333333-3", "Esimerkki Konepaja Oyj", "28150", { formCode: "17", form: "Public limited company" });
+  const r2 = new Map<string, Resolved>([
+    ["Esimerkki Konepaja Oyj", res("Esimerkki Konepaja Oyj", "verified", listed)],
+    ["Testi Konepaja Oy", res("Testi Konepaja Oy", "verified", co("4444444-4", "Testi Konepaja Oy", "28150"))],
+  ]);
+  const n3 = buildNetwork({ networks: [{ owner: owner("you", "You"), text: rows }], resolved: r2, state: emptyState, profile: DEFAULT_PROFILE, signals: null, today: "2026-10-24" });
+  const [first, second] = n3.contacts;
+  assert.equal(first.score, second.score);
+  assert.equal(first.name, "Ville Wirtanen", "by name alone Aino would come first");
+  assert.ok(isOyj(second) && !isOyj(first));
+
+  assert.ok(getRadar(net).rows.some((r) => r.businessId === "2417546-2"));
+  const n4 = buildNetwork({ networks: [{ owner: owner("you", "You"), text: YOU }], resolved, state: emptyState, profile: { ...DEFAULT_PROFILE, excluded: [{ businessId: "2417546-2", name: "Hydroline Oy" }] }, signals, today: "2026-10-24" });
+  const radar = getRadar(n4);
+  assert.ok(!radar.rows.some((r) => r.businessId === "2417546-2"));
+  assert.ok(radar.rows.some((r) => r.businessId === "9999999-9"));
 });
 
 test("well-known international names are never verified by name alone", async () => {

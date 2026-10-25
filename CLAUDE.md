@@ -80,9 +80,10 @@ The founders use it from their own Claude through an MCP connector.
     week, Reacted recently
   - `/people`, `/people/[id]`, `/companies/[id]`, `/radar`, `/themes`,
     `/settings`
-- `data/demo/`: invented mock exports, PRH snapshots and two pasted
-  reactions lists for offline demos. `data/stress/` (gitignored): 5k and
-  10k stress files.
+- `data/demo/`: invented mock exports, PRH snapshots, two pasted
+  reactions lists and the large groups the demo team marks as not a
+  target (`not-targets.json`), for offline demos. `data/stress/`
+  (gitignored): 5k and 10k stress files.
 - `tests/fixtures/`: importer and reactions fixtures with exact bytes.
 
 ## Commands

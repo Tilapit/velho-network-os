@@ -3,11 +3,11 @@
 import { analyse, fmtDate, shortName, type Analysis } from "./analysis.ts";
 import { GROUP, GROUPS, groupForTol, industryRule, type GroupId } from "./industry.ts";
 import { matchTerm } from "./roles.ts";
-import { SIGNAL_TYPES, addDays, type CompanySignal, type SignalType } from "./signals.ts";
+import { SIGNAL_TYPES, addDays, signalLabel, type CompanySignal, type SignalType } from "./signals.ts";
 import { addReactionRows, STATUS_LABEL, type Reaction, type Status } from "./state.ts";
 import { daysBetween, fold, isoDate } from "./normalize.ts";
 import { candidateOf, cleanName, matchReactions, nameKey, postsWithin, readReactions, RECENT_DAYS, type ParsedReaction } from "./reactions.ts";
-import { contactsFor, type Contact, type Fit, type Network } from "./network.ts";
+import { contactsFor, isOyj, type Contact, type Fit, type Network } from "./network.ts";
 import { ytjUrl } from "./prh.ts";
 
 export const appUrl = (p: string) => `${(process.env.APP_BASE_URL || "http://localhost:3100").replace(/\/$/, "")}${p}`;
@@ -181,34 +181,47 @@ export function claudePrompt(c: Pick<Contact, "name" | "id" | "approach">): stri
   return `Using Velho Network, write a Finnish LinkedIn message to ${c.name} (${c.id}), approach ${c.approach === "ask_intro" ? "ask_intro" : "direct"}.`;
 }
 
-/** One line on why this person, this week: a fresh registered change, a reaction, or the fit. */
+/** A registered change as words: "a new managing director", "a demerger". */
+function changeText(s: CompanySignal): string {
+  if (s.type === "md_change") return "a new managing director";
+  if (s.type === "board_change") return "a board change";
+  if (s.type === "new_money") return "a share issue or capital increase";
+  return `a ${signalLabel(s).toLowerCase()}`;
+}
+
+/** One sentence on why this person, this week: what changed at which company and when, a reaction, or the fit alone. */
 export function weekWhy(net: Network, c: Contact): { kind: WeekPick["kind"]; why: string } {
   const company = c.match?.company && !c.match.foreign ? shortName(c.match.company.name) : c.company;
-  const role = c.position ? `${c.position.charAt(0).toUpperCase()}${c.position.slice(1)}` : "Decision-maker";
+  const title = c.position.length > 60 ? `${c.position.slice(0, 59).trim()}…` : c.position;
+  const role = title ? `${title.charAt(0).toUpperCase()}${title.slice(1)}` : "Decision-maker";
   const sig = c.signals.filter((s) => daysBetween(s.date, net.today) <= 30).sort((a, b) => SIGNAL_TYPES[b.type].weight - SIGNAL_TYPES[a.type].weight || b.date.localeCompare(a.date))[0];
-  if (sig) return { kind: "signal", why: `${SIGNAL_TYPES[sig.type].short} at ${company}, registered ${dayMonth(sig.date)} (PRH).` };
+  if (sig) return { kind: "signal", why: `${company} registered ${changeText(sig)} on ${dayMonth(sig.date)} (PRH).` };
   const r = c.reactions.filter((x) => daysBetween(x.postDate ?? x.at.slice(0, 10), net.today) <= RECENT_DAYS).sort((a, b) => (b.postDate ?? b.at).localeCompare(a.postDate ?? a.at))[0];
   if (r) {
     const author = r.author ? net.owners.find((o) => o.id === r.author)?.name : undefined;
-    // "Director, Operations" -> "director, Operations"; "CEO" stays "CEO".
-    const lead = /^\p{Lu}\p{Ll}/u.test(role) ? role.charAt(0).toLowerCase() + role.slice(1) : role;
-    return { kind: "reaction", why: `Reacted to ${!author || author === "You" ? "your" : `${author}'s`} post on ${dayMonth(r.postDate ?? r.at.slice(0, 10))}; ${lead} at ${company}.` };
+    return { kind: "reaction", why: `Reacted to ${!author || author === "You" ? "your" : `${author}'s`} post on ${dayMonth(r.postDate ?? r.at.slice(0, 10))}. ${role} at ${company}.` };
   }
-  const two = c.knownBy.length > 1 ? `, known by ${c.knownBy.map((k) => k.ownerName).join(" and ")}` : "";
-  return { kind: "fit", why: `${role} at ${company}${two}.` };
+  return { kind: "fit", why: `${role} at ${company}. No fresh change or reaction.` };
 }
 
 /**
- * Five people for this week, chosen by code. Strong fits and people with a
- * registered change or a reaction in the last 30 days come first. Skips anyone
- * already contacted or marked not a fit. At most one per company and two per
- * industry, and the suggested senders are spread across the team.
+ * Five people for this week, chosen by code. People with a registered change
+ * or a reaction in the last 30 days come first, then the strongest fits.
+ * Skips anyone already contacted or marked not a fit. One per company; while
+ * there are enough timely people, at most two per industry and the suggested
+ * senders spread across the team. With an owner, only people in that
+ * teammate's network.
  */
-export function thisWeek(net: Network, n = 5): WeekPick[] {
+export function thisWeek(net: Network, n = 5, owner?: string): WeekPick[] {
   const fresh = (c: Contact) => c.signals.some((s) => daysBetween(s.date, net.today) <= 30);
   const reacted = (c: Contact) => postsWithin(c, net.today, RECENT_DAYS) > 0;
+  const timely = (c: Contact) => fresh(c) || reacted(c);
   const week = (c: Contact) => c.score + (fresh(c) ? 12 : 0) + (reacted(c) ? 10 : 0) + (c.fit === "strong" ? 10 : 0);
-  const pool = net.contacts.filter((c) => c.fit && !DONE.has(c.status?.status ?? "none")).sort((a, b) => week(b) - week(a) || a.name.localeCompare(b.name, "fi"));
+  // At an equal score, an Oyj (usually a large group) after the rest.
+  const order = (a: Contact, b: Contact) => week(b) - week(a) || Number(isOyj(a)) - Number(isOyj(b)) || a.name.localeCompare(b.name, "fi");
+  const pool = contactsFor(net, ownerId(net, owner))
+    .filter((c) => c.fit && !DONE.has(c.status?.status ?? "none"))
+    .sort(order);
   const perSender = Math.max(1, Math.ceil(n / Math.max(1, net.owners.length)));
   const picks: Contact[] = [];
   const take = (pred: (c: Contact) => boolean, strict: boolean) => {
@@ -221,15 +234,17 @@ export function thisWeek(net: Network, n = 5): WeekPick[] {
     if (c) picks.push(c);
     return !!c;
   };
-  // One slot each for a fresh change and a reaction, then the best of the rest.
+  // One slot each for a fresh change and a reaction, then the rest of the
+  // timely ones, spread across senders and industries while that works. A
+  // reason to write now comes before the spread; the best fits without one
+  // only fill what is left.
   take(fresh, true);
   take(reacted, true);
+  while (picks.length < n && take(timely, true));
+  while (picks.length < n && take(timely, false));
   while (picks.length < n && take(() => true, true));
-  // A small team or network: fill without the spread rules.
   while (picks.length < n && take(() => true, false));
-  return picks
-    .sort((a, b) => week(b) - week(a))
-    .map((c) => ({ ...summary(net, c), ...weekWhy(net, c), sender: c.sender.ownerName, prompt: claudePrompt(c) }));
+  return picks.sort(order).map((c) => ({ ...summary(net, c), ...weekWhy(net, c), sender: c.sender.ownerName, prompt: claudePrompt(c) }));
 }
 
 export function getPerson(net: Network, id: string): (Analysis & { appUrl: string }) | null {
@@ -305,11 +320,13 @@ export function getRadar(net: Network, f: RadarFilter = {}): { window: { start: 
   const groups = groupIds(f.industries);
   const since = f.days ? addDays(net.today, -f.days) : net.signals.start;
   const owner = ownerId(net, f.owner);
+  // Companies the team marked as not a target stay off the radar too.
+  const excluded = new Set((net.profile.excluded ?? []).map((x) => x.businessId));
   const byCo = new Map<string, CompanySignal[]>();
   for (const s of net.signals.signals) {
     if (s.date < since) continue;
     if (f.types?.length && !f.types.includes(s.type)) continue;
-    if (!industryRule(s.tol, net.profile)) continue;
+    if (!industryRule(s.tol, net.profile) || excluded.has(s.businessId)) continue;
     const list = byCo.get(s.businessId);
     if (list) list.push(s);
     else byCo.set(s.businessId, [s]);
@@ -348,7 +365,9 @@ export function getRadar(net: Network, f: RadarFilter = {}): { window: { start: 
   }
   if (f.known === "known") rows = rows.filter((r) => r.known.length);
   if (f.known === "unknown") rows = rows.filter((r) => !r.known.length);
-  rows.sort((a, b) => (b.known.length ? 1 : 0) - (a.known.length ? 1 : 0) || b.score - a.score || b.latest.localeCompare(a.latest));
+  // At an equal score, an Oyj (usually a large group) after the rest.
+  const oyj = (r: RadarRow) => Number((net.companies.get(r.businessId)?.prh?.formCode ?? (/\boyj\b/i.test(r.company) ? "17" : "")) === "17");
+  rows.sort((a, b) => (b.known.length ? 1 : 0) - (a.known.length ? 1 : 0) || b.score - a.score || oyj(a) - oyj(b) || b.latest.localeCompare(a.latest));
   return {
     window: { start: since, end: net.signals.end, fetchedAt: net.signals.fetchedAt },
     total: rows.length,

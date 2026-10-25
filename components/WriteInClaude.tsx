@@ -25,7 +25,7 @@ export function WriteInClaude({ prompt, label = "Write in Claude", copied = "Cop
     setTimeout(() => setState("idle"), 2400);
   }
   return (
-    <button type="button" className={className} onClick={copy} title={`Copies: ${prompt}`}>
+    <button type="button" className={className} onClick={copy} title={`Copies a prompt for your own Claude, which writes the message. Nothing is sent. The prompt: ${prompt}`}>
       {state === "copied" ? copied : state === "failed" ? "Copy failed" : label}
     </button>
   );

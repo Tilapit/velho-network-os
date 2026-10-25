@@ -296,10 +296,15 @@ export function buildNetwork(input: BuildInput, signalsByCompany = indexSignals(
   };
 }
 
-/** Strong before possible, "Not a fit" last, then score, then name. */
+/** At a public limited company (Oyj) in PRH: usually a large listed group, not the SME Velho is after. */
+export function isOyj(c: Pick<Contact, "match">): boolean {
+  return !!c.match && MATCHED(c.match.status) && !c.match.foreign && c.match.company?.formCode === "17";
+}
+
+/** Strong before possible, "Not a fit" last, then score; at an equal score an Oyj after the rest; then name. */
 export function rankOrder(a: Contact, b: Contact): number {
   const f = (c: Contact) => (c.status?.status === "not_fit" ? 3 : c.fit === "strong" ? 0 : c.fit === "possible" ? 1 : 2);
-  return f(a) - f(b) || b.score - a.score || a.name.localeCompare(b.name, "fi");
+  return f(a) - f(b) || b.score - a.score || Number(isOyj(a)) - Number(isOyj(b)) || a.name.localeCompare(b.name, "fi");
 }
 
 // ---------- load (cached) ----------

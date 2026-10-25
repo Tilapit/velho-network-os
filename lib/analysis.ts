@@ -4,7 +4,7 @@
 import type { Provenance } from "./types.ts";
 import { GROUP, ruleLabel, type GroupId } from "./industry.ts";
 import type { Area } from "./roles.ts";
-import { SIGNAL_TYPES } from "./signals.ts";
+import { SIGNAL_TYPES, signalLabel } from "./signals.ts";
 import { ytjUrl } from "./prh.ts";
 import { STATUS_LABEL, type Status } from "./state.ts";
 import type { Approach, Contact, Fit, Network } from "./network.ts";
@@ -128,7 +128,7 @@ export function analyse(net: Network, c: Contact): Analysis {
   const byType = new Map<string, (typeof c.signals)[number]>();
   for (const s of c.signals) if (!byType.has(s.type) || byType.get(s.type)!.date < s.date) byType.set(s.type, s);
   for (const s of [...byType.values()].sort((a, b) => SIGNAL_TYPES[b.type].weight - SIGNAL_TYPES[a.type].weight || b.date.localeCompare(a.date))) {
-    reasons.push({ kind: "signal", label: "Registered change", text: `${SIGNAL_TYPES[s.type].label}: registered ${fmtDate(s.date)} (notice ${s.recordNumber}).`, source: "PRH notices", provenance: "verified", link: ytjUrl(s.businessId) });
+    reasons.push({ kind: "signal", label: "Registered change", text: `${signalLabel(s)}: registered ${fmtDate(s.date)} (notice ${s.recordNumber}).`, source: "PRH notices", provenance: "verified", link: ytjUrl(s.businessId) });
   }
 
   // Network: colleagues, or when they connected.
@@ -162,7 +162,8 @@ export function analyse(net: Network, c: Contact): Analysis {
   if (c.match?.status === "inferred" && !c.match.foreign) missing.push({ label: "Company match", text: `Close name only ("${c.company}"). Confirm it under Settings → PRH matches.` });
   if (!prh && c.company) missing.push({ label: "Company", text: c.match?.foreign ? "Not a Finnish company, so PRH has nothing on it." : c.match?.status === "pending" ? "Not looked up in PRH yet." : `"${c.company}" has no single match in PRH. ${c.match?.note ?? ""}`.trim() });
   if (!c.company) missing.push({ label: "Company", text: "Empty in the LinkedIn export." });
-  missing.push({ label: "Current role", text: `The export shows the title on the day it was downloaded (${c.knownBy.map((k) => k.ownerName).join(", ")}).` });
+  const exports = c.knownBy.map((k) => (k.ownerName === "You" ? "your" : `${k.ownerName}'s`));
+  missing.push({ label: "Title today", text: `The title is as it was in ${exports.join(" and ")} LinkedIn export${exports.length > 1 ? "s" : ""}; it may have changed since.` });
 
   const excluded = prh && net.profile.excluded?.some((x) => x.businessId === prh.businessId);
   const fitWhy = !c.fit
