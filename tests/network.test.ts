@@ -161,7 +161,17 @@ test("industry groups: every TOL maps to a readable group, boats go to maritime"
   assert.equal(groupForTol("16239"), "wood");
   assert.equal(groupForTol("46642"), "wholesale");
   assert.equal(groupForTol("52250"), "logistics");
-  assert.equal(groupForTol("62010"), "other");
+  // The groups the broad profile needs, so "Other industries" is not one big cloud.
+  assert.equal(groupForTol("62010"), "software");
+  assert.equal(groupForTol("70220"), "services");
+  assert.equal(groupForTol("64190"), "finance");
+  assert.equal(groupForTol("47110"), "retail");
+  assert.equal(groupForTol("86230"), "health");
+  assert.equal(groupForTol("59110"), "media");
+  assert.equal(groupForTol("90010"), "media");
+  assert.equal(groupForTol("56101"), "hospitality");
+  assert.equal(groupForTol("35110"), "energy");
+  assert.equal(groupForTol("85100"), "other");
   assert.equal(groupForTol(undefined), "other");
   const groups = new Map(net.contacts.map((c) => [c.name + c.position, c.group]));
   assert.equal(groups.get("Sara HolmEngineer"), "abroad");
@@ -311,7 +321,8 @@ test("well-known international names are never verified by name alone", async ()
   writeCache("ytj", hash("Stripe"), { query: "Stripe", fetchedAt: "", totalResults: 1, companies: [co("2222222-2", "Stripe Custom Oy", "74991")] });
   const a = await resolveName("Amazon");
   assert.equal(a.status, "inferred");
-  assert.equal(a.foreign, false, "an exact match is kept, as 'check'");
+  assert.equal(a.foreign, true, "an exact match on an international name is abroad too: Amazon Oy in Espoo is not Amazon");
+  assert.equal(a.candidates[0].businessId, "1111111-1", "the Finnish company stays a candidate to pick");
   const s = await resolveName("Stripe");
   assert.equal(s.foreign, true, "a close match on an international name is abroad");
 });

@@ -16,6 +16,8 @@ export type RoleInfo = {
   decides: string;
   /** Why the title (or the company's form) never counts as a decision-maker, e.g. "a student or trainee title". */
   notDecider?: string;
+  /** Can realistically introduce you to who decides, by seniority: 0 = no, 1 specialist … 4 senior. */
+  intro: number;
 };
 
 const t = (s: string) => ` ${fold(s).toLowerCase().replace(/[^a-z0-9&/+]+/g, " ").trim()} `;
@@ -82,6 +84,23 @@ function notDecider(x: string): string | undefined {
   return undefined;
 }
 
+// Who can realistically introduce you to the person who decides: people with
+// a working role in the company's business, never front-line or temporary staff.
+const NO_INTRO = / (cashier|kassa[a-z]*|kassatyontekija|store|shop|myymala[a-z]*|retail assistant|sales associate|seasonal|kausi[a-z]*|summer|kesa[a-z]*|trainee|intern|internship|student|[a-z]*opiskelija|thesis|[a-z]*harjoittelija|production worker|worker|[a-z]*tyontekija) /;
+const INTRO: [number, RegExp][] = [
+  [4, / (director|[a-z]*direktor|[a-z]*johtaja|head|vp|vice president|partner|founder|owner|board|hallituksen) /],
+  [3, / (manager|[a-z]*paallikko|lead|leader|team lead|esimies|supervisor) /],
+  [2, / (senior|principal|sales|myynti[a-z]*|account|consultant|[a-z]*konsultti|advisor|architect) /],
+  [1, / (specialist|[a-z]*asiantuntija|engineer|[a-z]*insinoori|developer|kehittaja|planner|[a-z]*suunnittelija|analyst|analyytikko|coordinator|[a-z]*koordinaattori|controller|buyer|purchaser|[a-z]*ostaja) /],
+];
+
+/** 0 when the title cannot realistically introduce; otherwise its seniority, 1 (specialist) to 4 (senior). */
+export function introRank(title: string): number {
+  const x = t(title || "");
+  if (!title || NO_INTRO.test(x) || notDecider(x)) return 0;
+  return INTRO.find(([, re]) => re.test(x))?.[0] ?? 0;
+}
+
 export function matchTerm(title: string, term: string): boolean {
   const x = t(title);
   const k = fold(term).toLowerCase().trim();
@@ -123,6 +142,7 @@ export function analyseTitle(title: string, roles: string[]): RoleInfo {
     matched,
     decides: decisionMaker ? DECIDES[ar](lv) : "",
     ...(not ? { notDecider: not } : {}),
+    intro: introRank(title),
   };
 }
 

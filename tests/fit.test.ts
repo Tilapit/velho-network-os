@@ -92,13 +92,15 @@ test("funnel: people → found in PRH → in your industries → who fit, with w
   assert.match(f[2].rest!.label, /^1 in other industries/);
   assert.equal(f[3].label, "with employees registered");
   assert.equal(f[4].rest!.href, "/people?step=intro");
-  assert.equal(funnelPeople(net, "intro").length, 3);
+  assert.equal(funnelPeople(net, "nodm").length, 3);
+  assert.equal(funnelPeople(net, "intro").length, 2, "nobody at an association introduces");
+  assert.match(f[4].rest!.label, /^3 not decision-makers, 2 of them can introduce$/);
   assert.ok(funnel(net, "you").every((s) => s.href.includes("owner=you")));
 });
 
 test("can introduce: not decision-makers at target companies, where no one decides first", () => {
   const r = canIntroduce(net);
-  assert.equal(r.total, 3);
+  assert.equal(r.total, 2);
   assert.equal(r.people[0].name, "Olli Ojala", "no decision-maker known at his company");
   assert.match(r.people[0].why, /No decision-maker who fits is known there/);
   assert.ok(r.people.every((p) => p.approach === "ask_intro"));
@@ -203,4 +205,55 @@ test("Employer Register: no employees is never a fit, its own funnel step; with 
   assert.equal(p("Eero", off).fit, "possible");
   assert.ok(p("Eero", off).caps.includes("no employees registered"));
   assert.ok(!funnel(off).some((s) => s.label === "with employees registered"));
+});
+
+test("can introduce: working roles only, ranked by seniority; never front-line, temporary or student staff", async () => {
+  const { introRank } = await import("../lib/roles.ts");
+  for (const t of ["Cashier", "Kassatyöntekijä", "Store Manager", "Myymäläpäällikkö", "Sales Associate", "Seasonal Worker", "Kesätyöntekijä", "Trainee", "Operations Intern", "Student", "Thesis Worker", "Production Worker", ""]) assert.equal(introRank(t), 0, t);
+  assert.ok(introRank("Head of Marketing") > introRank("Sales Manager"));
+  assert.ok(introRank("Sales Manager") > introRank("Sales Executive"));
+  assert.ok(introRank("Senior Consultant") > introRank("Quality Engineer"));
+  for (const t of ["Specialist", "Myyntiasiantuntija", "Team Lead", "Sales Executive", "Consultant", "Quality Engineer", "Production Planner"]) assert.ok(introRank(t) > 0, t);
+  const rows = HEAD + [row("Iida", "Ilola", "Hiljainen Valimo Oy", "Quality Engineer"), row("Jari", "Jokela", "Toinen Valimo Oy", "Quality Manager"), row("Kaisa", "Kallio", "Kolmas Valimo Oy", "Cashier")].join("\n") + "\n";
+  const resolved = new Map<string, Resolved>([["Hiljainen Valimo Oy", companies["Hiljainen Valimo Oy"]], ["Toinen Valimo Oy", res("Toinen Valimo Oy", co("1000007-7", "Toinen Valimo Oy", "24510"))], ["Kolmas Valimo Oy", res("Kolmas Valimo Oy", co("1000008-8", "Kolmas Valimo Oy", "24510"))]]);
+  const n = buildNetwork({ networks: [{ owner: owner("you", "You"), text: rows }], resolved, state, profile: DEFAULT_PROFILE, signals: null, today: "2026-10-24" });
+  const r = canIntroduce(n);
+  assert.deepEqual(r.people.map((p) => p.name), ["Jari Jokela", "Iida Ilola"], "the manager first; the cashier never");
+  assert.equal(n.contacts.find((c) => c.name === "Kaisa Kallio")!.approach, "skip");
+});
+
+test("this week: a reason from code, never 'No fresh change or reaction'", async () => {
+  const { weekWhy } = await import("../lib/queries.ts");
+  const two = buildNetwork({
+    networks: [{ owner: owner("you", "You"), text }, { owner: owner("janne", "Janne"), text: HEAD + row("Aino", "Aalto", "Esimerkki Konepaja Oy", "Operations Director") + "\n" }],
+    resolved: new Map(Object.entries({ ...companies, "Esimerkki Konepaja Oy": res("Esimerkki Konepaja Oy", co("1000001-1", "Esimerkki Konepaja Oy", "28150", { registers: { employer: true, employerSince: "2009-02-01", vat: true } })) })),
+    state, profile: DEFAULT_PROFILE, signals: null, today: "2026-10-24",
+  });
+  const aino = two.contacts.find((c) => c.name === "Aino Aalto")!;
+  const w = weekWhy(two, aino);
+  assert.equal(w.kind, "fit");
+  assert.equal(w.why, "Operations Director at Esimerkki Konepaja: metal and machinery, employer since 2009. Known by you and Janne.");
+  for (const c of net.contacts.filter((x) => x.fit)) assert.doesNotMatch(weekWhy(net, c).why, /No fresh change/);
+  assert.match(weekWhy(net, who("Sanna")).why, /early-stage/);
+});
+
+test("radar: the size rule and the not-target list hold there too", async () => {
+  const { signalsFromPage } = await import("../lib/signals.ts");
+  const page = { companies: [
+    { businessId: { value: "4000001-1", registrationDate: "2001-01-01" }, names: [{ name: "Yksin Konepaja Oy", type: "1", version: 1 }], mainBusinessLine: { type: "28150" }, companyForms: [{ type: "16", version: 1 }], registeredEntries: [{ register: "6", type: "80" }], publicNotices: [{ registrationDate: "2026-10-10", recordNumber: "2026/50", entryCodes: ["TOIM"] }] },
+    { businessId: { value: "4000002-2", registrationDate: "2001-01-01" }, names: [{ name: "Iso Konepaja Oy", type: "1", version: 1 }], mainBusinessLine: { type: "28150" }, companyForms: [{ type: "16", version: 1 }], registeredEntries: [{ register: "7", type: "41" }], publicNotices: [{ registrationDate: "2026-10-10", recordNumber: "2026/51", entryCodes: ["TOIM"] }] },
+  ] };
+  const sigs = signalsFromPage("md_change", page, "2026-07-26", "2026-10-24");
+  assert.deepEqual(sigs.map((x) => [x.company, x.employer]), [["Yksin Konepaja Oy", false], ["Iso Konepaja Oy", true]]);
+  const set = { fetchedAt: "2026-10-24T00:00:00Z", start: "2026-07-26", end: "2026-10-24", complete: true, pages: 1, signals: sigs };
+  const build = (profile = DEFAULT_PROFILE) => buildNetwork({ networks: [{ owner: owner("you", "You"), text }], resolved: new Map(Object.entries(companies)), state, profile, signals: set, today: "2026-10-24" });
+  assert.deepEqual(getRadar(build()).rows.map((r) => r.company), ["Iso Konepaja Oy"]);
+  assert.equal(getRadar(build({ ...DEFAULT_PROFILE, requireEmployer: false })).rows.length, 2);
+  assert.equal(getRadar(build({ ...DEFAULT_PROFILE, excluded: [{ businessId: "4000002-2", name: "Iso Konepaja Oy" }] })).rows.length, 0);
+});
+
+test("reactions: no label needed; the post is named after its author and day", async () => {
+  const { addReactions } = await import("../lib/queries.ts");
+  const r = addReactions(net, { post: "", postDate: "2026-10-20", author: "you", text: "Aino Aalto\nAino Aalto\n· 1st\nOperations Director at Esimerkki Konepaja", save: false });
+  assert.equal(r.post, "Your post, 20 Oct 2026");
 });

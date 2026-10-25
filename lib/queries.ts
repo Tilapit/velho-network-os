@@ -218,7 +218,35 @@ export function weekWhy(net: Network, c: Contact): { kind: WeekPick["kind"]; why
     const author = r.author ? net.owners.find((o) => o.id === r.author)?.name : undefined;
     return { kind: "reaction", why: `Reacted to ${!author || author === "You" ? "your" : `${author}'s`} post on ${dayMonth(r.postDate ?? r.at.slice(0, 10))}. ${role} at ${company}.` };
   }
-  return { kind: "fit", why: `${role} at ${company}. No fresh change or reaction.` };
+  return { kind: "fit", why: fitReason(c, role, company) };
+}
+
+/** "Alice and Bob", "Alice, Bob and Carol". */
+const andList = (xs: string[]) => (xs.length < 2 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs.at(-1)}`);
+
+/**
+ * The strongest reason from code alone, when nothing is fresh: role, the
+ * industry, the size signal PRH has (Employer Register since when, early
+ * stage, a listed company; never a headcount), and who knows them.
+ * "CEO at Silta: software and IT, employer since 2015. Known by Janne and Friend."
+ */
+export function fitReason(c: Contact, role: string, company: string): string {
+  const prh = c.match?.company && !c.match.foreign ? c.match.company : undefined;
+  const reg = prh?.registers;
+  const size =
+    prh?.formCode === "17"
+      ? "listed (Oyj)"
+      : c.caps.includes("early-stage, likely small")
+        ? "early-stage"
+        : reg?.employer
+          ? `employer since ${reg.employerSince?.slice(0, 4) ?? "registered"}`
+          : "";
+  const what = [c.group === "other" || c.group === "not_matched" || c.group === "abroad" ? prh?.industry?.toLowerCase() : GROUP[c.group].label.toLowerCase(), size].filter(Boolean).join(", ");
+  const names = c.knownBy.map((k) => (k.ownerName === "You" ? "you" : k.ownerName));
+  const known = names.length > 1 ? `Known by ${andList(names)}.` : `Known by ${names[0]}${c.colleagues ? `, with ${c.colleagues} more you know there` : ""}.`;
+  const head = `${role} at ${company}${what ? `: ${what}` : ""}.`;
+  // Long industry names make the line too long; the role, company and who knows them stay.
+  return `${head.length > 95 ? `${role} at ${company}.` : head} ${known}`;
 }
 
 /** At most this many of This week for each suggested sender: five spread over the team, at least one each. */
@@ -287,17 +315,19 @@ export type IntroPick = PersonSummary & { why: string; sender: string; prompt: s
 
 /**
  * People at companies in your industries who are not decision-makers: they
- * can introduce you to who decides. A second, smaller group under This week,
- * chosen by code: companies where the team knows no decision-maker who fits
- * first (an intro is the only way in), then a fresh registered change, then
- * the score. One per company; contacted and snoozed people are out.
+ * can introduce you to who decides: a working role (specialist, manager,
+ * lead, sales, consultant, engineer), never front-line, temporary or student
+ * staff. A second, smaller group under This week, chosen by code: companies
+ * where the team knows no decision-maker who fits first (an intro is the only
+ * way in), then seniority, then a fresh registered change, then the score. One per company; contacted and snoozed people are out.
  */
 export function canIntroduce(net: Network, n = 3, owner?: string): { total: number; people: IntroPick[] } {
   const pool = contactsFor(net, ownerId(net, owner)).filter((c) => c.approach === "ask_intro" && !c.outreach.hidden);
   const hasFit = new Set(net.contacts.filter((c) => c.fit && c.companyId).map((c) => c.companyId));
   const fresh = (c: Contact) => c.signals.some((s) => daysBetween(s.date, net.today) <= 30);
   const order = (a: Contact, b: Contact) =>
-    Number(hasFit.has(a.companyId)) - Number(hasFit.has(b.companyId)) || Number(!!a.rule?.lowerPriority) - Number(!!b.rule?.lowerPriority) || Number(!!a.outreach.cooldown) - Number(!!b.outreach.cooldown) || Number(fresh(b)) - Number(fresh(a)) || b.score - a.score || Number(isOyj(a)) - Number(isOyj(b)) || a.name.localeCompare(b.name, "fi");
+    Number(hasFit.has(a.companyId)) - Number(hasFit.has(b.companyId)) ||
+    b.role.intro - a.role.intro || Number(!!a.rule?.lowerPriority) - Number(!!b.rule?.lowerPriority) || Number(!!a.outreach.cooldown) - Number(!!b.outreach.cooldown) || Number(fresh(b)) - Number(fresh(a)) || b.score - a.score || Number(isOyj(a)) - Number(isOyj(b)) || a.name.localeCompare(b.name, "fi");
   const picks: Contact[] = [];
   for (const c of [...pool].sort(order)) {
     if (picks.length >= n) break;
@@ -320,7 +350,7 @@ export type FunnelStep = { label: string; count: number; href: string; rest?: { 
 const isFound = (c: Contact) => !!c.match?.company && !c.match.foreign && (c.match.status === "verified" || c.match.status === "inferred");
 
 /** Which /people?step= list each funnel step links to. */
-export const FUNNEL_STEPS = ["all", "found", "unmatched", "industries", "other", "employer", "small", "fits", "intro"] as const;
+export const FUNNEL_STEPS = ["all", "found", "unmatched", "industries", "other", "employer", "small", "fits", "nodm", "intro"] as const;
 export type FunnelList = (typeof FUNNEL_STEPS)[number];
 
 /** The people behind one funnel step, in rank order. */
@@ -334,7 +364,8 @@ export function funnelPeople(net: Network, step: FunnelList, owner?: string): Co
   if (step === "employer") return all.filter((c) => isFound(c) && c.rule && !c.tooSmall);
   if (step === "small") return all.filter((c) => c.tooSmall);
   if (step === "fits") return all.filter((c) => c.fit);
-  return all.filter((c) => isFound(c) && c.rule && !c.tooSmall && !c.fit);
+  if (step === "nodm") return all.filter((c) => isFound(c) && c.rule && !c.tooSmall && !c.fit);
+  return all.filter((c) => c.approach === "ask_intro");
 }
 
 /**
@@ -355,7 +386,7 @@ export function funnel(net: Network, owner?: string): FunnelStep[] {
     { label: "in your industries", count: n("industries"), href: "/people?step=industries", rest: { count: n("other"), label: `${fmt(n("other"))} in other industries${notTarget ? ` or not a target (${fmt(notTarget)})` : ""}`, href: "/people?step=other" } },
     // Only while the Employer Register filter is on (Settings → Profile).
     ...(requiresEmployer(net.profile) ? [{ label: "with employees registered", count: n("employer"), href: "/people?step=employer", rest: { count: n("small"), label: `${fmt(n("small"))} too small: no employees registered`, href: "/people?step=small" } }] : []),
-    { label: "decision-makers who fit", count: n("fits"), href: "/people?step=fits", rest: { count: n("intro"), label: `${fmt(n("intro"))} not decision-makers: can introduce`, href: "/people?step=intro" } },
+    { label: "decision-makers who fit", count: n("fits"), href: "/people?step=fits", rest: { count: n("nodm"), label: `${fmt(n("nodm"))} not decision-makers, ${fmt(n("intro"))} of them can introduce`, href: "/people?step=intro" } },
   ];
   return steps.map((f) => ({ ...f, href: q(f.href), ...(f.rest ? { rest: { ...f.rest, href: q(f.rest.href) } } : {}) }));
 }
@@ -480,8 +511,8 @@ export type RadarRow = {
   signals: { type: SignalType; label: string; date: string; recordNumber: string }[];
   latest: string;
   score: number;
-  /** "decision-maker": fits, talk directly. "can introduce": works there, does not decide. */
-  known: { id: string; name: string; title: string; fit: Fit | null; role: "decision-maker" | "can introduce"; knownBy: string[]; url: string }[];
+  /** "decision-maker": fits, talk directly. "can introduce": a role that can introduce (see introRank). Neither: no label. */
+  known: { id: string; name: string; title: string; fit: Fit | null; role?: "decision-maker" | "can introduce"; knownBy: string[]; url: string }[];
   source: string;
   url: string;
 };
@@ -504,6 +535,7 @@ export function getRadar(net: Network, f: RadarFilter = {}): { window: { start: 
   const groups = groupIds(f.industries);
   const since = f.days ? addDays(net.today, -f.days) : net.signals.start;
   const owner = ownerId(net, f.owner);
+  const sizeRule = requiresEmployer(net.profile);
   // Companies the team marked as not a target stay off the radar too.
   const excluded = new Set((net.profile.excluded ?? []).map((x) => x.businessId));
   const byCo = new Map<string, CompanySignal[]>();
@@ -511,6 +543,8 @@ export function getRadar(net: Network, f: RadarFilter = {}): { window: { start: 
     if (s.date < since) continue;
     if (f.types?.length && !f.types.includes(s.type)) continue;
     if (!industryRule(s.tol, net.profile) || excluded.has(s.businessId)) continue;
+    // The same size rule as the list: no employees registered, not a lead.
+    if (sizeRule && (s.employer ?? net.companies.get(s.businessId)?.prh?.registers?.employer) === false) continue;
     const list = byCo.get(s.businessId);
     if (list) list.push(s);
     else byCo.set(s.businessId, [s]);
@@ -525,8 +559,9 @@ export function getRadar(net: Network, f: RadarFilter = {}): { window: { start: 
     const known = (co?.contactIds ?? [])
       .map((id) => net.byId.get(id)!)
       .filter((c) => !owner || c.knownBy.some((k) => k.owner === owner))
-      .sort((a, b) => b.score - a.score)
-      .map((c) => ({ id: c.id, name: c.name, title: c.position, fit: c.fit, role: c.fit ? ("decision-maker" as const) : ("can introduce" as const), knownBy: c.knownBy.map((k) => k.ownerName), url: appUrl(`/people/${c.id}`) }));
+      // Decision-makers first, then who can introduce by seniority, then the rest.
+      .sort((a, b) => Number(!a.fit) - Number(!b.fit) || Number(b.approach === "ask_intro") - Number(a.approach === "ask_intro") || b.role.intro - a.role.intro || b.score - a.score)
+      .map((c) => ({ id: c.id, name: c.name, title: c.position, fit: c.fit, ...(c.fit ? { role: "decision-maker" as const } : c.approach === "ask_intro" ? { role: "can introduce" as const } : {}), knownBy: c.knownBy.map((k) => k.ownerName), url: appUrl(`/people/${c.id}`) }));
     const uniq = new Map<string, CompanySignal>();
     for (const s of sigs) if (!uniq.has(`${s.type}|${s.recordNumber}`)) uniq.set(`${s.type}|${s.recordNumber}`, s);
     const list = [...uniq.values()].sort((a, b) => b.date.localeCompare(a.date));
@@ -670,7 +705,9 @@ export function addReactions(net: Network, input: ReactionInput) {
   const picked = new Set(picks.map((p) => nameKey(p.name)));
   const at = new Date().toISOString();
   const postDate = isoDate(input.postDate) || net.today;
-  const base = { post: input.post.trim() || "Untitled post", postDate, author: authorId, at };
+  // No label: "Janne's post, 24 Oct 2026".
+  const authorName = net.owners.find((o) => o.id === authorId)?.name;
+  const base = { post: input.post.trim() || `${authorName ? (authorName === "You" ? "Your" : `${authorName}'s`) : "A"} post, ${fmtDate(postDate)}`, postDate, author: authorId, at };
   // Two people of one name can both react: a pick never drops another
   // match; only the same person twice is collapsed.
   const rows: Reaction[] = [];

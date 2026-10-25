@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { loadNetwork } from "@/lib/network.ts";
-import { GROUP, type GroupId } from "@/lib/industry.ts";
+import { GROUP, GROUPS, type GroupId } from "@/lib/industry.ts";
 import { SIGNAL_TYPES } from "@/lib/signals.ts";
 import { STATUS_LABEL } from "@/lib/state.ts";
 import { shortName } from "@/lib/analysis.ts";
@@ -19,7 +19,8 @@ const STEP_TEXT: Record<FunnelList, { title: string; lede: (n: number) => string
   employer: { title: "With employees registered", lede: (n) => `${n.toLocaleString("en-US")} people at companies in your industries that are in the Employer Register (PRH/YTJ), or not looked up for it yet.` },
   small: { title: "Too small: no employees registered", lede: (n) => `${n.toLocaleString("en-US")} people at companies in your industries that are not in the Employer Register (PRH/YTJ): no regular employees, so not a fit. Turn this off in Settings → Profile.` },
   fits: { title: "Decision-makers who fit", lede: (n) => `${n.toLocaleString("en-US")} decision-makers at matched companies in your target industries.` },
-  intro: { title: "Can introduce", lede: (n) => `${n.toLocaleString("en-US")} people at companies in your industries with employees registered, whose title does not decide: students, trainees, specialists and others. They can introduce you to who does.` },
+  nodm: { title: "Not decision-makers", lede: (n) => `${n.toLocaleString("en-US")} people at companies in your industries with employees registered whose title does not decide.` },
+  intro: { title: "Can introduce", lede: (n) => `${n.toLocaleString("en-US")} people at companies in your industries with employees registered, whose title does not decide, but whose role can realistically introduce you to who does: specialists, managers, leads, sales, consultants, engineers. Never front-line, temporary or student staff.` },
 };
 
 export const dynamic = "force-dynamic";
@@ -72,6 +73,31 @@ export default async function People({ searchParams }: { searchParams: Promise<{
           Export CSV for your CRM
         </a>
       </p>
+      {/* The same industry groups as the drawing and the radar, with how many people of this list are in each. */}
+      <nav className="chips" aria-label="Industry" style={{ margin: "0 0 14px" }}>
+        {(() => {
+          const base = new URLSearchParams(Object.entries({ all, reacted, step: rawStep, owner }).filter(([, v]) => v) as [string, string][]);
+          const href = (g?: string) => {
+            const q = new URLSearchParams(base);
+            if (g) q.set("industry", g);
+            const str = q.toString();
+            return `/people${str ? `?${str}` : ""}`;
+          };
+          const unfiltered = step ? funnelPeople(net, step, owner) : reacted ? net.contacts.filter((c) => postsWithin(c, net.today, RECENT_DAYS)) : all ? net.contacts.filter((c) => c.rule) : net.contacts.filter((c) => c.fit);
+          const counts = new Map<string, number>();
+          for (const c of unfiltered) counts.set(c.group, (counts.get(c.group) ?? 0) + 1);
+          return [
+            <Link key="all" href={href()} className={group ? "chip" : "chip on"}>
+              All · {unfiltered.length}
+            </Link>,
+            ...GROUPS.filter((g) => counts.get(g.id)).map((g) => (
+              <Link key={g.id} href={href(g.id)} className={group?.id === g.id ? "chip on" : "chip"}>
+                {g.short} · {counts.get(g.id)}
+              </Link>
+            )),
+          ];
+        })()}
+      </nav>
       <PeopleTable rows={rows} />
     </main>
   );

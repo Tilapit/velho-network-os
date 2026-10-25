@@ -89,7 +89,8 @@ export class PrhError extends Error {
 type Res = { status: number; ok: boolean; headers: { get(name: string): string | null }; text(): Promise<string> };
 /** What politeGet talks to. Tests swap in a fake fetch and an instant sleep. */
 export const transport = {
-  fetch: (url: string, init: { headers: Record<string, string> }): Promise<Res> => fetch(url, init),
+  // A request that hangs fails after 30 s and is retried like any network error.
+  fetch: (url: string, init: { headers: Record<string, string> }): Promise<Res> => fetch(url, { ...init, signal: AbortSignal.timeout(Number(process.env.PRH_TIMEOUT_MS || 30_000)) }),
   sleep,
 };
 

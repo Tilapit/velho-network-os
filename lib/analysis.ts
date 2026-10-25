@@ -80,6 +80,14 @@ const USE: Record<GroupId, string> = {
   maritime: "project planning, technical documentation and maintenance records",
   wholesale: "order handling, product data and demand forecasting",
   other_industrial: "operational reporting and planning",
+  energy: "maintenance data, reporting and customer service",
+  software: "support work, documentation and internal reporting",
+  services: "proposals, reporting and routine client work",
+  finance: "reporting, document handling and customer service",
+  retail: "product data, ordering and customer service",
+  health: "scheduling, documentation and reporting",
+  media: "production planning and content workflows",
+  hospitality: "bookings, purchasing and staff scheduling",
   other: "reporting and routine office work",
   not_matched: "routine work around their systems",
   abroad: "routine work around their systems",
@@ -108,8 +116,8 @@ export function analyse(net: Network, c: Contact): Analysis {
 
   // Role, from the LinkedIn title.
   if (c.role.decisionMaker) reasons.push({ kind: "role", label: "Role", text: `"${c.position}". ${c.role.decides}`, source: "LinkedIn title", provenance: "imported" });
-  else if (c.role.notDecider) reasons.push({ kind: "role", label: "Role", text: `"${c.position || "No title"}". Not counted as a decision-maker: ${c.role.notDecider}.${c.rule ? " They could introduce you to someone who decides." : ""}`, source: c.role.notDecider.includes("PRH") ? "PRH" : "LinkedIn title", provenance: c.role.notDecider.includes("PRH") ? "verified" : "imported" });
-  else if (c.position) reasons.push({ kind: "role", label: "Role", text: `"${c.position}". The title does not say they decide; they could introduce you to someone who does.`, source: "LinkedIn title", provenance: "imported" });
+  else if (c.role.notDecider) reasons.push({ kind: "role", label: "Role", text: `"${c.position || "No title"}". Not counted as a decision-maker: ${c.role.notDecider}.${c.rule && c.role.intro ? " They could introduce you to someone who decides." : ""}`, source: c.role.notDecider.includes("PRH") ? "PRH" : "LinkedIn title", provenance: c.role.notDecider.includes("PRH") ? "verified" : "imported" });
+  else if (c.position) reasons.push({ kind: "role", label: "Role", text: `"${c.position}". The title does not say they decide; ${c.role.intro ? "they could introduce you to someone who does" : "not a role that usually introduces you to who decides"}.`, source: "LinkedIn title", provenance: "imported" });
 
   // Company, from PRH.
   if (prh) {

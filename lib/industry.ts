@@ -12,6 +12,14 @@ export type GroupId =
   | "maritime"
   | "wholesale"
   | "other_industrial"
+  | "energy"
+  | "software"
+  | "services"
+  | "finance"
+  | "retail"
+  | "health"
+  | "media"
+  | "hospitality"
   | "other"
   | "not_matched"
   | "abroad";
@@ -29,7 +37,15 @@ export const GROUPS: Group[] = [
   { id: "logistics", label: "Logistics and transport", short: "Logistics", rule: "TOL 49, 51–53" },
   { id: "maritime", label: "Maritime", short: "Maritime", rule: "TOL 301, 3315, 50" },
   { id: "wholesale", label: "Wholesale", short: "Wholesale", rule: "TOL 46" },
-  { id: "other_industrial", label: "Other industrial", short: "Other industrial", rule: "TOL 05–09, 13–15, 18, 32, 35–39" },
+  { id: "other_industrial", label: "Other industrial", short: "Other industrial", rule: "TOL 05–09, 13–15, 18, 32" },
+  { id: "energy", label: "Energy and utilities", short: "Energy", rule: "TOL 35–39" },
+  { id: "software", label: "Software and IT", short: "Software", rule: "TOL 62–63" },
+  { id: "services", label: "Professional services and consulting", short: "Services", rule: "TOL 69–71, 73–74" },
+  { id: "finance", label: "Finance and insurance", short: "Finance", rule: "TOL 64–66" },
+  { id: "retail", label: "Retail", short: "Retail", rule: "TOL 47" },
+  { id: "health", label: "Health and care", short: "Health", rule: "TOL 86–88" },
+  { id: "media", label: "Media and creative", short: "Media", rule: "TOL 58–60, 90" },
+  { id: "hospitality", label: "Hospitality", short: "Hospitality", rule: "TOL 55–56" },
   { id: "other", label: "Other industries", short: "Other", rule: "Any other line of business in PRH" },
   { id: "not_matched", label: "Not matched", short: "Not matched", grey: true, rule: "No single company in PRH for this name" },
   { id: "abroad", label: "Abroad", short: "Abroad", grey: true, rule: "Foreign company form or a known international company, not in PRH" },
@@ -50,7 +66,15 @@ export function groupForTol(tol: string | undefined): GroupId {
   if (d >= 41 && d <= 43) return "construction";
   if (d === 49 || (d >= 51 && d <= 53)) return "logistics";
   if (d === 46) return "wholesale";
-  if ((d >= 5 && d <= 9) || (d >= 13 && d <= 15) || d === 18 || d === 32 || (d >= 35 && d <= 39)) return "other_industrial";
+  if ((d >= 5 && d <= 9) || (d >= 13 && d <= 15) || d === 18 || d === 32) return "other_industrial";
+  if (d >= 35 && d <= 39) return "energy";
+  if (d === 62 || d === 63) return "software";
+  if ((d >= 69 && d <= 71) || d === 73 || d === 74) return "services";
+  if (d >= 64 && d <= 66) return "finance";
+  if (d === 47) return "retail";
+  if (d >= 86 && d <= 88) return "health";
+  if ((d >= 58 && d <= 60) || d === 90) return "media";
+  if (d === 55 || d === 56) return "hospitality";
   return "other";
 }
 

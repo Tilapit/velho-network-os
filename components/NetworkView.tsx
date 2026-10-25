@@ -241,7 +241,7 @@ export function NetworkView(props: {
               Reacted recently · {reactedList.length}
             </button>
           ) : (
-            <Link href="/settings#reactions" className="link small">
+            <Link href={`/settings${owner >= 0 ? `?owner=${encodeURIComponent(owners[owner].id)}` : ""}#reactions`} className="link small">
               Add post reactions
             </Link>
           )}

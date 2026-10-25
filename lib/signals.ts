@@ -12,7 +12,7 @@
 // people outside the team's networks is stored.
 import fs from "node:fs";
 import path from "node:path";
-import { cacheDir, politeGet, readCache, writeCache } from "./prh.ts";
+import { cacheDir, politeGet, readCache, registersOf, writeCache } from "./prh.ts";
 import { today } from "./normalize.ts";
 
 const KREK = "https://avoindata.prh.fi/opendata-registerednotices-api/v3";
@@ -43,6 +43,8 @@ export type CompanySignal = {
   town?: string;
   /** When the company itself was registered. */
   registered?: string;
+  /** In the Employer Register (YTJ registeredEntries); undefined in a radar fetched before it was kept. */
+  employer?: boolean;
   type: SignalType;
   /** Date PRH registered the notice. */
   date: string;
@@ -67,7 +69,7 @@ export function addDays(iso: string, days: number): string {
   return new Date(Date.parse(iso) + days * 86_400_000).toISOString().slice(0, 10);
 }
 
-/** Drops what the radar does not use (registered entries, old addresses) before caching. */
+/** Drops what the radar does not use (old addresses, registers other than VAT and employer) before caching. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function compactPage(raw: any) {
   return {
@@ -82,6 +84,8 @@ function compactPage(raw: any) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       addresses: (c.addresses ?? []).filter((a: any) => a.type === 1).slice(0, 1),
       publicNotices: c.publicNotices,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      registeredEntries: (c.registeredEntries ?? []).filter((e: any) => e.register === "6" || e.register === "7").map((e: any) => ({ register: e.register, type: e.type, registrationDate: e.registrationDate, endDate: e.endDate })),
       status: c.status,
       tradeRegisterStatus: c.tradeRegisterStatus,
     })),
@@ -124,6 +128,7 @@ export function signalsFromPage(type: SignalType, page: any, start: string, end:
         industry: en(c.mainBusinessLine?.descriptions),
         town: addr?.postOffices?.find((p: { languageCode: string }) => p.languageCode === "1")?.city ?? addr?.postOffices?.[0]?.city,
         registered,
+        ...(Array.isArray(c.registeredEntries) ? { employer: registersOf(c.registeredEntries).employer } : {}),
         type,
         date: n.registrationDate,
         recordNumber: n.recordNumber,
@@ -149,7 +154,8 @@ export async function refreshSignals(opts: { days?: number; end?: string; log?: 
   for (const type of Object.keys(SIGNAL_TYPES) as SignalType[]) {
     for (const code of SIGNAL_TYPES[type].codes) {
       const base = `${KREK}/?entryCode=${code}&noticeRegistrationDateStart=${start}&noticeRegistrationDateEnd=${end}`;
-      const key = `${code}_${start}_${end}`;
+      // v2: pages keep the register entries (Employer Register).
+      const key = `${code}_${start}_${end}_v2`;
       const fetchPage = async (n: number) => {
         const cached = readCache<unknown>("notices", `${key}_p${n}`);
         if (cached) return cached;

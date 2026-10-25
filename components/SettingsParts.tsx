@@ -56,38 +56,73 @@ export function DeleteAll() {
   );
 }
 
+/** Presets and the Employer Register switch: the choices a founder makes. TOL codes are under Advanced. */
 export function ProfileForm({ profile }: { profile: Profile }) {
   const router = useRouter();
-  const [rows, setRows] = useState(profile.industries);
-  const [roles, setRoles] = useState(profile.roles.join(", "));
-  const [note, setNote] = useState(profile.note);
   const [employer, setEmployer] = useState(requiresEmployer(profile));
   const [msg, setMsg] = useState("");
-  const active = presetOf({ industries: rows });
-  async function save(preset?: PresetId) {
-    const r = await fetch("/api/profile", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(preset ? { preset } : { industries: rows, roles: roles.split(",").map((s) => s.trim()), note, requireEmployer: employer }) });
+  const active = presetOf(profile);
+  async function post(body: object, done: string) {
+    const r = await fetch("/api/profile", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
     const p = (await r.json()) as Profile;
-    setRows(p.industries);
-    setRoles(p.roles.join(", "));
-    setNote(p.note);
     setEmployer(requiresEmployer(p));
-    setMsg(preset === "default" ? "Back to the Velho default." : preset === "broad" ? "Broad profile on: every Finnish company. The list and the drawing use it now." : "Saved. The list and the drawing use it now.");
+    setMsg(done);
     router.refresh();
   }
   return (
     <div className="stack" style={{ maxWidth: 820 }}>
       <div className="row" style={{ gap: 10 }}>
-        <span className="small muted">Preset</span>
+        <span className="small muted">Industries</span>
         <div className="seg" role="group" aria-label="Profile preset">
-          <button type="button" aria-pressed={active === "default"} onClick={() => save("default")} title="Finnish SMEs with physical operations: manufacturing, construction, wholesale, logistics">
+          <button type="button" aria-pressed={active === "default"} onClick={() => post({ preset: "default" }, "Velho default on: physical operations.")} title="Finnish SMEs with physical operations: manufacturing, construction, wholesale, logistics">
             Velho default: physical operations
           </button>
-          <button type="button" aria-pressed={active === "broad"} onClick={() => save("broad")} title="Every Finnish company in PRH apart from public administration, associations and households">
+          <button type="button" aria-pressed={active === "broad"} onClick={() => post({ preset: "broad" }, "Broad profile on: every Finnish company.")} title="Every Finnish company in PRH apart from public administration, associations and households">
             Broad: all Finnish SMEs
           </button>
         </div>
-        <span className="xs muted">One click, to show the difference. Companies marked as not a target stay marked.</span>
+        {!active ? <span className="pill">Edited under Advanced</span> : null}
       </div>
+      <p className="small muted">{profile.note}</p>
+      <label className="small" style={{ display: "flex", gap: 10, alignItems: "flex-start", maxWidth: 820 }}>
+        <input
+          type="checkbox"
+          checked={employer}
+          onChange={(e) => {
+            setEmployer(e.target.checked);
+            post({ requireEmployer: e.target.checked }, e.target.checked ? "Companies with no employees registered are hidden." : "Companies with no employees registered are shown, as Possible at most.");
+          }}
+        />
+        <span style={{ flex: 1 }}>Hide companies with no employees registered: not in the Employer Register (PRH/YTJ), so most likely one-person companies. Their people are never a fit.</span>
+      </label>
+      <span className="small muted" role="status">
+        {msg}
+      </span>
+      <p className="small muted">
+        <span className="pill missing">Missing</span> Headcount is not in PRH open data. The Employer Register says only whether a company has regular employees.
+      </p>
+    </div>
+  );
+}
+
+/** TOL codes, decision-maker titles and the note, for whoever wants to tune the rules. */
+export function ProfileRules({ profile }: { profile: Profile }) {
+  const router = useRouter();
+  const [rows, setRows] = useState(profile.industries);
+  const [roles, setRoles] = useState(profile.roles.join(", "));
+  const [note, setNote] = useState(profile.note);
+  const [msg, setMsg] = useState("");
+  async function save() {
+    const r = await fetch("/api/profile", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ industries: rows, roles: roles.split(",").map((s) => s.trim()), note }) });
+    const p = (await r.json()) as Profile;
+    setRows(p.industries);
+    setRoles(p.roles.join(", "));
+    setNote(p.note);
+    setMsg("Saved. The list and the drawing use it now.");
+    router.refresh();
+  }
+  return (
+    <div className="stack" style={{ maxWidth: 820 }}>
       <div className="table-wrap">
         <table>
           <thead>
@@ -132,34 +167,21 @@ export function ProfileForm({ profile }: { profile: Profile }) {
         <span>Decision-maker titles (comma-separated; Finnish and Swedish forms of production, operations, director and CEO match too; C-level always counts)</span>
         <textarea value={roles} onChange={(e) => setRoles(e.target.value)} />
       </label>
-      <label className="row small" style={{ gap: 8 }}>
-        <input type="checkbox" checked={employer} onChange={(e) => setEmployer(e.target.checked)} />
-        <span>
-          Hide companies with no employees registered: not in the Employer Register (PRH/YTJ), so most likely one-person companies. Their people are never a fit.
-        </span>
-      </label>
       <label className="field">
         <span>Note</span>
         <textarea value={note} onChange={(e) => setNote(e.target.value)} />
       </label>
       <div className="row">
         <button type="button" className="btn primary" onClick={() => save()}>
-          Save profile
-        </button>
-        <button type="button" className="link" onClick={() => save("default")}>
-          Reset to defaults
+          Save rules
         </button>
         <span className="small muted" role="status">
           {msg}
         </span>
       </div>
-      <p className="small muted">
-        <span className="pill missing">Missing</span> Headcount is not in PRH open data, so the profile cannot filter on it. Every analysis lists it as unknown.
-      </p>
     </div>
   );
 }
-
 export type Review = { name: string; names: string[]; status: string; note: string; people: number; dms: number; candidates: { businessId: string; name: string; industry?: string; tol?: string; town?: string }[]; pick?: string };
 
 export function MatchReview({ items }: { items: Review[] }) {

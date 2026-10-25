@@ -21,11 +21,12 @@ const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct
 const day = (iso?: string) => (iso ? `${Number(iso.slice(8, 10))} ${MON[Number(iso.slice(5, 7)) - 1]} ${iso.slice(0, 4)}` : "");
 
 /** Paste a post's reactions list from LinkedIn, check the matches, save. */
-export function ReactionsPanel({ owners, posts, today }: { owners: { id: string; name: string }[]; posts: Post[]; today: string }) {
+export function ReactionsPanel({ owners, posts, today, owner }: { owners: { id: string; name: string }[]; posts: Post[]; today: string; owner?: string }) {
   const router = useRouter();
   const [post, setPost] = useState("");
   const [date, setDate] = useState(today);
-  const [author, setAuthor] = useState(owners[0]?.id ?? "");
+  // Whose post: the teammate the Network page was filtered to, else the first one.
+  const [author, setAuthor] = useState(owners.some((o) => o.id === owner) ? owner! : owners[0]?.id ?? "");
   // The "· 1st" markers are relative to whoever copied the list; usually the author.
   const [copiedBy, setCopiedBy] = useState<string | null>(null);
   const [text, setText] = useState("");
@@ -72,15 +73,11 @@ export function ReactionsPanel({ owners, posts, today }: { owners: { id: string;
             send(false);
           }}
         >
-          <div className="row" style={{ alignItems: "end" }}>
-            <label className="field" style={{ flex: "1 1 260px" }}>
-              <span>Post</span>
-              <input value={post} onChange={(e) => setPost(e.target.value)} placeholder="A short label, e.g. AI in production planning" required />
-            </label>
-            <label className="field">
-              <span>Posted on</span>
-              <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
-            </label>
+          <label className="field">
+            <span>Paste the reactions list from LinkedIn</span>
+            <textarea value={text} onChange={(e) => setText(e.target.value)} rows={8} placeholder={"On LinkedIn, open the post's reactions, select the whole list and copy it. Names, '· 1st' markers, headlines and button text are all fine.\n\nAino Kallio\nAino Kallio\n· 1st\nTuotantojohtaja at Esimerkki Oy"} required />
+          </label>
+          <div className="row small" style={{ alignItems: "end", gap: 10 }}>
             <label className="field">
               <span>Whose post</span>
               <select value={author} onChange={(e) => setAuthor(e.target.value)}>
@@ -92,7 +89,7 @@ export function ReactionsPanel({ owners, posts, today }: { owners: { id: string;
               </select>
             </label>
             <label className="field" title="LinkedIn's '· 1st' and '· 2nd' are relative to whoever copied the list">
-              <span>Copied from whose LinkedIn</span>
+              <span>Copied from</span>
               <select value={copiedBy ?? author} onChange={(e) => setCopiedBy(e.target.value)}>
                 {owners.map((o) => (
                   <option key={o.id} value={o.id}>
@@ -101,11 +98,15 @@ export function ReactionsPanel({ owners, posts, today }: { owners: { id: string;
                 ))}
               </select>
             </label>
+            <label className="field">
+              <span>Posted on</span>
+              <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            </label>
+            <label className="field" style={{ flex: "1 1 220px" }}>
+              <span>Label (optional)</span>
+              <input value={post} onChange={(e) => setPost(e.target.value)} placeholder="e.g. AI in production planning" />
+            </label>
           </div>
-          <label className="field">
-            <span>The reactions list, as copied from LinkedIn</span>
-            <textarea value={text} onChange={(e) => setText(e.target.value)} rows={8} placeholder={"On LinkedIn, open the post's reactions, select the whole list and copy it. Names, '· 1st' markers, headlines and button text are all fine.\n\nAino Kallio\nAino Kallio\n· 1st\nTuotantojohtaja at Esimerkki Oy"} required />
-          </label>
           <div className="row">
             <button className="btn primary" disabled={busy || !text.trim()}>
               {busy ? "Matching…" : "Match names"}

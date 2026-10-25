@@ -6,14 +6,15 @@ import { appUrl } from "@/lib/queries.ts";
 import { mcpToken } from "@/lib/access.ts";
 import { fmtDate } from "@/lib/analysis.ts";
 import { DemoButton, UploadForm } from "@/components/FirstRun";
-import { DeleteAll, DeleteOwner, MatchReview, ProfileForm, type Review } from "@/components/SettingsParts";
+import { DeleteAll, DeleteOwner, MatchReview, ProfileForm, ProfileRules, type Review } from "@/components/SettingsParts";
 import { MatchProgress } from "@/components/MatchProgress";
 import { ReactionsPanel } from "@/components/ReactionsPanel";
 import { dmaStatus } from "@/lib/linkedin-dma.ts";
 
 export const dynamic = "force-dynamic";
 
-export default async function Settings() {
+export default async function Settings({ searchParams }: { searchParams: Promise<{ owner?: string }> }) {
+  const { owner } = await searchParams;
   const net = await loadNetwork();
   ensureMatching(net);
   const state = readState();
@@ -117,23 +118,6 @@ export default async function Settings() {
               <DemoButton label={net.demo ? "Reload demo data" : "Load demo data instead"} />
             </div>
           </div>
-          <div className="card stack" id="linkedin" style={{ marginTop: 12 }}>
-            <div className="row" style={{ justifyContent: "space-between" }}>
-              <b style={{ fontWeight: 600 }}>LinkedIn data portability API (EU)</b>
-              <span className={dma.connected ? "pill green" : "pill"}>{dma.connected ? `LinkedIn connected (${dma.expires ? `token expires ${fmtDate(dma.expires)}` : "token expiry not set"})` : "Not connected"}</span>
-            </div>
-            <p className="small muted">
-              Instead of a CSV, a teammate in the EEA or Switzerland can fetch their own connections with LinkedIn&apos;s Member Data Portability API (CONNECTIONS only), using a token they made in LinkedIn&apos;s OAuth Token Generator. The token goes in <code>.env.local</code> as <code>LINKEDIN_DMA_TOKEN</code> and is never shown, logged or stored by the app.
-              {dma.connected && !dma.expires ? " Add LINKEDIN_DMA_TOKEN_EXPIRES=YYYY-MM-DD, the date the token tool shows, to see here when it runs out." : ""}
-            </p>
-            {dma.lastSync ? (
-              <p className="small">
-                Last import into this data folder: {fmtDate(dma.lastSync.at.slice(0, 10))}, {dma.lastSync.coverage.rows.toLocaleString("en-US")} connections as {dma.lastSync.owner}. Profile URL in {pct(dma.lastSync.coverage.profileUrl, dma.lastSync.coverage.rows)}, company in {pct(dma.lastSync.coverage.company, dma.lastSync.coverage.rows)}, position in {pct(dma.lastSync.coverage.position, dma.lastSync.coverage.rows)}, connected on in {pct(dma.lastSync.coverage.connectedOn, dma.lastSync.coverage.rows)}.
-              </p>
-            ) : null}
-            <pre className="code">{`npm run linkedin:sync -- --owner "Name" --dry-run\nDATA_DIR=data-real npm run linkedin:sync -- --owner "Name"`}</pre>
-            <p className="xs faint">The first line only counts what came back; the second imports into data-real/, next to this demo, and looks the companies up in PRH.</p>
-          </div>
         </section>
 
         <section className="section" id="reactions">
@@ -141,7 +125,7 @@ export default async function Settings() {
           <p className="small muted" style={{ marginBottom: 10, maxWidth: 820 }}>
             Who reacted to the team&apos;s LinkedIn posts. Each match is a signal on the person: it shows in their analysis and adds 5 points to the ranking, +2 for each further post (posts from the last 90 days). Nothing is scraped: on LinkedIn, open the post&apos;s reactions, select the list, copy and paste it here. Or drop a screenshot into Claude, which calls add_reactions.
           </p>
-          <ReactionsPanel owners={net.owners.map((o) => ({ id: o.id, name: o.name }))} posts={listPosts(state)} today={net.today} />
+          <ReactionsPanel owners={net.owners.map((o) => ({ id: o.id, name: o.name }))} posts={listPosts(state)} today={net.today} owner={owner} />
         </section>
 
         <section className="section" id="profile">
@@ -185,6 +169,52 @@ export default async function Settings() {
           <p className="small" style={{ marginBottom: 10, maxWidth: 820 }}>
             The same data as an MCP connector, so you can ask in your own Claude: &quot;who should we reach this week?&quot; or &quot;who should we invite to a logistics roundtable?&quot;. Ranking and filtering stay in this app; Claude picks the filters and writes the text, on your own subscription. Nothing is sent to anyone.
           </p>
+          <p className="small" style={{ marginBottom: 4 }}>
+            Setting up the connector (commands, token, tunnel) is under <a href="#advanced">Advanced</a>.
+          </p>
+          <div className="card stack" style={{ marginTop: 16, maxWidth: 820 }}>
+            <b>The skill</b>
+            <span className="small">It tells Claude which tool to use when, Velho&apos;s tone for messages, and the privacy rules.</span>
+            <div className="row">
+              <a className="btn small" href="/api/skill.zip">
+                Download velho-network-skill.zip
+              </a>
+              <span className="small muted">
+                Or <code>npm run skill:zip</code> (writes dist/velho-network-skill.zip).
+              </span>
+            </div>
+            <span className="small muted">claude.ai: upload the zip in the Skills settings (Settings → Capabilities in Anthropic&apos;s guide; it needs a paid plan with code execution on). Claude Code: copy claude/velho-network to ~/.claude/skills/.</span>
+          </div>
+        </section>
+
+        <details className="section advanced" id="advanced">
+          <summary>
+            <h2>Advanced</h2>
+            <span className="small muted">Command-line import, TOL codes and titles, the Claude connector and its token.</span>
+          </summary>
+          <h3>LinkedIn import from the command line</h3>
+          <div className="card stack" id="linkedin" >
+            <div className="row" style={{ justifyContent: "space-between" }}>
+              <b style={{ fontWeight: 600 }}>LinkedIn data portability API (EU)</b>
+              <span className={dma.connected ? "pill green" : "pill"}>{dma.connected ? `LinkedIn connected (${dma.expires ? `token expires ${fmtDate(dma.expires)}` : "token expiry not set"})` : "Not connected"}</span>
+            </div>
+            <p className="small muted">
+              Instead of a CSV, a teammate in the EEA or Switzerland can fetch their own connections with LinkedIn&apos;s Member Data Portability API (CONNECTIONS only), using a token they made in LinkedIn&apos;s OAuth Token Generator. The token goes in <code>.env.local</code> as <code>LINKEDIN_DMA_TOKEN</code> and is never shown, logged or stored by the app.
+              {dma.connected && !dma.expires ? " Add LINKEDIN_DMA_TOKEN_EXPIRES=YYYY-MM-DD, the date the token tool shows, to see here when it runs out." : ""}
+            </p>
+            {dma.lastSync ? (
+              <p className="small">
+                Last import into this data folder: {fmtDate(dma.lastSync.at.slice(0, 10))}, {dma.lastSync.coverage.rows.toLocaleString("en-US")} connections as {dma.lastSync.owner}. Profile URL in {pct(dma.lastSync.coverage.profileUrl, dma.lastSync.coverage.rows)}, company in {pct(dma.lastSync.coverage.company, dma.lastSync.coverage.rows)}, position in {pct(dma.lastSync.coverage.position, dma.lastSync.coverage.rows)}, connected on in {pct(dma.lastSync.coverage.connectedOn, dma.lastSync.coverage.rows)}.
+              </p>
+            ) : null}
+            <pre className="code">{`npm run linkedin:sync -- --owner "Name" --dry-run\nDATA_DIR=data-real npm run linkedin:sync -- --owner "Name"`}</pre>
+            <p className="xs faint">The first line only counts what came back; the second imports into data-real/, next to this demo, and looks the companies up in PRH.</p>
+          </div>
+
+          <h3 id="rules">Industries by TOL code, and decision-maker titles</h3>
+          <ProfileRules profile={net.profile} />
+
+          <h3 id="connector">Claude connector</h3>
           <p className="small" style={{ marginBottom: 14 }}>
             Token: {token ? <span className="pill green">on</span> : <span className="pill">off</span>}{" "}
             <span className="muted">{token ? "Claude needs the header below. Pages answer only on this machine." : "The connector is for this machine only. Set MCP_TOKEN before you open a tunnel."}</span>
@@ -218,20 +248,7 @@ export default async function Settings() {
               </ol>
             </div>
           </div>
-          <div className="card stack" style={{ marginTop: 16, maxWidth: 820 }}>
-            <b>The skill</b>
-            <span className="small">It tells Claude which tool to use when, Velho&apos;s tone for messages, and the privacy rules.</span>
-            <div className="row">
-              <a className="btn small" href="/api/skill.zip">
-                Download velho-network-skill.zip
-              </a>
-              <span className="small muted">
-                Or <code>npm run skill:zip</code> (writes dist/velho-network-skill.zip).
-              </span>
-            </div>
-            <span className="small muted">claude.ai: upload the zip in the Skills settings (Settings → Capabilities in Anthropic&apos;s guide; it needs a paid plan with code execution on). Claude Code: copy claude/velho-network to ~/.claude/skills/.</span>
-          </div>
-        </section>
+        </details>
 
         <section className="section" id="delete">
           <h2>Delete my data</h2>

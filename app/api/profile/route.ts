@@ -12,6 +12,12 @@ export async function POST(req: Request) {
     setProfile(p);
     return NextResponse.json(p);
   }
+  // Only the Employer Register switch: the rest of the profile stays.
+  if (!b.industries && typeof b.requireEmployer === "boolean") {
+    const p: Profile = { ...getProfile(), requireEmployer: b.requireEmployer };
+    setProfile(p);
+    return NextResponse.json(p);
+  }
   const industries = (b.industries ?? []).map((r) => ({ code: String(r.code).replace(/\s/g, ""), label: String(r.label || r.code).slice(0, 60), lowerPriority: !!r.lowerPriority })).filter((r) => /^\d{2}-\d{2}$|^\d{2,5}$/.test(r.code));
   const roles = (b.roles ?? []).map((r) => String(r).trim()).filter(Boolean).slice(0, 60);
   const p: Profile = { industries, roles, note: String(b.note ?? "").slice(0, 2000), excluded: getProfile().excluded, requireEmployer: typeof b.requireEmployer === "boolean" ? b.requireEmployer : getProfile().requireEmployer };

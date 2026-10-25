@@ -82,6 +82,31 @@ place. `docs/DEMO.md` is a 3-minute demo script.
 To refresh the radar: `node scripts/fetch-signals.mjs`. It takes about 6
 minutes and caches each page.
 
+### The team's real data (private)
+
+The team's real networks, statuses and PRH cache live in a separate private
+repository, `velho-network-data`, cloned into `data-real/` (which this repo
+gitignores). It holds real personal data: never share it, and never use it
+when showing the app to judges; the demo in `data/` is invented.
+
+```sh
+# once, inside this repo (needs access to the private repo)
+gh repo clone <owner>/velho-network-data data-real
+
+# run on the real data
+DATA_DIR=data-real npm run dev
+
+# after a session: commit what changed (statuses, imports, lookups)
+git -C data-real add -A && git -C data-real commit -m "Update" && git -C data-real push
+# before you start: get the others' changes
+git -C data-real pull
+```
+
+`state.json` is one file for the whole team, so pull before you work and
+push after, and avoid two people editing at once. Tokens such as
+`LINKEDIN_DMA_TOKEN` stay in each person's own `.env.local`, never in
+`data-real/`.
+
 ## Use it from Claude (MCP)
 
 ```sh

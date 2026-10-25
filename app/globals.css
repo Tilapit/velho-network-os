@@ -231,3 +231,15 @@ fieldset.review legend { padding: 0 4px; }
   h1 { font-size: 23px; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+/* Settings → Advanced: closed until asked for. */
+details.advanced > summary { list-style: none; cursor: pointer; display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+details.advanced > summary::-webkit-details-marker { display: none; }
+details.advanced > summary h2 { margin: 0; }
+details.advanced > summary h2::before { content: "▸"; display: inline-block; width: 1.1em; color: var(--muted); transition: transform 0.15s; }
+details.advanced[open] > summary h2::before { transform: rotate(90deg); }
+details.advanced h3 { margin: 24px 0 10px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+a.chip { text-decoration: none; }
+a.chip:hover { color: var(--text); border-color: var(--accent-dim); }
+a.chip.on { background: var(--accent-bg); color: var(--selected); border-color: transparent; }

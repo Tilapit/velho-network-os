@@ -195,8 +195,9 @@ export function fitCaps(match: Resolved | null, now: string): string[] {
   return caps;
 }
 
-export function approachFor(fit: Fit | null, rule: IndustryRule | null): Approach {
-  return fit ? "direct" : rule ? "ask_intro" : "skip";
+/** ask_intro only for a title that can realistically introduce (`RoleInfo.intro`). */
+export function approachFor(fit: Fit | null, rule: IndustryRule | null, role?: Pick<RoleInfo, "intro">): Approach {
+  return fit ? "direct" : rule && (!role || role.intro > 0) ? "ask_intro" : "skip";
 }
 
 // ---------- build (pure) ----------
@@ -289,7 +290,7 @@ export function buildNetwork(input: BuildInput, signalsByCompany = indexSignals(
     }
     let role = analyseTitle(d.position, profile.roles);
     // An association or a foundation is not a company Velho sells to: nobody there decides for it.
-    if (match?.company && !match.foreign && NON_PROFIT_FORMS.has(match.company.formCode ?? "")) role = { ...role, decisionMaker: false, decides: "", notDecider: "an association or foundation in PRH" };
+    if (match?.company && !match.foreign && NON_PROFIT_FORMS.has(match.company.formCode ?? "")) role = { ...role, decisionMaker: false, decides: "", notDecider: "an association or foundation in PRH", intro: 0 };
     const caps = rule ? fitCaps(match, input.today) : [];
     // Not in the Employer Register: no regular employees, so nobody to sell to and no one to introduce.
     const tooSmall = !!rule && requiresEmployer(profile) && employerOf(match) === false;
@@ -310,7 +311,7 @@ export function buildNetwork(input: BuildInput, signalsByCompany = indexSignals(
       fit,
       caps,
       tooSmall,
-      approach: tooSmall ? "skip" : approachFor(fit, rule),
+      approach: tooSmall ? "skip" : approachFor(fit, rule, role),
       colleagues: 0,
       signals: companyId ? companies.get(companyId)!.signals : [],
       reactions: state.reactions.filter((r) => r.contactId === id),

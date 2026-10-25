@@ -60,7 +60,7 @@ export async function resolveName(raw: string, override?: Override, opts: { demo
   // "Amazon" may be Amazon Oy in Espoo or Amazon in Seattle: an exact match on
   // a well-known international name is only a close match, and a close match is abroad.
   const intl = knownInternational(key);
-  if (intl && m.status === "verified") m = { ...m, status: "inferred", note: "Same name as a well-known international company. Check that this is the Finnish company they work for." };
+  if (intl && m.status === "verified") m = { ...m, status: "inferred", note: "Same name as a well-known international company, so taken to be that one. If they work for the Finnish company, pick it in Settings." };
   const r: Resolved = {
     raw,
     key,
@@ -70,7 +70,8 @@ export async function resolveName(raw: string, override?: Override, opts: { demo
     note: m.note,
     by: "rule",
     // "Spotify AB" is the Swedish company even if a Finnish subsidiary is close.
-    foreign: ((m.status === "none" || m.status === "ambiguous") && looksForeign(raw, key)) || (m.status === "inferred" && (hasForeignForm(raw) || (intl && !/check that this is the finnish/i.test(m.note)))),
+    // An international name is the international company, even when a Finnish one has the same name ("Amazon Oy" in Espoo); the team can pick the Finnish one in Settings.
+    foreign: ((m.status === "none" || m.status === "ambiguous") && looksForeign(raw, key)) || (m.status === "inferred" && (hasForeignForm(raw) || intl)),
     snapshot: !!snap,
     ...(m.company && !m.company.registers ? { stale: true } : {}),
   };

@@ -112,8 +112,9 @@ const importance = (n: DNode) => (n.f === 2 ? 3 : n.f === 1 ? 2 : n.dm ? 1 : 0);
 /** Below this width the drawing uses the phone layout. */
 const COMPACT = 640;
 
-export function heightFor(W: number) {
-  return W < COMPACT ? Math.round(Math.max(480, Math.min(660, W * 1.55))) : Math.round(Math.max(600, Math.min(820, W * 0.68)));
+/** Taller when there are many industry bands (the broad profile), so their labels keep their spacing. */
+export function heightFor(W: number, bands = 0) {
+  return W < COMPACT ? Math.round(Math.max(480, Math.min(660, W * 1.55), 174 + bands * 30)) : Math.round(Math.max(600, Math.min(820, W * 0.68), 196 + bands * 34));
 }
 
 export function layout(nodes: DNode[], groups: DGroup[], owners: DOwner[], W: number, H: number) {
@@ -718,7 +719,8 @@ export function NetworkDrawing(props: {
   const [staticVersion, setStaticVersion] = useState(0);
   const anim = useRef({ raf: 0, pulse0: -1, pulsed: false, painted: false });
   const live = useRef<{ L: Layout | null; dpr: number; routes: number[][]; reduce: boolean; view: View; rview: View }>({ L: null, dpr: 1, routes: [], reduce: false, view: HOME, rview: HOME });
-  const H = W ? heightFor(W) : 0;
+  const bands = useMemo(() => groups.filter((g, gi) => !g.grey && nodes.some((n) => n.g === gi && n.ip)).length, [groups, nodes]);
+  const H = W ? heightFor(W, bands) : 0;
   // `view` follows the wheel and the drag at once (a scaled copy of the layers);
   // `rview` is what the layers were last rendered at, crisp, once the gesture rests.
   const [view, setView] = useState<View>(HOME);
