@@ -1,7 +1,7 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import type { Profile } from "@/lib/industry.ts";
+import { presetOf, type PresetId, type Profile } from "@/lib/industry.ts";
 
 export function DeleteOwner({ id, name }: { id: string; name: string }) {
   const router = useRouter();
@@ -62,17 +62,30 @@ export function ProfileForm({ profile }: { profile: Profile }) {
   const [roles, setRoles] = useState(profile.roles.join(", "));
   const [note, setNote] = useState(profile.note);
   const [msg, setMsg] = useState("");
-  async function save(reset = false) {
-    const r = await fetch("/api/profile", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(reset ? { reset: true } : { industries: rows, roles: roles.split(",").map((s) => s.trim()), note }) });
+  const active = presetOf({ industries: rows });
+  async function save(preset?: PresetId) {
+    const r = await fetch("/api/profile", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(preset ? { preset } : { industries: rows, roles: roles.split(",").map((s) => s.trim()), note }) });
     const p = (await r.json()) as Profile;
     setRows(p.industries);
     setRoles(p.roles.join(", "));
     setNote(p.note);
-    setMsg(reset ? "Back to the defaults." : "Saved. The list and the drawing use it now.");
+    setMsg(preset === "default" ? "Back to the Velho default." : preset === "broad" ? "Broad profile on: every Finnish company. The list and the drawing use it now." : "Saved. The list and the drawing use it now.");
     router.refresh();
   }
   return (
     <div className="stack" style={{ maxWidth: 820 }}>
+      <div className="row" style={{ gap: 10 }}>
+        <span className="small muted">Preset</span>
+        <div className="seg" role="group" aria-label="Profile preset">
+          <button type="button" aria-pressed={active === "default"} onClick={() => save("default")} title="Finnish SMEs with physical operations: manufacturing, construction, wholesale, logistics">
+            Velho default: physical operations
+          </button>
+          <button type="button" aria-pressed={active === "broad"} onClick={() => save("broad")} title="Every Finnish company in PRH apart from public administration, associations and households">
+            Broad: all Finnish SMEs
+          </button>
+        </div>
+        <span className="xs muted">One click, to show the difference. Companies marked as not a target stay marked.</span>
+      </div>
       <div className="table-wrap">
         <table>
           <thead>
@@ -125,7 +138,7 @@ export function ProfileForm({ profile }: { profile: Profile }) {
         <button type="button" className="btn primary" onClick={() => save()}>
           Save profile
         </button>
-        <button type="button" className="link" onClick={() => save(true)}>
+        <button type="button" className="link" onClick={() => save("default")}>
           Reset to defaults
         </button>
         <span className="small muted" role="status">

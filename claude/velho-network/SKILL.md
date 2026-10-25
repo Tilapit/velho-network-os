@@ -39,7 +39,10 @@ machinery" also work).
 **Weekly review.** `this_week` gives the five, chosen by code (the same as
 the app's "This week" block). For each: their one-line `why`, the suggested
 sender and the link. Then `message_context` for each and write a short draft
-per person. Say which teammate should send each one. Then `follow_ups`: who
+per person. Say which teammate should send each one. It may give fewer than
+five: no sender gets more than their share. `askForIntro` lists a few people
+at target companies who do not decide but can introduce; mention them
+briefly, with approach `ask_intro`. Then `follow_ups`: who
 was messaged a week or more ago with no reply recorded, and who sent it;
 suggest a short follow-up or ask how it went. If the user wants more or
 different people, use `find_people` (for example `fit: "strong"`,

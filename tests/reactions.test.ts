@@ -161,12 +161,20 @@ test("this week: five by code, nobody contacted, one per company, senders spread
   assert.equal(new Set(week.map((w) => w.businessId ?? w.company)).size, 5, "one per company");
   const senders = new Map<string, number>();
   for (const w of week) senders.set(w.sender, (senders.get(w.sender) ?? 0) + 1);
-  // Two each at most, unless the spread gave way to someone with a reason to write now.
-  if (Math.max(...senders.values()) > 2) assert.ok(week.every((w) => w.kind !== "fit"), `senders spread: ${[...senders.entries()]}`);
+  // The promise on the page: at most two for each sender, always.
+  assert.ok(Math.max(...senders.values()) <= 2, `at most two for each sender: ${[...senders.entries()]}`);
   assert.ok(week.every((w) => w.fit === "strong"), "strong fits before possible ones: the demo has more than five");
   assert.ok(week.every((w) => w.why.length > 10 && w.why.length < 140));
-  // Everyone has a reason to write now, said as a sentence about the company, not the person.
-  assert.ok(week.every((w) => w.kind !== "fit"), `timely first: ${week.map((w) => w.kind)}`);
+  // Within the limit a reason to write now wins: a pick with no fresh change or
+  // reaction only where that sender has no one timely left.
+  const { weekWhy } = await import("../lib/queries.ts");
+  const picked = new Set(week.map((w) => w.id));
+  const companies = new Set(week.map((w) => demo.byId.get(w.id)!.companyId));
+  for (const w of week.filter((x) => x.kind === "fit")) {
+    const left = demo.contacts.filter((c) => c.fit === "strong" && !c.outreach.hidden && c.sender.ownerName === w.sender && !picked.has(c.id) && !companies.has(c.companyId) && weekWhy(demo, c).kind !== "fit");
+    assert.equal(left.length, 0, `${w.sender} still had someone timely: ${left.map((c) => c.id)}`);
+  }
+  assert.ok(week.filter((w) => w.kind !== "fit").length >= 3, `mostly timely: ${week.map((w) => w.kind)}`);
   for (const w of week.filter((x) => x.kind === "signal")) assert.match(w.why, /^.+ registered (a new managing director|a board change|a share issue or capital increase|a merger|a demerger|a merger or demerger) on \d{1,2} [A-Z][a-z]{2} \(PRH\)\.$/);
   assert.equal(week[0].prompt, claudePrompt(demo.byId.get(week[0].id)!));
   assert.match(week[0].prompt, /^Using Velho Network, write a Finnish LinkedIn message to .+ \([0-9a-f]{10}\), approach (direct|ask_intro)\.$/);

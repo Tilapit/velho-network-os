@@ -221,14 +221,21 @@ export function weekWhy(net: Network, c: Contact): { kind: WeekPick["kind"]; why
   return { kind: "fit", why: `${role} at ${company}. No fresh change or reaction.` };
 }
 
+/** At most this many of This week for each suggested sender: five spread over the team, at least one each. */
+export function weekPerSender(owners: number, n = 5): number {
+  return Math.max(1, Math.ceil(n / Math.max(1, owners)));
+}
+
 /**
  * Five people for this week, chosen by code. Strong fits always come before
  * possible fits: a possible fit appears only when fewer than five strong ones
  * are left. Within each, people with a registered change or a reaction in the
  * last 30 days first, and anyone whose colleague was contacted in the last 30
  * days last. Contacted, snoozed and not-a-fit people are out (`outreach`). One
- * per company; while it works, at most two per industry and the suggested
- * senders spread across the team. With an owner, only that teammate's network.
+ * per company; while it works, at most two per industry. For the whole team,
+ * at most weekPerSender() for each suggested sender, always: the list is
+ * shorter rather than break that. With an owner, only that teammate's
+ * network, senders spread while it works.
  */
 export function thisWeek(net: Network, n = 5, owner?: string): WeekPick[] {
   const fresh = (c: Contact) => c.signals.some((s) => daysBetween(s.date, net.today) <= 30);
@@ -241,14 +248,20 @@ export function thisWeek(net: Network, n = 5, owner?: string): WeekPick[] {
   const pool = contactsFor(net, ownerId(net, owner))
     .filter((c) => c.fit && !c.outreach.hidden)
     .sort(order);
-  const perSender = Math.max(1, Math.ceil(n / Math.max(1, net.owners.length)));
+  const perSender = weekPerSender(net.owners.length, n);
+  // The whole team's list keeps its promise of at most perSender for each
+  // sender, even if that leaves it short. A teammate's own list only spreads
+  // senders while it can.
+  const capped = !owner && net.owners.length > 1;
   const picks: Contact[] = [];
   const take = (from: Contact[], pred: (c: Contact) => boolean, strict: boolean) => {
     const c = from.find((x) => {
       if (picks.includes(x) || !pred(x)) return false;
       if (x.companyId && picks.some((p) => p.companyId === x.companyId)) return false;
+      const senderFull = picks.filter((p) => p.sender.owner === x.sender.owner).length >= perSender;
+      if (capped && senderFull) return false;
       if (!strict) return true;
-      return picks.filter((p) => p.group === x.group).length < 2 && picks.filter((p) => p.sender.owner === x.sender.owner).length < perSender;
+      return picks.filter((p) => p.group === x.group).length < 2 && !senderFull;
     });
     if (c) picks.push(c);
     return !!c;
@@ -268,6 +281,78 @@ export function thisWeek(net: Network, n = 5, owner?: string): WeekPick[] {
     }
   }
   return picks.sort(order).map((c) => ({ ...summary(net, c), ...weekWhy(net, c), sender: c.sender.ownerName, prompt: claudePrompt(c) }));
+}
+
+export type IntroPick = PersonSummary & { why: string; sender: string; prompt: string };
+
+/**
+ * People at companies in your industries who are not decision-makers: they
+ * can introduce you to who decides. A second, smaller group under This week,
+ * chosen by code: companies where the team knows no decision-maker who fits
+ * first (an intro is the only way in), then a fresh registered change, then
+ * the score. One per company; contacted and snoozed people are out.
+ */
+export function canIntroduce(net: Network, n = 3, owner?: string): { total: number; people: IntroPick[] } {
+  const pool = contactsFor(net, ownerId(net, owner)).filter((c) => c.approach === "ask_intro" && !c.outreach.hidden);
+  const hasFit = new Set(net.contacts.filter((c) => c.fit && c.companyId).map((c) => c.companyId));
+  const fresh = (c: Contact) => c.signals.some((s) => daysBetween(s.date, net.today) <= 30);
+  const order = (a: Contact, b: Contact) =>
+    Number(hasFit.has(a.companyId)) - Number(hasFit.has(b.companyId)) || Number(!!a.rule?.lowerPriority) - Number(!!b.rule?.lowerPriority) || Number(!!a.outreach.cooldown) - Number(!!b.outreach.cooldown) || Number(fresh(b)) - Number(fresh(a)) || b.score - a.score || Number(isOyj(a)) - Number(isOyj(b)) || a.name.localeCompare(b.name, "fi");
+  const picks: Contact[] = [];
+  for (const c of [...pool].sort(order)) {
+    if (picks.length >= n) break;
+    if (c.companyId && picks.some((p) => p.companyId === c.companyId)) continue;
+    picks.push(c);
+  }
+  return {
+    total: pool.length,
+    people: picks.map((c) => {
+      const company = c.match?.company && !c.match.foreign ? shortName(c.match.company.name) : c.company;
+      const title = c.position ? `${c.position.charAt(0).toUpperCase()}${c.position.slice(1, 60)}` : "No title";
+      const why = `${title} at ${company}. ${hasFit.has(c.companyId) ? "Can introduce you to who decides." : "No decision-maker who fits is known there: ask who decides."}`;
+      return { ...summary(net, c), why, sender: c.sender.ownerName, prompt: claudePrompt(c) };
+    }),
+  };
+}
+
+export type FunnelStep = { label: string; count: number; href: string; rest?: { count: number; label: string; href: string } };
+
+const isFound = (c: Contact) => !!c.match?.company && !c.match.foreign && (c.match.status === "verified" || c.match.status === "inferred");
+
+/** Which /people?step= list each funnel step links to. */
+export const FUNNEL_STEPS = ["all", "found", "unmatched", "industries", "other", "fits", "intro"] as const;
+export type FunnelList = (typeof FUNNEL_STEPS)[number];
+
+/** The people behind one funnel step, in rank order. */
+export function funnelPeople(net: Network, step: FunnelList, owner?: string): Contact[] {
+  const all = contactsFor(net, ownerId(net, owner));
+  if (step === "all") return all;
+  if (step === "found") return all.filter(isFound);
+  if (step === "unmatched") return all.filter((c) => !isFound(c));
+  if (step === "industries") return all.filter((c) => isFound(c) && c.rule);
+  if (step === "other") return all.filter((c) => isFound(c) && !c.rule);
+  if (step === "fits") return all.filter((c) => c.fit);
+  return all.filter((c) => isFound(c) && c.rule && !c.fit);
+}
+
+/**
+ * People → company found in PRH → in your industries → decision-makers who
+ * fit, with what drops out at each step. Counts are people, from code.
+ */
+export function funnel(net: Network, owner?: string): FunnelStep[] {
+  const n = (s: FunnelList) => funnelPeople(net, s, owner).length;
+  const excluded = new Set((net.profile.excluded ?? []).map((x) => x.businessId));
+  const notTarget = funnelPeople(net, "other", owner).filter((c) => excluded.has(c.match!.company!.businessId)).length;
+  const fmt = (x: number) => x.toLocaleString("en-US");
+  const id = ownerId(net, owner);
+  const q = (href: string) => (id ? `${href}${href.includes("?") ? "&" : "?"}owner=${encodeURIComponent(id)}` : href);
+  const steps: FunnelStep[] = [
+    { label: "people", count: n("all"), href: "/people?step=all" },
+    { label: "company found in PRH", count: n("found"), href: "/people?step=found", rest: { count: n("unmatched"), label: `${fmt(n("unmatched"))} not found: no company, no single match or abroad`, href: "/people?step=unmatched" } },
+    { label: "in your industries", count: n("industries"), href: "/people?step=industries", rest: { count: n("other"), label: `${fmt(n("other"))} in other industries${notTarget ? ` or not a target (${fmt(notTarget)})` : ""}`, href: "/people?step=other" } },
+    { label: "decision-makers who fit", count: n("fits"), href: "/people?step=fits", rest: { count: n("intro"), label: `${fmt(n("intro"))} not decision-makers: can introduce`, href: "/people?step=intro" } },
+  ];
+  return steps.map((f) => ({ ...f, href: q(f.href), ...(f.rest ? { rest: { ...f.rest, href: q(f.rest.href) } } : {}) }));
 }
 
 // ---------- status: what the team did ----------
@@ -390,7 +475,8 @@ export type RadarRow = {
   signals: { type: SignalType; label: string; date: string; recordNumber: string }[];
   latest: string;
   score: number;
-  known: { id: string; name: string; title: string; fit: Fit | null; knownBy: string[]; url: string }[];
+  /** "decision-maker": fits, talk directly. "can introduce": works there, does not decide. */
+  known: { id: string; name: string; title: string; fit: Fit | null; role: "decision-maker" | "can introduce"; knownBy: string[]; url: string }[];
   source: string;
   url: string;
 };
@@ -435,7 +521,7 @@ export function getRadar(net: Network, f: RadarFilter = {}): { window: { start: 
       .map((id) => net.byId.get(id)!)
       .filter((c) => !owner || c.knownBy.some((k) => k.owner === owner))
       .sort((a, b) => b.score - a.score)
-      .map((c) => ({ id: c.id, name: c.name, title: c.position, fit: c.fit, knownBy: c.knownBy.map((k) => k.ownerName), url: appUrl(`/people/${c.id}`) }));
+      .map((c) => ({ id: c.id, name: c.name, title: c.position, fit: c.fit, role: c.fit ? ("decision-maker" as const) : ("can introduce" as const), knownBy: c.knownBy.map((k) => k.ownerName), url: appUrl(`/people/${c.id}`) }));
     const uniq = new Map<string, CompanySignal>();
     for (const s of sigs) if (!uniq.has(`${s.type}|${s.recordNumber}`)) uniq.set(`${s.type}|${s.recordNumber}`, s);
     const list = [...uniq.values()].sort((a, b) => b.date.localeCompare(a.date));

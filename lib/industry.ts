@@ -81,6 +81,31 @@ export const DEFAULT_PROFILE: Profile = {
   note: "Finnish SMEs with physical operations, about 20–300 people: manufacturing, industrial, logistics, construction, wholesale, maritime.",
 };
 
+/**
+ * Every Finnish company with a line of business, to show the difference
+ * against the default: all of TOL apart from public administration (84),
+ * associations (94), households (97–98) and extraterritorial bodies (99).
+ * "SME" cannot be checked: headcount is not in PRH.
+ */
+export const BROAD_PROFILE: Profile = {
+  industries: [
+    { code: "01-82", label: "All lines of business" },
+    { code: "85-93", label: "Education, health, culture" },
+    { code: "95-96", label: "Repair and personal services" },
+  ],
+  roles: DEFAULT_PROFILE.roles,
+  note: "Broad: every Finnish company in PRH, apart from public administration, associations and households. Headcount is not in PRH, so 'SME' is not checked.",
+};
+
+export const PROFILE_PRESETS = { default: DEFAULT_PROFILE, broad: BROAD_PROFILE } as const;
+export type PresetId = keyof typeof PROFILE_PRESETS;
+
+/** Which preset this profile is, by its industries, or null when the team edited it. */
+export function presetOf(p: Pick<Profile, "industries">): PresetId | null {
+  const key = (x: Pick<Profile, "industries">) => JSON.stringify(x.industries.map((r) => [r.code, !!r.lowerPriority]));
+  return (Object.keys(PROFILE_PRESETS) as PresetId[]).find((id) => key(PROFILE_PRESETS[id]) === key(p)) ?? null;
+}
+
 export function tolMatches(tol: string | undefined, code: string): boolean {
   if (!tol) return false;
   const c = code.replace(/\s/g, "");

@@ -38,6 +38,8 @@ export type State = {
   overrides: Record<string, Override>;
   reactions: Reaction[];
   angles: Record<string, Angle>;
+  /** Business IDs from not-targets.json already added to the profile once, so one the team removes stays removed. */
+  notTargetsApplied?: string[];
 };
 
 const file = () => path.join(dataDir(), "state.json");
@@ -78,6 +80,40 @@ export function setProfile(p: Profile) {
   update((s) => {
     s.profile = p;
   });
+}
+
+const notTargetsFile = () => path.join(process.env.DEMO_DIR || path.join(process.cwd(), "data", "demo"), "not-targets.json");
+
+/** The large groups that are not the Finnish SMEs Velho is after (data/demo/not-targets.json). */
+export function notTargetList(): { businessId: string; name: string }[] {
+  try {
+    const list = JSON.parse(fs.readFileSync(notTargetsFile(), "utf8")).companies as { businessId: string; name: string }[];
+    return list.filter((x) => /^\d{7}-\d$/.test(x?.businessId ?? ""));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Marks the listed companies as "Not a target company" in every data folder,
+ * as the team would on each company page. Each one is added once: one the
+ * team takes off the list stays off. `force` (the demo load) adds every one
+ * that is missing. Returns how many were added.
+ */
+export function applyNotTargets(opts: { force?: boolean } = {}): number {
+  const list = notTargetList();
+  const s = readState();
+  const applied = new Set(s.notTargetsApplied ?? []);
+  const have = new Set((s.profile ?? DEFAULT_PROFILE).excluded?.map((x) => x.businessId) ?? []);
+  const add = list.filter((x) => !have.has(x.businessId) && (opts.force || !applied.has(x.businessId)));
+  const fresh = list.filter((x) => !applied.has(x.businessId));
+  if (!add.length && !fresh.length) return 0;
+  update((st) => {
+    const p = st.profile ?? DEFAULT_PROFILE;
+    if (add.length) st.profile = { ...p, excluded: [...(p.excluded ?? []), ...add.map((x) => ({ businessId: x.businessId, name: x.name }))] };
+    st.notTargetsApplied = [...new Set([...(st.notTargetsApplied ?? []), ...list.map((x) => x.businessId)])];
+  });
+  return add.length;
 }
 
 export function setStatus(contactId: string, status: Status, by: string, extra: { note?: string; until?: string; at?: string } = {}) {

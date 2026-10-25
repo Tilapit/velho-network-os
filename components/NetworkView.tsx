@@ -5,12 +5,13 @@ import { NetworkDrawing, type DGroup, type DNode, type DOwner } from "./NetworkD
 import { PersonAnalysis, type PersonPayload } from "./PersonAnalysis";
 import { FitTag } from "./ui";
 import { WriteInClaude } from "./WriteInClaude";
-import type { WeekPick } from "@/lib/queries.ts";
+import type { FunnelStep, IntroPick, WeekPick } from "@/lib/queries.ts";
 
 export type ViewNode = DNode & { co: string; via: string[]; st: string; sg: number; hd: boolean; cd: string };
 
 const fmt = (n: number) => n.toLocaleString("en-US");
 const NUM = ["no", "one", "two", "three", "four", "five"];
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const popcount = (k: number) => {
   let c = 0;
   for (; k; k &= k - 1) c++;
@@ -20,6 +21,8 @@ const popcount = (k: number) => {
 const lower = (s: string) => (/^\p{Lu}\p{Ll}/u.test(s) ? s.charAt(0).toLowerCase() + s.slice(1) : s);
 
 type Week = Pick<WeekPick, "id" | "name" | "title" | "company" | "fit" | "status" | "kind" | "why" | "sender" | "prompt" | "cooldown">;
+type Intro = Pick<IntroPick, "id" | "name" | "title" | "company" | "why" | "sender" | "prompt" | "cooldown">;
+type Intros = { total: number; people: Intro[] };
 type Due = { id: string; name: string; title: string; company: string; sentOn: string; sentBy: string; followUpOn: string };
 
 const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -36,6 +39,12 @@ export function NetworkView(props: {
   /** This week for the whole team, and for each teammate's network. */
   week: Week[];
   weekBy: Week[][];
+  /** Not decision-makers at target companies who can introduce: the team's, and each teammate's. */
+  intro: Intros;
+  introBy: Intros[];
+  /** People → company found in PRH → in your industries → decision-makers who fit. */
+  funnel: FunnelStep[];
+  funnelBy: FunnelStep[][];
   /** Sent a week ago or more with no reply recorded: the team's, and what each teammate sent. */
   follow: Due[];
   followBy: Due[][];
@@ -68,6 +77,8 @@ export function NetworkView(props: {
   const perSender = Math.max(1, Math.ceil(5 / Math.max(1, owners.length)));
   const balanced = owners.length > 1 && week.every((w) => week.filter((x) => x.sender === w.sender).length <= perSender);
   const follow = owner >= 0 ? props.followBy[owner] ?? [] : props.follow;
+  const intro = owner >= 0 ? props.introBy[owner] ?? { total: 0, people: [] } : props.intro;
+  const steps = owner >= 0 ? props.funnelBy[owner] ?? [] : props.funnel;
   const list = picked !== null ? inIndustry : reacted ? reactedList : null;
   // The drawing labels and lights the top of the list on the right.
   const listIds = useMemo(() => (list ? list.filter((n) => n.f && !n.hd).slice(0, 5).map((n) => n.id) : week.map((w) => w.id)), [list, week]);
@@ -195,6 +206,23 @@ export function NetworkView(props: {
             Edit
           </Link>
         </p>
+        <ol className="funnel" aria-label="From people to decision-makers who fit">
+          {steps.map((f, i) => (
+            <li key={f.label}>
+              {i ? <span className="funnel-arrow" aria-hidden="true">→</span> : null}
+              <span className="funnel-step">
+                <Link href={f.href} className="funnel-count">
+                  {fmt(f.count)} {f.label}
+                </Link>
+                {f.rest ? (
+                  <Link href={f.rest.href} className="xs faint funnel-rest">
+                    {f.rest.label}: see which
+                  </Link>
+                ) : null}
+              </span>
+            </li>
+          ))}
+        </ol>
         <div className="toolbar">
           <span className="small muted">Whose network</span>
           <div className="seg" role="group" aria-label="Whose network">
@@ -305,8 +333,8 @@ export function NetworkView(props: {
             <h2>This week</h2>
             <p className="small muted" style={{ marginBottom: 12 }}>
               {owner >= 0
-                ? `Five people in ${owners[owner].name === "You" ? "your" : `${owners[owner].name}'s`} network to reach now, picked by fixed rules, not AI: a fresh registered change or a reaction first, nobody already contacted.`
-                : `Five people to reach now, picked by fixed rules, not AI: a fresh registered change or a reaction first, nobody already contacted${balanced ? `, at most ${NUM[perSender] ?? perSender} for each sender` : ""}.`}
+                ? `${cap(NUM[week.length] ?? String(week.length))} ${week.length === 1 ? "person" : "people"} in ${owners[owner].name === "You" ? "your" : `${owners[owner].name}'s`} network to reach now, picked by fixed rules, not AI: a fresh registered change or a reaction first, nobody already contacted.`
+                : `${cap(NUM[week.length] ?? String(week.length))} ${week.length === 1 ? "person" : "people"} to reach now, picked by fixed rules, not AI: a fresh registered change or a reaction first, nobody already contacted${balanced ? `, at most ${NUM[perSender] ?? perSender} for each sender` : ""}.`}
             </p>
             {week.map((w) => (
               <div key={w.id} className="prow week-card" onMouseEnter={() => setFocus(w.id)} onMouseLeave={() => setFocus(null)}>
@@ -328,6 +356,35 @@ export function NetworkView(props: {
               </div>
             ))}
             {!week.length ? <p className="small muted">Nobody left to reach: everyone who fits has a status.</p> : <p className="xs faint">Write in Claude copies a prompt for your own Claude, which writes the message. Nothing is sent from this app.</p>}
+            {intro.people.length ? (
+              <div className="intros">
+                <h3>
+                  Ask for an intro ·{" "}
+                  <Link href="/people?step=intro" className="link" title="Everyone at a company in your industries who is not a decision-maker">
+                    {fmt(intro.total)} can introduce
+                  </Link>
+                </h3>
+                <p className="xs faint" style={{ marginBottom: 8 }}>
+                  Not decision-makers, at companies in your industries. Companies where you know no one who decides come first.
+                </p>
+                {intro.people.map((w) => (
+                  <div key={w.id} className="prow intro-card" onMouseEnter={() => setFocus(w.id)} onMouseLeave={() => setFocus(null)}>
+                    <button type="button" className="prow-open" onClick={() => choose(w.id)}>
+                      <span className="top-line">
+                        <span className="name">{w.name}</span>
+                        <span className="pill">Can introduce</span>
+                      </span>
+                      <span className="small muted">{w.why}</span>
+                      {w.cooldown ? <span className="small cooldown">{w.cooldown}</span> : null}
+                    </button>
+                    <span className="row xs" style={{ justifyContent: "space-between", gap: 8, marginTop: 2 }}>
+                      <span className="muted">Suggested sender: {w.sender}</span>
+                      <WriteInClaude prompt={w.prompt} className="link xs" />
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : null}
             {follow.length ? (
               <div className="follow-ups">
                 <h3>
@@ -456,7 +513,7 @@ function HowItWorks({ matched, total, rows, noCompany }: { matched: number; tota
               <b>Fit</b> is code: a decision-maker title at a company in your profile&apos;s industries. Brighter blue is a strong fit: decides on operations, production or the whole company.
             </li>
             <li>
-              <b>This week</b> is five people picked by code: fresh registered changes and reactions first, nobody already contacted, senders spread across the team.
+              <b>This week</b> is up to five people picked by code: fresh registered changes and reactions first, nobody already contacted, no sender with more than their share. Below it, a few people who do not decide but can introduce you.
             </li>
             <li>
               Someone two of you know is one dot, merged by profile URL: {fmt(rows)} connections are {fmt(total)} people. Hover a dot for who it is; Ctrl or ⌘ + scroll zooms.

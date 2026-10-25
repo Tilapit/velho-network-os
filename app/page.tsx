@@ -4,7 +4,7 @@ import { matchJob } from "@/lib/matching.ts";
 import { NetworkView } from "@/components/NetworkView";
 import { MatchProgress } from "@/components/MatchProgress";
 import { FirstRun } from "@/components/FirstRun";
-import { followUps, thisWeek, type FollowUp, type WeekPick } from "@/lib/queries.ts";
+import { canIntroduce, followUps, funnel, thisWeek, type FollowUp, type IntroPick, type WeekPick } from "@/lib/queries.ts";
 
 export const dynamic = "force-dynamic";
 
@@ -22,11 +22,17 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ p
   // Follow-ups due: the team's, and what each teammate sent.
   const follow = followUps(net).people.map(due);
   const followBy = net.owners.map((o) => followUps(net, o.id).people.map(due));
+  // Ask for an intro: the team's three, and each teammate's.
+  const slimIntro = ({ total, people }: { total: number; people: IntroPick[] }) => ({ total, people: people.map(({ id, name, title, company, why, sender, prompt, cooldown }) => ({ id, name, title, company, why, sender, prompt, cooldown })) });
+  const intro = slimIntro(canIntroduce(net));
+  const introBy = net.owners.map((o) => slimIntro(canIntroduce(net, 3, o.id)));
+  const steps = funnel(net);
+  const stepsBy = net.owners.map((o) => funnel(net, o.id));
   const job = matchJob();
   return (
     <>
       <MatchProgress initial={{ ...job }} />
-      <NetworkView {...d} week={week} weekBy={weekBy} follow={follow} followBy={followBy} initial={p && net.byId.has(p) ? p : undefined} />
+      <NetworkView {...d} week={week} weekBy={weekBy} intro={intro} introBy={introBy} funnel={steps} funnelBy={stepsBy} follow={follow} followBy={followBy} initial={p && net.byId.has(p) ? p : undefined} />
     </>
   );
 }

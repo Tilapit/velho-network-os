@@ -6,7 +6,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { loadNetwork } from "./network.ts";
 import { GROUPS } from "./industry.ts";
-import { addReactions, appUrl, findPeople, followUps, getCompany, getPerson, getRadar, messageContext, peopleForTheme, rankIndustries, recordStatus, thisWeek } from "./queries.ts";
+import { addReactions, appUrl, canIntroduce, findPeople, followUps, getCompany, getPerson, getRadar, messageContext, peopleForTheme, rankIndustries, recordStatus, thisWeek } from "./queries.ts";
 import type { SignalType } from "./signals.ts";
 
 const SOURCES = "All data comes from the team's own LinkedIn Connections exports, the Finnish trade register (PRH open data, CC BY 4.0) and the team's own feedback in the app. Nothing is scraped and nothing is sent to anyone.";
@@ -45,7 +45,7 @@ export function buildMcpServer(): McpServer {
     "this_week",
     {
       title: "This week",
-      description: `The five people to reach this week, chosen by code (the same as the app's "This week"): strong fits always before possible ones; within them people with a registered change or a reaction in the last 30 days first; one per company, at most two per industry, suggested senders spread across the team. ${RULE} Each has a one-line why, the suggested sender and a url. Also says how many follow-ups are due: the weekly review is this_week plus follow_ups. ${SOURCES}`,
+      description: `The five people to reach this week, chosen by code (the same as the app's "This week"): strong fits always before possible ones; within them people with a registered change or a reaction in the last 30 days first; one per company, at most two per industry while it works, and never more than five shared out evenly over the suggested senders (two each for a team of three), even if the list is shorter. ${RULE} Each has a one-line why, the suggested sender and a url. Also askForIntro: a smaller second group of people at companies in the team's industries who are not decision-makers but can introduce, with how many there are in all. Also says how many follow-ups are due: the weekly review is this_week plus follow_ups. ${SOURCES}`,
       inputSchema: {},
       annotations: { readOnlyHint: true },
     },
@@ -53,7 +53,9 @@ export function buildMcpServer(): McpServer {
       const net = await loadNetwork();
       const picks = thisWeek(net);
       log("this_week", picks.map((p) => p.id));
-      return json({ people: picks.map(({ prompt, ...p }) => p), followUpsDue: followUps(net).total });
+      const intro = canIntroduce(net);
+      log("this_week", intro.people.map((p) => p.id));
+      return json({ people: picks.map(({ prompt, ...p }) => p), askForIntro: { total: intro.total, people: intro.people.map(({ prompt, ...p }) => p) }, followUpsDue: followUps(net).total });
     },
   );
 

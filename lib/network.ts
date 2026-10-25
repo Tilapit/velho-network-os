@@ -6,7 +6,7 @@ import fs from "node:fs";
 import { parseConnections } from "./ingest.ts";
 import { daysBetween, profileKey, today } from "./normalize.ts";
 import { ownerText, readOwners, sourcesSignature, type Owner } from "./store.ts";
-import { readState, stateSignature, type Reaction, type State, type StatusEntry } from "./state.ts";
+import { applyNotTargets, readState, stateSignature, type Reaction, type State, type StatusEntry } from "./state.ts";
 import { matchJob, resolveName, startMatching, type Resolved } from "./matching.ts";
 import { analyseTitle, isStrongRole, type RoleInfo } from "./roles.ts";
 import { DEFAULT_PROFILE, groupForTol, industryRule, type GroupId, type IndustryRule, type Profile } from "./industry.ts";
@@ -60,6 +60,8 @@ export type Contact = {
   rule: IndustryRule | null;
   role: RoleInfo;
   fit: Fit | null;
+  /** What keeps a fit at Possible at most: "company match not confirmed", "early-stage, likely small". */
+  caps: string[];
   approach: Approach;
   /** Other people the team knows at the same company. */
   colleagues: number;
@@ -160,9 +162,25 @@ export function scoreContact(c: Pick<Contact, "fit" | "match" | "role" | "knownB
   return parts;
 }
 
-export function fitFor(role: RoleInfo, rule: IndustryRule | null): Fit | null {
+/** A fit with a cap (see fitCaps) is Possible at most. */
+export function fitFor(role: RoleInfo, rule: IndustryRule | null, caps: string[] = []): Fit | null {
   if (!role.decisionMaker || !rule) return null;
-  return !rule.lowerPriority && isStrongRole(role) ? "strong" : "possible";
+  return !caps.length && !rule.lowerPriority && isStrongRole(role) ? "strong" : "possible";
+}
+
+/** Registered less than this many days ago: early-stage, likely small. */
+export const EARLY_STAGE_DAYS = 730;
+/** PRH company forms whose people are never decision-makers for Velho: non-profit association (ry), foundations. */
+export const NON_PROFIT_FORMS = new Set(["6", "18", "39"]);
+
+/** What keeps someone at a matched company from being a Strong fit, from PRH facts only. */
+export function fitCaps(match: Resolved | null, now: string): string[] {
+  if (!match?.company || match.foreign) return [];
+  const caps: string[] = [];
+  if (match.status === "inferred") caps.push("company match not confirmed");
+  const reg = match.company.registrationDate;
+  if (reg && daysBetween(reg, now) < EARLY_STAGE_DAYS) caps.push("early-stage, likely small");
+  return caps;
 }
 
 export function approachFor(fit: Fit | null, rule: IndustryRule | null): Approach {
@@ -257,8 +275,11 @@ export function buildNetwork(input: BuildInput, signalsByCompany = indexSignals(
       if (match!.status === "verified") co.status = "verified";
       co.contactIds.push(id);
     }
-    const role = analyseTitle(d.position, profile.roles);
-    const fit = fitFor(role, rule);
+    let role = analyseTitle(d.position, profile.roles);
+    // An association or a foundation is not a company Velho sells to: nobody there decides for it.
+    if (match?.company && !match.foreign && NON_PROFIT_FORMS.has(match.company.formCode ?? "")) role = { ...role, decisionMaker: false, decides: "", notDecider: "an association or foundation in PRH" };
+    const caps = rule ? fitCaps(match, input.today) : [];
+    const fit = fitFor(role, rule, caps);
     return {
       id,
       name: d.name,
@@ -273,6 +294,7 @@ export function buildNetwork(input: BuildInput, signalsByCompany = indexSignals(
       rule,
       role,
       fit,
+      caps,
       approach: approachFor(fit, rule),
       colleagues: 0,
       signals: companyId ? companies.get(companyId)!.signals : [],
@@ -387,6 +409,8 @@ function signalsSig(): string {
 
 /** The current model. Reads only local files and the PRH cache; never waits for PRH. */
 export async function loadNetwork(): Promise<Network> {
+  // The not-target list holds in every data folder, not only the demo's.
+  if (readOwners().length) applyNotTargets();
   const sig = [sourcesSignature(), stateSignature(), signalsSig(), matchJob().generation, process.env.APP_TODAY ?? ""].join("#");
   if (G.__vnNetwork?.sig === sig) return G.__vnNetwork.net;
   const owners = readOwners();

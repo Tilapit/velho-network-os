@@ -14,6 +14,8 @@ export type RoleInfo = {
   matched?: string;
   /** Plain sentence: what the title says they decide. */
   decides: string;
+  /** Why the title (or the company's form) never counts as a decision-maker, e.g. "a student or trainee title". */
+  notDecider?: string;
 };
 
 const t = (s: string) => ` ${fold(s).toLowerCase().replace(/[^a-z0-9&/+]+/g, " ").trim()} `;
@@ -66,6 +68,20 @@ const SYNONYMS: Record<string, string[]> = {
 
 const JUNIOR = / (assistant|avustaja|intern|internship|trainee|harjoittelija|worker|[a-z]*tyontekija|operator|coordinator|[a-z]*koordinaattori|specialist|[a-z]*asiantuntija|planner|[a-z]*suunnittelija|engineer|[a-z]*insinoori|student|opiskelija|analyst|technician|[a-z]*teknikko|junior|summer) /;
 
+// Never a decision-maker, whatever the level says: students and trainees,
+// student and association boards ("Board 2026", "Hallitus 2025"), event roles.
+const STUDENT = / ([a-z]*opiskelija|student|students|trainee|[a-z]*harjoittelija|intern|internship|thesis|thesis worker|diplomityo[a-z]*|opinnayte[a-z]*|kesatyo[a-z]*) /;
+const BOARD_WORD = / (board|hallitus|hallituksen|hallituksessa|styrelse[a-z]*) /;
+const YEAR = / (19|20)\d\d /;
+const EVENTS = / head of events? /;
+
+function notDecider(x: string): string | undefined {
+  if (STUDENT.test(x)) return "a student or trainee title";
+  if (BOARD_WORD.test(x) && YEAR.test(x)) return "a board year in the title: a student or association board";
+  if (EVENTS.test(x)) return "an events role";
+  return undefined;
+}
+
 export function matchTerm(title: string, term: string): boolean {
   const x = t(title);
   const k = fold(term).toLowerCase().trim();
@@ -97,7 +113,8 @@ export function analyseTitle(title: string, roles: string[]): RoleInfo {
   // Specialist" match "production" and "operations" but decide nothing.
   const senior = lv === "exec" || lv === "director";
   // C-level and owner titles always count, whatever the profile says.
-  const decisionMaker = lv === "exec" || (!!matched && lv !== "other" && (senior || lv === "board" || !JUNIOR.test(x)));
+  const not = title ? notDecider(x) : undefined;
+  const decisionMaker = !not && (lv === "exec" || (!!matched && lv !== "other" && (senior || lv === "board" || !JUNIOR.test(x))));
   return {
     title,
     decisionMaker,
@@ -105,6 +122,7 @@ export function analyseTitle(title: string, roles: string[]): RoleInfo {
     area: lv === "board" && ar === "other" ? "other" : ar,
     matched,
     decides: decisionMaker ? DECIDES[ar](lv) : "",
+    ...(not ? { notDecider: not } : {}),
   };
 }
 

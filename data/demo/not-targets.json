@@ -1,5 +1,5 @@
 {
-  "note": "The demo team's own choice, the same as clicking 'Not a target company' on each company page: large groups are not the Finnish SMEs Velho is after. Business IDs as matched in PRH. Undo in Settings or on the company page.",
+  "note": "Large groups that are not the Finnish SMEs Velho is after, marked as 'Not a target company' in every data folder, the same as clicking it on each company page. Business IDs as in PRH. Each is added once per data folder; undo in Settings or on the company page.",
   "companies": [
     { "businessId": "1927400-1", "name": "KONE Oyj" },
     { "businessId": "1891976-0", "name": "KONE Industrial Oy" },
@@ -30,6 +30,17 @@
     { "businessId": "1524361-1", "name": "Sanoma Oyj" },
     { "businessId": "0101138-5", "name": "Tieto Oyj" },
     { "businessId": "0763403-0", "name": "ABB Oy" },
-    { "businessId": "0603380-7", "name": "Marioff Corporation Oy" }
+    { "businessId": "0603380-7", "name": "Marioff Corporation Oy" },
+    { "businessId": "2630573-4", "name": "Helen Oy" },
+    { "businessId": "2858394-9", "name": "Nordea Bank Abp" },
+    { "businessId": "0242522-1", "name": "OP Osuuskunta" },
+    { "businessId": "0599101-8", "name": "OP Kiinteistösijoitus Oy" },
+    { "businessId": "1475607-9", "name": "Telia Finland Oyj" },
+    { "businessId": "0114162-2", "name": "Lindex Group Oyj" },
+    { "businessId": "1072894-3", "name": "Fingrid Oyj" },
+    { "businessId": "0124416-2", "name": "Vaisala Oyj" },
+    { "businessId": "3115082-9", "name": "Legrand Finland Oy" },
+    { "businessId": "2828910-9", "name": "Amazon Data Services Finland Oy" },
+    { "businessId": "2871826-8", "name": "Amazon Web Services EMEA SARL, sivuliike Suomessa" }
   ]
 }

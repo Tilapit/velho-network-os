@@ -3,7 +3,7 @@
 // the model; nothing here is guessed.
 import type { Provenance } from "./types.ts";
 import { GROUP, ruleLabel, type GroupId } from "./industry.ts";
-import type { Area } from "./roles.ts";
+import { isStrongRole, type Area } from "./roles.ts";
 import { SIGNAL_TYPES, signalLabel } from "./signals.ts";
 import { ytjUrl } from "./prh.ts";
 import { STATUS_LABEL, type Status } from "./state.ts";
@@ -108,16 +108,18 @@ export function analyse(net: Network, c: Contact): Analysis {
 
   // Role, from the LinkedIn title.
   if (c.role.decisionMaker) reasons.push({ kind: "role", label: "Role", text: `"${c.position}". ${c.role.decides}`, source: "LinkedIn title", provenance: "imported" });
+  else if (c.role.notDecider) reasons.push({ kind: "role", label: "Role", text: `"${c.position || "No title"}". Not counted as a decision-maker: ${c.role.notDecider}.${c.rule ? " They could introduce you to someone who decides." : ""}`, source: c.role.notDecider.includes("PRH") ? "PRH" : "LinkedIn title", provenance: c.role.notDecider.includes("PRH") ? "verified" : "imported" });
   else if (c.position) reasons.push({ kind: "role", label: "Role", text: `"${c.position}". The title does not say they decide; they could introduce you to someone who does.`, source: "LinkedIn title", provenance: "imported" });
 
   // Company, from PRH.
   if (prh) {
     const inProfile = c.rule ? ` In your profile: ${ruleLabel(c.rule)}${c.rule.lowerPriority ? ", lower priority" : ""}.` : " Not in your target industries.";
     const check = c.match!.status === "inferred" ? ` Matched "${c.company}" by a close name: check it.` : "";
+    const early = c.caps.includes("early-stage, likely small") && prh.registrationDate ? ` Registered ${fmtDate(prh.registrationDate)}, under two years ago: early-stage, likely small.` : "";
     reasons.push({
       kind: "company",
       label: "Company",
-      text: `${prh.name}: ${prh.industry ?? "line of business not given"}${prh.tol ? ` (TOL ${prh.tol})` : ""}${prh.town ? `, ${prh.town.charAt(0)}${prh.town.slice(1).toLowerCase()}` : ""}.${inProfile}${check}`,
+      text: `${prh.name}: ${prh.industry ?? "line of business not given"}${prh.tol ? ` (TOL ${prh.tol})` : ""}${prh.town ? `, ${prh.town.charAt(0)}${prh.town.slice(1).toLowerCase()}` : ""}.${inProfile}${check}${early}`,
       source: "PRH",
       provenance: c.match!.status === "verified" ? "verified" : "inferred",
       link: ytjUrl(prh.businessId),
@@ -166,19 +168,23 @@ export function analyse(net: Network, c: Contact): Analysis {
   missing.push({ label: "Title today", text: `The title is as it was in ${exports.join(" and ")} LinkedIn export${exports.length > 1 ? "s" : ""}; it may have changed since.` });
 
   const excluded = prh && net.profile.excluded?.some((x) => x.businessId === prh.businessId);
+  const capped = c.fit === "possible" && c.caps.length && !c.rule?.lowerPriority && isStrongRole(c.role);
   const fitWhy = !c.fit
     ? excluded
       ? "The team marked this company as not a target."
       : !c.rule
       ? "Not at a company in your target industries."
-      : "Works at a target company, but the title is not a decision-maker role."
-    : c.fit === "strong"
-      ? `Senior ${c.role.area === "ceo" ? "management" : c.role.area} role at a company in ${ruleLabel(c.rule!)}.`
+      : c.role.notDecider
+        ? `Works at a target company, but not counted as a decision-maker: ${c.role.notDecider}.`
+        : "Works at a target company, but the title is not a decision-maker role."
+    : c.fit === "strong" || capped
+      ? `Senior ${c.role.area === "ceo" ? "management" : c.role.area} role at a company in ${ruleLabel(c.rule!)}.${capped ? ` Possible at most: ${c.caps.join(", ")}.` : ""}`
       : c.rule?.lowerPriority
         ? `Decision-maker, but ${c.rule.label.toLowerCase()} is lower priority in your profile.`
         : c.role.level === "manager"
           ? "Manager-level title: shapes decisions, rarely signs them off."
           : `Decision-maker in ${c.role.area === "other" ? "another area" : c.role.area}, not operations or production.`;
+  const fitWhyFull = c.fit === "possible" && !capped && c.caps.length ? `${fitWhy} Also: ${c.caps.join(", ")}.` : fitWhy;
   const approachWhy = c.approach === "direct" ? `${c.sender.ownerName === "You" ? "you write" : `${c.sender.ownerName} writes`} to them.` : c.approach === "ask_intro" ? `Ask ${c.name.split(" ")[0]} who decides on operations at ${companyName}.` : "No reason to reach out yet.";
 
   return {
@@ -203,7 +209,7 @@ export function analyse(net: Network, c: Contact): Analysis {
     },
     fit: c.fit,
     fitLabel: c.fit ? FIT_LABEL[c.fit] : "Not on the list",
-    fitWhy,
+    fitWhy: fitWhyFull,
     approach: c.approach,
     approachLabel: APPROACH_LABEL[c.approach],
     approachWhy,

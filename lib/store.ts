@@ -5,7 +5,7 @@
 // DATA_DIR=data-real for real networks next to the demo.
 import fs from "node:fs";
 import path from "node:path";
-import { parseConnections } from "./ingest.ts";
+import { blankEmails, parseConnections } from "./ingest.ts";
 import { slug } from "./normalize.ts";
 
 export const dataDir = () => path.resolve(process.env.DATA_DIR || "data");
@@ -92,7 +92,8 @@ export function importNetwork(name: string, text: string, opts: { demo?: boolean
     demo: !!opts.demo,
   };
   fs.mkdirSync(networksDir(), { recursive: true });
-  fs.writeFileSync(path.join(networksDir(), owner.file), text);
+  // No emails are stored: the column stays, its values are blanked.
+  fs.writeFileSync(path.join(networksDir(), owner.file), blankEmails(text).text);
   const others = owners.filter((o) => o.id !== id);
   // A real network replaces the invented demo networks; mixing them would confuse.
   const keep = owner.demo ? others : others.filter((o) => !o.demo);

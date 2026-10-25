@@ -81,3 +81,41 @@ export function parseConnections(text: string, file = "Connections.csv") {
   report.accepted = records.length;
   return { records, report };
 }
+
+/**
+ * The same file with every Email Address value empty. The column, the rows
+ * and their order stay, so row numbers (citations) do not change; the
+ * preamble before the header is kept as it was. `blanked` counts the values
+ * removed. A file without an email column comes back unchanged.
+ */
+export function blankEmails(text: string): { text: string; blanked: number } {
+  const bom = text.startsWith("﻿") ? "﻿" : "";
+  const body = text.slice(bom.length);
+  const lines = body.split(/\r\n|\r|\n/);
+  const start = lines.slice(0, 50).findIndex((l) => {
+    const cells = l.split(/[,;\t]/).map(header);
+    return cells.includes("first name") && cells.includes("last name");
+  });
+  if (start < 0) return { text, blanked: 0 };
+  // The preamble's own bytes, line ends included, up to the header line.
+  const parts = body.split(/(\r\n|\r|\n)/);
+  const pre = parts.slice(0, start * 2).join("");
+  const rest = parts.slice(start * 2).join("");
+  const newline = /\r\n/.test(rest) ? "\r\n" : /\r/.test(rest) && !/\n/.test(rest) ? "\r" : "\n";
+  const res = Papa.parse<string[]>(rest, { delimitersToGuess: [",", ";", "\t"] });
+  const rows = res.data;
+  const at = (rows[0] ?? []).map(header).findIndex((h) => COLUMNS.email.includes(h));
+  if (at < 0) return { text, blanked: 0 };
+  let blanked = 0;
+  for (const r of rows.slice(1)) {
+    if (r[at]?.trim()) {
+      r[at] = "";
+      blanked++;
+    }
+  }
+  if (!blanked) return { text, blanked: 0 };
+  // Papa reads a final newline as one empty row; keep it as a newline.
+  const trailing = rows.length > 1 && rows.at(-1)!.length === 1 && rows.at(-1)![0] === "";
+  const out = Papa.unparse(trailing ? rows.slice(0, -1) : rows, { delimiter: res.meta.delimiter, newline });
+  return { text: bom + pre + out + (trailing ? newline : ""), blanked };
+}

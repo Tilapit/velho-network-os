@@ -31,6 +31,15 @@ The founders use it from their own Claude through an MCP connector.
     Settings.
 - **Headcount is not in PRH.** It is always shown as Missing and never
   invented.
+- **Fit caps** (`fitCaps` in `lib/network.ts`): an inferred ("check")
+  company match or a company registered under two years ago ("early-stage,
+  likely small") is Possible at most. Students, trainees, board years
+  ("Board 2026"), "Head of Events" (`lib/roles.ts`) and people at an
+  association or foundation in PRH (forms 6, 18, 39) are never
+  decision-makers.
+- **Not-targets** (`data/demo/not-targets.json`) are added to the profile
+  once in every data folder (`applyNotTargets` in `lib/state.ts`); one the
+  team removes stays removed.
 - **Fit, approach, score and radar order are deterministic code**
   (`lib/network.ts`, `lib/queries.ts`), and so is "This week". The LLM never
   sets or changes them. Claude only writes the one "Possible angle" sentence
@@ -51,7 +60,8 @@ The founders use it from their own Claude through an MCP connector.
 - **Privacy.**
   - Only company names and business IDs go to PRH.
   - One person's role and company facts (never the name) go to Claude.
-  - No emails are stored.
+  - No emails are stored: Email Address values are blanked when a CSV is
+    stored (column and rows kept, so row numbers hold).
   - Logs contain ids, not names.
   - `data/sources`, `data/cache` and `data/state.json` are gitignored.
 
@@ -114,6 +124,8 @@ The founders use it from their own Claude through an MCP connector.
   - `node scripts/generate-mock-connections.mjs`: regenerate the mock exports
   - `node scripts/snapshot-demo-data.mjs`: rebuild the demo snapshots
   - `node scripts/make-demo-reactions.mjs`: rebuild the demo's reactions
+  - `node --experimental-strip-types scripts/blank-emails.ts`: blank emails
+    in CSVs already stored (honours `DATA_DIR`)
   - `npm run skill:zip`, `npm run tunnel` (claude.ai, needs `MCP_TOKEN`)
   - `npm run linkedin:sync -- --owner "Name" [--dry-run]`: one member's
     connections from LinkedIn's Member Data Portability API (EU DMA,

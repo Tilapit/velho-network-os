@@ -71,6 +71,18 @@ p { margin: 0; }
 .net-side { grid-area: side; }
 .profile-line { margin: 6px 0 14px; font-size: 14px; color: var(--muted); }
 .profile-line .link { font-size: 14px; }
+.funnel { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: flex-start; }
+.funnel li { display: flex; align-items: flex-start; gap: 10px; }
+.funnel-arrow { color: var(--faint); font-size: 14px; line-height: 20px; }
+.funnel-step { display: flex; flex-direction: column; gap: 2px; }
+.funnel-count { font-size: 14px; line-height: 20px; color: var(--text); text-decoration: none; }
+.funnel-count:hover { color: var(--accent); }
+.funnel li:last-child .funnel-count { color: var(--accent); }
+.funnel-rest { text-decoration: none; }
+.funnel-rest:hover { color: var(--text-2); text-decoration: underline; }
+.intros { margin-top: 18px; }
+.intros h3 { font-size: 14px; margin-bottom: 4px; }
+.intro-card .name { font-size: 14px; }
 .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; }
 .chip-toggle { height: 34px; padding: 0 14px; border: 1px solid var(--border-2); border-radius: 999px; background: var(--card); color: var(--text-2); font-size: 14px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
 .chip-toggle:hover { color: var(--text); border-color: #2c333d; }

@@ -103,7 +103,7 @@ export default async function Radar({ searchParams }: { searchParams: Promise<SP
                       {x.known.length ? (
                         x.known.slice(0, 3).map((k) => (
                           <div key={k.id}>
-                            <Link href={`/people/${k.id}`}>{k.name}</Link> <span className="muted">· {k.title || "no title"} · {k.knownBy.join(", ")}</span>
+                            <Link href={`/people/${k.id}`}>{k.name}</Link> <span className={k.role === "decision-maker" ? "pill accent" : "pill"}>{k.role}</span> <span className="muted">· {k.title || "no title"} · {k.knownBy.join(", ")}</span>
                           </div>
                         ))
                       ) : (
